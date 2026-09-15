@@ -2,7 +2,10 @@
 
 mod auth;
 mod health;
+mod inmuebles;
 mod notes;
+mod public;
+mod users;
 
 use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
@@ -37,21 +40,41 @@ impl utoipa::Modify for SecurityAddon {
         health::health_check,
         auth::register,
         auth::login,
+        users::create_user,
         notes::create_note,
         notes::get_note,
         notes::list_notes,
         notes::update_note,
         notes::delete_note,
+        inmuebles::create_inmueble,
+        inmuebles::list_inmuebles,
+        inmuebles::get_inmueble,
+        inmuebles::update_inmueble,
+        inmuebles::set_publicacion,
+        inmuebles::delete_inmueble,
+        inmuebles::add_foto,
+        inmuebles::delete_foto,
+        public::list_public,
+        public::get_public,
     ),
     components(schemas(
         health::HealthResponse,
         crate::models::RegisterRequest,
         crate::models::LoginRequest,
         crate::models::AuthResponse,
+        crate::models::UserResponse,
+        crate::models::CreateUserRequest,
         crate::models::Note,
         crate::models::CreateNoteRequest,
         crate::models::UpdateNoteRequest,
         crate::models::PaginatedNotes,
+        crate::models::Inmueble,
+        crate::models::Foto,
+        crate::models::CreateInmuebleRequest,
+        crate::models::UpdateInmuebleRequest,
+        crate::models::PublicacionRequest,
+        crate::models::AddFotoRequest,
+        crate::models::PaginatedInmuebles,
         crate::errors::ErrorResponse,
     )),
     modifiers(&SecurityAddon),
@@ -90,4 +113,13 @@ fn api_routes() -> Router<AppState> {
         .merge(health::routes())
         .merge(auth::routes())
         .merge(notes::routes())
+        .nest("/admin", admin_routes())
+        .nest("/public", public::routes())
+}
+
+/// Rutas de administración: todo requiere JWT (`AuthUser` por handler)
+fn admin_routes() -> Router<AppState> {
+    Router::new()
+        .merge(inmuebles::routes())
+        .merge(users::routes())
 }

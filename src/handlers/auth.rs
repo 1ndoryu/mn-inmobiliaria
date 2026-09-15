@@ -9,13 +9,14 @@ use crate::models::{AuthResponse, LoginRequest, RegisterRequest};
 use crate::services::AuthService;
 use crate::AppState;
 
-/// Registrar nuevo usuario
+/// Registrar nuevo usuario — bootstrap: solo funciona si no hay usuarios (crea el owner)
 #[utoipa::path(
     post,
     path = "/api/auth/register",
     request_body = RegisterRequest,
     responses(
-        (status = 201, description = "Usuario registrado", body = AuthResponse),
+        (status = 201, description = "Owner registrado", body = AuthResponse),
+        (status = 403, description = "Registro cerrado tras el bootstrap", body = crate::errors::ErrorResponse),
         (status = 409, description = "Email ya registrado", body = crate::errors::ErrorResponse),
         (status = 422, description = "Error de validación", body = crate::errors::ErrorResponse)
     )

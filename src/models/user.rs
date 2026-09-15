@@ -11,6 +11,8 @@ pub struct User {
     pub id: Uuid,
     pub email: String,
     pub password_hash: String,
+    /// `owner` crea admins; `admin` opera el catálogo
+    pub role: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -19,6 +21,7 @@ pub struct User {
 pub struct UserResponse {
     pub id: Uuid,
     pub email: String,
+    pub role: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -27,6 +30,7 @@ impl From<User> for UserResponse {
         Self {
             id: user.id,
             email: user.email,
+            role: user.role,
             created_at: user.created_at,
         }
     }

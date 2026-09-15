@@ -1,0 +1,299 @@
+use std::collections::HashMap;
+
+use sqlx::{PgPool, Postgres, QueryBuilder};
+use uuid::Uuid;
+
+use crate::models::{FiltrosPublicos, Foto, InmuebleRow};
+
+/* [159A-1] Acceso a `inmuebles`/`fotos` con prepared statements.
+ * Listas públicas con QueryBuilder: el SQL dinámico solo concatena
+ * fragmentos fijos; los valores siempre van por `push_bind`. */
+
+const COLUMNAS: &str = "id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
+    habitaciones, banos, metros, metros_terreno, estado, publicado, slug, created_at, updated_at";
+
+/// Valores ya normalizados listos para insertar
+pub struct NuevoInmueble<'a> {
+    pub titulo: &'a str,
+    pub descripcion: &'a str,
+    pub ubicacion: &'a str,
+    pub precio: f64,
+    pub tipo: &'a str,
+    pub operacion: &'a str,
+    pub habitaciones: i32,
+    pub banos: i32,
+    pub metros: f64,
+    pub metros_terreno: f64,
+    pub estado: &'a str,
+    pub slug: String,
+}
+
+pub struct InmuebleRepository;
+
+impl InmuebleRepository {
+    pub async fn create(
+        pool: &PgPool,
+        nuevo: &NuevoInmueble<'_>,
+    ) -> Result<InmuebleRow, sqlx::Error> {
+        let id = Uuid::new_v4();
+        sqlx::query_as::<_, InmuebleRow>(
+            "INSERT INTO inmuebles (id, titulo, descripcion, ubicacion, precio, tipo, \
+              operacion, habitaciones, banos, metros, metros_terreno, estado, slug) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) \
+             RETURNING id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
+              habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
+              created_at, updated_at",
+        )
+        .bind(id)
+        .bind(nuevo.titulo)
+        .bind(nuevo.descripcion)
+        .bind(nuevo.ubicacion)
+        .bind(nuevo.precio)
+        .bind(nuevo.tipo)
+        .bind(nuevo.operacion)
+        .bind(nuevo.habitaciones)
+        .bind(nuevo.banos)
+        .bind(nuevo.metros)
+        .bind(nuevo.metros_terreno)
+        .bind(nuevo.estado)
+        .bind(&nuevo.slug)
+        .fetch_one(pool)
+        .await
+    }
+
+    /// El slug ya existe (violación de UNIQUE 23505)
+    #[must_use]
+    pub fn es_conflicto_slug(err: &sqlx::Error) -> bool {
+        matches!(err, sqlx::Error::Database(db) if db.code().as_deref() == Some("23505"))
+    }
+
+    pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        sqlx::query_as::<_, InmuebleRow>(
+            "SELECT id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
+              habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
+              created_at, updated_at \
+             FROM inmuebles WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// Detalle público: solo visible si está publicado
+    pub async fn find_public_by_slug(
+        pool: &PgPool,
+        slug: &str,
+    ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        sqlx::query_as::<_, InmuebleRow>(
+            "SELECT id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
+              habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
+              created_at, updated_at \
+             FROM inmuebles WHERE slug = $1 AND publicado = TRUE",
+        )
+        .bind(slug)
+        .fetch_optional(pool)
+        .await
+    }
+
+    pub async fn list_admin(
+        pool: &PgPool,
+        page: i64,
+        per_page: i64,
+    ) -> Result<(Vec<InmuebleRow>, i64), sqlx::Error> {
+        let offset = (page - 1) * per_page;
+        let rows = sqlx::query_as::<_, InmuebleRow>(
+            "SELECT id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
+              habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
+              created_at, updated_at \
+             FROM inmuebles ORDER BY updated_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(per_page)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?;
+
+        let (total,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM inmuebles")
+            .fetch_one(pool)
+            .await?;
+
+        Ok((rows, total))
+    }
+
+    /// Aplica los filtros públicos sobre un `QueryBuilder` ya iniciado con el WHERE base
+    fn aplicar_filtros(qb: &mut QueryBuilder<'_, Postgres>, f: &FiltrosPublicos) {
+        if let Some(tipo) = &f.tipo {
+            qb.push(" AND tipo = ");
+            qb.push_bind(tipo.clone());
+        }
+        if let Some(operacion) = &f.operacion {
+            qb.push(" AND operacion = ");
+            qb.push_bind(operacion.clone());
+        }
+        if let Some(min) = f.precio_min {
+            qb.push(" AND precio >= ");
+            qb.push_bind(min);
+        }
+        if let Some(max) = f.precio_max {
+            qb.push(" AND precio <= ");
+            qb.push_bind(max);
+        }
+    }
+
+    pub async fn list_public(
+        pool: &PgPool,
+        f: &FiltrosPublicos,
+    ) -> Result<(Vec<InmuebleRow>, i64), sqlx::Error> {
+        let offset = (f.page - 1) * f.per_page;
+
+        let mut qb = QueryBuilder::new(format!(
+            "SELECT {COLUMNAS} FROM inmuebles WHERE publicado = TRUE"
+        ));
+        Self::aplicar_filtros(&mut qb, f);
+        qb.push(" ORDER BY created_at DESC LIMIT ");
+        qb.push_bind(f.per_page);
+        qb.push(" OFFSET ");
+        qb.push_bind(offset);
+        let rows = qb.build_query_as::<InmuebleRow>().fetch_all(pool).await?;
+
+        let mut qb_total =
+            QueryBuilder::new("SELECT COUNT(*) FROM inmuebles WHERE publicado = TRUE");
+        Self::aplicar_filtros(&mut qb_total, f);
+        let (total,): (i64,) = qb_total.build_query_as().fetch_one(pool).await?;
+
+        Ok((rows, total))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn update(
+        pool: &PgPool,
+        id: Uuid,
+        titulo: Option<&str>,
+        descripcion: Option<&str>,
+        ubicacion: Option<&str>,
+        precio: Option<f64>,
+        tipo: Option<&str>,
+        operacion: Option<&str>,
+        habitaciones: Option<i32>,
+        banos: Option<i32>,
+        metros: Option<f64>,
+        metros_terreno: Option<f64>,
+        estado: Option<&str>,
+    ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        sqlx::query_as::<_, InmuebleRow>(
+            "UPDATE inmuebles \
+             SET titulo = COALESCE($1, titulo), \
+                 descripcion = COALESCE($2, descripcion), \
+                 ubicacion = COALESCE($3, ubicacion), \
+                 precio = COALESCE($4, precio), \
+                 tipo = COALESCE($5, tipo), \
+                 operacion = COALESCE($6, operacion), \
+                 habitaciones = COALESCE($7, habitaciones), \
+                 banos = COALESCE($8, banos), \
+                 metros = COALESCE($9, metros), \
+                 metros_terreno = COALESCE($10, metros_terreno), \
+                 estado = COALESCE($11, estado), \
+                 updated_at = NOW() \
+             WHERE id = $12 \
+             RETURNING id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
+              habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
+              created_at, updated_at",
+        )
+        .bind(titulo)
+        .bind(descripcion)
+        .bind(ubicacion)
+        .bind(precio)
+        .bind(tipo)
+        .bind(operacion)
+        .bind(habitaciones)
+        .bind(banos)
+        .bind(metros)
+        .bind(metros_terreno)
+        .bind(estado)
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+    }
+
+    pub async fn set_publicado(
+        pool: &PgPool,
+        id: Uuid,
+        publicado: bool,
+    ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        sqlx::query_as::<_, InmuebleRow>(
+            "UPDATE inmuebles SET publicado = $1, updated_at = NOW() WHERE id = $2 \
+             RETURNING id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
+              habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
+              created_at, updated_at",
+        )
+        .bind(publicado)
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+    }
+
+    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM inmuebles WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Fotos de varios inmuebles en una sola query (evita N+1)
+    pub async fn fotos_por_inmuebles(
+        pool: &PgPool,
+        ids: &[Uuid],
+    ) -> Result<HashMap<Uuid, Vec<Foto>>, sqlx::Error> {
+        let mut mapa: HashMap<Uuid, Vec<Foto>> = HashMap::new();
+        if ids.is_empty() {
+            return Ok(mapa);
+        }
+
+        let fotos = sqlx::query_as::<_, Foto>(
+            "SELECT id, inmueble_id, storage_key, orden, origen, created_at \
+             FROM fotos WHERE inmueble_id = ANY($1) ORDER BY orden ASC",
+        )
+        .bind(ids)
+        .fetch_all(pool)
+        .await?;
+
+        for foto in fotos {
+            mapa.entry(foto.inmueble_id).or_default().push(foto);
+        }
+        Ok(mapa)
+    }
+
+    pub async fn add_foto(
+        pool: &PgPool,
+        inmueble_id: Uuid,
+        storage_key: &str,
+        orden: Option<i32>,
+        origen: &str,
+    ) -> Result<Foto, sqlx::Error> {
+        let id = Uuid::new_v4();
+        sqlx::query_as::<_, Foto>(
+            "INSERT INTO fotos (id, inmueble_id, storage_key, orden, origen) \
+             VALUES ($1, $2, $3, \
+              COALESCE($4, (SELECT COALESCE(MAX(orden), -1) + 1 FROM fotos WHERE inmueble_id = $2)), \
+              $5) \
+             RETURNING id, inmueble_id, storage_key, orden, origen, created_at",
+        )
+        .bind(id)
+        .bind(inmueble_id)
+        .bind(storage_key)
+        .bind(orden)
+        .bind(origen)
+        .fetch_one(pool)
+        .await
+    }
+
+    pub async fn delete_foto(pool: &PgPool, foto_id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM fotos WHERE id = $1")
+            .bind(foto_id)
+            .execute(pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+}
