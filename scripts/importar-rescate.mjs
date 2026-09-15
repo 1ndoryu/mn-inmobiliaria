@@ -46,10 +46,20 @@ async function api(ruta, { metodo = 'GET', token, json, bytes } = {}) {
 }
 
 function dataUrlABytes(dataUrl) {
-  const m = /^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/s.exec(dataUrl);
+  const m = /^data:image\/[a-z+]+;base64,(.+)$/s.exec(dataUrl);
   if (!m) throw new Error(`dataURL no soportada: ${dataUrl.slice(0, 40)}`);
-  const ext = m[1] === 'jpg' ? 'jpg' : m[1] === 'jpeg' ? 'jpg' : m[1];
-  return { ext, bytes: Buffer.from(m[2], 'base64') };
+  const bytes = Buffer.from(m[1], 'base64');
+  // La extensión se deduce de los bytes reales (igual que tests/importar_rescate.rs):
+  // alguna mejorada declara en la cabecera un formato distinto al contenido
+  // y el servidor exige coherencia (magic-bytes).
+  const png = [137, 80, 78, 71, 13, 10, 26, 10];
+  let ext;
+  if (png.every((b, i) => bytes[i] === b)) ext = 'png';
+  else if (bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70
+    && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) ext = 'webp';
+  else if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) ext = 'jpg';
+  else throw new Error(`magia de imagen desconocida: ${bytes.subarray(0, 4).join(',')}`);
+  return { ext, bytes };
 }
 
 async function main() {
@@ -67,12 +77,12 @@ async function main() {
   try {
     const r = await api('/api/auth/register', { metodo: 'POST', json: { email: EMAIL, password: PASSWORD } });
     token = r.token;
-    console.log(`Registrado ${EMAIL} (rol ${r.user.role})`);
+    console.log(`Registrado ${EMAIL}`);
   } catch (e) {
     if (!String(e.message).includes('→ 403')) throw e;
     const r = await api('/api/auth/login', { metodo: 'POST', json: { email: EMAIL, password: PASSWORD } });
     token = r.token;
-    console.log(`Login ${EMAIL} (rol ${r.user.role})`);
+    console.log(`Login ${EMAIL}`);
   }
   if (DRY) {
     console.log('[dry-run] auth OK, nada más que hacer');
