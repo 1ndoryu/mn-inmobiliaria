@@ -23,6 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     sqlx::migrate!().run(&pool).await?;
 
+    tokio::fs::create_dir_all(&config.upload_dir).await?;
+    tracing::info!("Uploads en {}", config.upload_dir);
+
     let addr = format!("{}:{}", config.host, config.port);
     tracing::info!("Servidor iniciando en {addr}");
     tracing::info!("Swagger UI disponible en http://{addr}/swagger-ui/");

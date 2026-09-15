@@ -19,6 +19,9 @@ pub enum AppError {
     #[error("Prohibido: {0}")]
     Forbidden(String),
 
+    #[error("Archivo demasiado grande")]
+    PayloadMuyGrande,
+
     #[error("Conflicto: {0}")]
     Conflict(String),
 
@@ -27,6 +30,9 @@ pub enum AppError {
 
     #[error("Error de base de datos: {0}")]
     Database(#[from] sqlx::Error),
+
+    #[error("Error de disco: {0}")]
+    Io(#[from] std::io::Error),
 
     #[error("Error de validación: {0}")]
     Validation(String),
@@ -52,6 +58,11 @@ impl IntoResponse for AppError {
                 "Credenciales inválidas o ausentes".to_string(),
             ),
             Self::Forbidden(msg) => (StatusCode::FORBIDDEN, "forbidden", msg.clone()),
+            Self::PayloadMuyGrande => (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "payload_too_large",
+                "Archivo mayor de 10 MiB".to_string(),
+            ),
             Self::Conflict(msg) => (StatusCode::CONFLICT, "conflict", msg.clone()),
             Self::Internal(msg) => {
                 tracing::error!("Error interno: {msg}");
@@ -67,6 +78,14 @@ impl IntoResponse for AppError {
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "database_error",
                     "Ocurrió un error de base de datos".to_string(),
+                )
+            }
+            Self::Io(err) => {
+                tracing::error!("Error de disco: {err}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "io_error",
+                    "Ocurrió un error de almacenamiento".to_string(),
                 )
             }
             Self::Validation(msg) => (

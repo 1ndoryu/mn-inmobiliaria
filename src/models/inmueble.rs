@@ -7,7 +7,8 @@ use validator::Validate;
 
 /* [159A-1] Catálogo de inmuebles: fila plana (FromRow) + vista con fotos.
  * Sin obligatorios: crear admite payload vacío (todo con DEFAULT).
- * Enums como texto validado contra allowlists en el servicio. */
+ * Enums como texto validado contra allowlists en el servicio.
+ * [159A-2] Copy IA como columnas anulables + `FotoPublica` con URL lista. */
 
 /// Valores permitidos para `tipo`
 pub const TIPOS: &[&str] = &["piso", "casa", "local", "terreno", "townhouse", "otro"];
@@ -17,6 +18,25 @@ pub const OPERACIONES: &[&str] = &["venta", "alquiler"];
 pub const ESTADOS: &[&str] = &["disponible", "reservado", "vendido", "alquilado"];
 /// Valores permitidos para `origen` de foto
 pub const ORIGENES_FOTO: &[&str] = &["original", "mejorada"];
+/// Extensiones de imagen aceptadas en subida (minúsculas, con punto)
+pub const EXTENSIONES_FOTO: &[&str] = &[".jpg", ".jpeg", ".png", ".webp"];
+/// Tope de subida por foto: 10 MiB
+pub const MAX_FOTO_BYTES: usize = 10 * 1024 * 1024;
+
+/// Copy generada por IA (nullable: `None` = pendiente de generar)
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+pub struct CopyInmueble {
+    #[validate(length(max = 500, message = "La copy corta no debe exceder 500 caracteres"))]
+    pub corta: String,
+    #[validate(length(
+        max = 20000,
+        message = "La copy larga no debe exceder 20000 caracteres"
+    ))]
+    pub larga: String,
+    #[validate(length(max = 100, message = "El modelo no debe exceder 100 caracteres"))]
+    pub modelo: String,
+    pub actualizada_en: DateTime<Utc>,
+}
 
 /// Fila de `inmuebles` tal cual la devuelve Postgres
 #[derive(Debug, Clone, FromRow)]
@@ -35,6 +55,10 @@ pub struct InmuebleRow {
     pub estado: String,
     pub publicado: bool,
     pub slug: String,
+    pub copy_corta: Option<String>,
+    pub copy_larga: Option<String>,
+    pub copy_modelo: Option<String>,
+    pub copy_actualizada_en: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -56,7 +80,8 @@ pub struct Inmueble {
     pub estado: String,
     pub publicado: bool,
     pub slug: String,
-    pub fotos: Vec<Foto>,
+    pub copy: Option<CopyInmueble>,
+    pub fotos: Vec<FotoPublica>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -65,6 +90,20 @@ impl Inmueble {
     /// Ensambla la vista a partir de la fila y sus fotos ya ordenadas
     #[must_use]
     pub fn from_row(row: InmuebleRow, fotos: Vec<Foto>) -> Self {
+        let copy = match (
+            row.copy_corta,
+            row.copy_larga,
+            row.copy_modelo,
+            row.copy_actualizada_en,
+        ) {
+            (Some(corta), Some(larga), Some(modelo), Some(actualizada_en)) => Some(CopyInmueble {
+                corta,
+                larga,
+                modelo,
+                actualizada_en,
+            }),
+            _ => None,
+        };
         Self {
             id: row.id,
             titulo: row.titulo,
@@ -80,7 +119,8 @@ impl Inmueble {
             estado: row.estado,
             publicado: row.publicado,
             slug: row.slug,
-            fotos,
+            copy,
+            fotos: fotos.into_iter().map(FotoPublica::from).collect(),
             created_at: row.created_at,
             updated_at: row.updated_at,
         }
@@ -96,6 +136,30 @@ pub struct Foto {
     pub orden: i32,
     pub origen: String,
     pub created_at: DateTime<Utc>,
+}
+
+/// Foto tal como la expone la API: con URL pública en vez de clave interna
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct FotoPublica {
+    pub id: Uuid,
+    pub inmueble_id: Uuid,
+    pub url: String,
+    pub orden: i32,
+    pub origen: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<Foto> for FotoPublica {
+    fn from(f: Foto) -> Self {
+        Self {
+            id: f.id,
+            inmueble_id: f.inmueble_id,
+            url: format!("/uploads/{}", f.storage_key),
+            orden: f.orden,
+            origen: f.origen,
+            created_at: f.created_at,
+        }
+    }
 }
 
 fn default_tipo() -> String {
@@ -146,6 +210,10 @@ pub struct CreateInmuebleRequest {
     pub metros_terreno: f64,
     #[serde(default = "default_estado")]
     pub estado: String,
+    /// Copy IA (`None` = sin copy); al crear, `None` deja las columnas NULL
+    #[serde(default)]
+    #[validate(nested)]
+    pub copy: Option<CopyInmueble>,
 }
 
 /// Actualización parcial de inmueble
@@ -170,6 +238,9 @@ pub struct UpdateInmuebleRequest {
     #[validate(range(min = 0.0))]
     pub metros_terreno: Option<f64>,
     pub estado: Option<String>,
+    /// Copy IA (`Some` la fija, `None` la deja como está; no se puede borrar por PUT)
+    #[validate(nested)]
+    pub copy: Option<CopyInmueble>,
 }
 
 /// Cambio de visibilidad pública — el backend decide qué se publica

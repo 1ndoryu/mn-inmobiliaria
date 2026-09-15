@@ -12,6 +12,8 @@ pub mod models;
 pub mod repositories;
 pub mod services;
 
+use std::path::PathBuf;
+
 use sqlx::PgPool;
 
 /// Estado compartido de la aplicación — accesible desde handlers y middleware
@@ -19,4 +21,5 @@ use sqlx::PgPool;
 pub struct AppState {
     pub pool: PgPool,
     pub jwt_secret: String,
+    pub upload_dir: PathBuf,
 }

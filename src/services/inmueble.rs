@@ -1,15 +1,20 @@
+use std::path::{Path, PathBuf};
+
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::models::{
-    AddFotoRequest, CreateInmuebleRequest, FiltrosPublicos, Foto, Inmueble, InmuebleRow,
-    PaginatedInmuebles, UpdateInmuebleRequest, ESTADOS, OPERACIONES, ORIGENES_FOTO, TIPOS,
+    AddFotoRequest, CreateInmuebleRequest, FiltrosPublicos, FotoPublica, Inmueble, InmuebleRow,
+    PaginatedInmuebles, UpdateInmuebleRequest, ESTADOS, EXTENSIONES_FOTO, MAX_FOTO_BYTES,
+    OPERACIONES, ORIGENES_FOTO, TIPOS,
 };
 use crate::repositories::InmuebleRepository;
 
 /* [159A-1] Lógica del catálogo: normalización de enums, slug único con
- * reintento ante carrera (UNIQUE 23505) y ensamblado fila+fotos sin N+1. */
+ * reintento ante carrera (UNIQUE 23505) y ensamblado fila+fotos sin N+1.
+ * [159A-2] Subida a disco (`UPLOAD_DIR/<inmueble>/<uuid>.<ext>`) con validación
+ * de magic-bytes + extensión; al borrar se limpia el archivo (best-effort). */
 
 pub struct InmuebleService;
 
@@ -98,6 +103,10 @@ impl InmuebleService {
                 metros_terreno: req.metros_terreno,
                 estado: &estado,
                 slug,
+                copy_corta: req.copy.as_ref().map(|c| c.corta.as_str()),
+                copy_larga: req.copy.as_ref().map(|c| c.larga.as_str()),
+                copy_modelo: req.copy.as_ref().map(|c| c.modelo.as_str()),
+                copy_actualizada_en: req.copy.as_ref().map(|c| c.actualizada_en),
             };
             match InmuebleRepository::create(pool, &nuevo).await {
                 Ok(row) => return Ok(Inmueble::from_row(row, Vec::new())),
@@ -201,6 +210,10 @@ impl InmuebleService {
             req.metros,
             req.metros_terreno,
             estado.as_deref(),
+            req.copy.as_ref().map(|c| c.corta.as_str()),
+            req.copy.as_ref().map(|c| c.larga.as_str()),
+            req.copy.as_ref().map(|c| c.modelo.as_str()),
+            req.copy.as_ref().map(|c| c.actualizada_en),
         )
         .await?
         .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
@@ -224,9 +237,17 @@ impl InmuebleService {
             .expect("una fila produce un inmueble"))
     }
 
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
+    pub async fn delete(pool: &PgPool, upload_dir: &Path, id: Uuid) -> Result<(), AppError> {
+        let fotos = InmuebleRepository::fotos_por_inmuebles(pool, &[id])
+            .await?
+            .remove(&id)
+            .unwrap_or_default();
         if !InmuebleRepository::delete(pool, id).await? {
             return Err(AppError::NotFound("Inmueble no encontrado".into()));
+        }
+        /* Fila fuera (fotos en cascada); los archivos se limpian best-effort */
+        for foto in fotos {
+            Self::borrar_archivo(upload_dir, &foto.storage_key).await;
         }
         Ok(())
     }
@@ -235,7 +256,7 @@ impl InmuebleService {
         pool: &PgPool,
         inmueble_id: Uuid,
         req: AddFotoRequest,
-    ) -> Result<Foto, AppError> {
+    ) -> Result<FotoPublica, AppError> {
         if InmuebleRepository::find_by_id(pool, inmueble_id)
             .await?
             .is_none()
@@ -248,17 +269,122 @@ impl InmuebleService {
             .map(|v| Self::normalizar(v, ORIGENES_FOTO, "origen"))
             .transpose()?
             .unwrap_or_else(|| "original".to_string());
-        Ok(
+        Ok(FotoPublica::from(
             InmuebleRepository::add_foto(pool, inmueble_id, &req.storage_key, req.orden, &origen)
                 .await?,
-        )
+        ))
     }
 
-    pub async fn delete_foto(pool: &PgPool, foto_id: Uuid) -> Result<(), AppError> {
-        if !InmuebleRepository::delete_foto(pool, foto_id).await? {
-            return Err(AppError::NotFound("Foto no encontrada".into()));
-        }
+    pub async fn delete_foto(
+        pool: &PgPool,
+        upload_dir: &Path,
+        foto_id: Uuid,
+    ) -> Result<(), AppError> {
+        let foto = InmuebleRepository::find_foto(pool, foto_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Foto no encontrada".into()))?;
+        InmuebleRepository::delete_foto(pool, foto_id).await?;
+        Self::borrar_archivo(upload_dir, &foto.storage_key).await;
         Ok(())
+    }
+
+    /// Guarda bytes subidos en `UPLOAD_DIR/<inmueble>/<uuid>.<ext>` y registra la foto.
+    /// Valida extensión + magic-bytes (jpeg/png/webp); el tope lo impone el extractor.
+    pub async fn subir_foto(
+        pool: &PgPool,
+        upload_dir: &Path,
+        inmueble_id: Uuid,
+        filename: &str,
+        origen: Option<&str>,
+        orden: Option<i32>,
+        bytes: &[u8],
+    ) -> Result<FotoPublica, AppError> {
+        if InmuebleRepository::find_by_id(pool, inmueble_id)
+            .await?
+            .is_none()
+        {
+            return Err(AppError::NotFound("Inmueble no encontrado".into()));
+        }
+        if bytes.is_empty() {
+            return Err(AppError::BadRequest("Archivo vacío".into()));
+        }
+        if bytes.len() > MAX_FOTO_BYTES {
+            return Err(AppError::PayloadMuyGrande);
+        }
+        let extension = Self::extension_valida(filename)?;
+        Self::magia_valida(bytes, extension)?;
+        let origen = origen
+            .map(|v| Self::normalizar(v, ORIGENES_FOTO, "origen"))
+            .transpose()?
+            .unwrap_or_else(|| "original".to_string());
+
+        let dir = upload_dir.join(inmueble_id.to_string());
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .map_err(AppError::from)?;
+        let nombre = format!("{}.{}", Uuid::new_v4(), &extension[1..]);
+        tokio::fs::write(dir.join(&nombre), bytes)
+            .await
+            .map_err(AppError::from)?;
+        let storage_key = format!("{inmueble_id}/{nombre}");
+
+        match InmuebleRepository::add_foto(pool, inmueble_id, &storage_key, orden, &origen).await {
+            Ok(foto) => Ok(FotoPublica::from(foto)),
+            Err(e) => {
+                /* Sin fila no hay foto: se retira el archivo huérfano */
+                Self::borrar_archivo(upload_dir, &storage_key).await;
+                Err(e.into())
+            }
+        }
+    }
+
+    /// Borra un archivo del volumen; los fallos se registran pero no rompen la operación
+    async fn borrar_archivo(upload_dir: &Path, storage_key: &str) {
+        let ruta = upload_dir.join(storage_key);
+        if let Err(e) = tokio::fs::remove_file(&ruta).await {
+            tracing::warn!("No se pudo borrar {ruta:?}: {e}");
+        }
+    }
+
+    fn extension_valida(filename: &str) -> Result<&'static str, AppError> {
+        let minusculas = filename.to_lowercase();
+        let punto = minusculas.rfind('.').ok_or_else(|| {
+            AppError::BadRequest("El archivo necesita extensión (.jpg, .png, .webp)".into())
+        })?;
+        let extension = &minusculas[punto..];
+        EXTENSIONES_FOTO
+            .iter()
+            .find(|e| **e == extension)
+            .copied()
+            .ok_or_else(|| {
+                AppError::BadRequest("Extensión no permitida (solo .jpg, .png, .webp)".into())
+            })
+    }
+
+    fn magia_valida(bytes: &[u8], extension: &str) -> Result<(), AppError> {
+        let es_jpeg = bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
+        let es_png = bytes.len() >= 8
+            && bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        let es_webp = bytes.len() >= 12 && bytes.starts_with(b"RIFF") && bytes[8..12] == *b"WEBP";
+        let valido = match extension {
+            ".jpg" | ".jpeg" => es_jpeg,
+            ".png" => es_png,
+            ".webp" => es_webp,
+            _ => false,
+        };
+        if valido {
+            Ok(())
+        } else {
+            Err(AppError::BadRequest(
+                "El contenido no coincide con una imagen válida".into(),
+            ))
+        }
+    }
+
+    /// Ruta absoluta de una clave dentro del volumen (para servir archivos)
+    #[must_use]
+    pub fn ruta_archivo(upload_dir: &Path, storage_key: &str) -> PathBuf {
+        upload_dir.join(storage_key)
     }
 }
 
@@ -275,5 +401,20 @@ mod tests {
         );
         assert_eq!(InmuebleService::slugify(""), "inmueble");
         assert_eq!(InmuebleService::slugify("---"), "inmueble");
+    }
+
+    #[test]
+    fn extension_y_magia() {
+        assert!(InmuebleService::extension_valida("foto.JPG").is_ok());
+        assert!(InmuebleService::extension_valida("foto.webp").is_ok());
+        assert!(InmuebleService::extension_valida("sin-extension").is_err());
+        assert!(InmuebleService::extension_valida("doc.pdf").is_err());
+        let jpeg = [0xFF, 0xD8, 0xFF, 0x00];
+        assert!(InmuebleService::magia_valida(&jpeg, ".jpg").is_ok());
+        assert!(InmuebleService::magia_valida(&jpeg, ".png").is_err());
+        let png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        assert!(InmuebleService::magia_valida(&png, ".png").is_ok());
+        assert!(InmuebleService::magia_valida(b"RIFFxxxxWEBP", ".webp").is_ok());
+        assert!(InmuebleService::magia_valida(&[], ".jpg").is_err());
     }
 }

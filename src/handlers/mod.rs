@@ -5,8 +5,10 @@ mod health;
 mod inmuebles;
 mod notes;
 mod public;
+mod uploads;
 mod users;
 
+use axum::routing::get;
 use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -54,6 +56,8 @@ impl utoipa::Modify for SecurityAddon {
         inmuebles::delete_inmueble,
         inmuebles::add_foto,
         inmuebles::delete_foto,
+        uploads::upload_foto,
+        uploads::servir_archivo,
         public::list_public,
         public::get_public,
     ),
@@ -70,6 +74,8 @@ impl utoipa::Modify for SecurityAddon {
         crate::models::PaginatedNotes,
         crate::models::Inmueble,
         crate::models::Foto,
+        crate::models::FotoPublica,
+        crate::models::CopyInmueble,
         crate::models::CreateInmuebleRequest,
         crate::models::UpdateInmuebleRequest,
         crate::models::PublicacionRequest,
@@ -92,6 +98,7 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
     let state = AppState {
         pool,
         jwt_secret: config.jwt_secret,
+        upload_dir: config.upload_dir.into(),
     };
 
     /* CORS: en desarrollo se permite todo. En producción, restringir orígenes */
@@ -102,6 +109,7 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
 
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .route("/uploads/:inmueble/:archivo", get(uploads::servir_archivo))
         .nest("/api", api_routes())
         .layer(TraceLayer::new_for_http())
         .layer(cors)
@@ -121,5 +129,6 @@ fn api_routes() -> Router<AppState> {
 fn admin_routes() -> Router<AppState> {
     Router::new()
         .merge(inmuebles::routes())
+        .merge(uploads::routes())
         .merge(users::routes())
 }

@@ -15,11 +15,12 @@ pub struct AppConfig {
     pub jwt_secret: String,
     pub host: String,
     pub port: u16,
+    pub upload_dir: String,
 }
 
 impl AppConfig {
     /// Carga la configuración desde variables de entorno.
-    /// Requiere `DATABASE_URL` y `JWT_SECRET`. `HOST` y `PORT` son opcionales.
+    /// Requiere `DATABASE_URL` y `JWT_SECRET`. `HOST`, `PORT` y `UPLOAD_DIR` son opcionales.
     pub fn from_env() -> Result<Self, ConfigError> {
         Ok(Self {
             database_url: std::env::var("DATABASE_URL")
@@ -30,6 +31,7 @@ impl AppConfig {
             port: std::env::var("PORT")
                 .unwrap_or_else(|_| "3000".to_string())
                 .parse()?,
+            upload_dir: std::env::var("UPLOAD_DIR").unwrap_or_else(|_| "./uploads".to_string()),
         })
     }
 }

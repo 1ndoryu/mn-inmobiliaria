@@ -10,7 +10,8 @@ use crate::models::{FiltrosPublicos, Foto, InmuebleRow};
  * fragmentos fijos; los valores siempre van por `push_bind`. */
 
 const COLUMNAS: &str = "id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
-    habitaciones, banos, metros, metros_terreno, estado, publicado, slug, created_at, updated_at";
+    habitaciones, banos, metros, metros_terreno, estado, publicado, slug, copy_corta, \
+    copy_larga, copy_modelo, copy_actualizada_en, created_at, updated_at";
 
 /// Valores ya normalizados listos para insertar
 pub struct NuevoInmueble<'a> {
@@ -26,6 +27,10 @@ pub struct NuevoInmueble<'a> {
     pub metros_terreno: f64,
     pub estado: &'a str,
     pub slug: String,
+    pub copy_corta: Option<&'a str>,
+    pub copy_larga: Option<&'a str>,
+    pub copy_modelo: Option<&'a str>,
+    pub copy_actualizada_en: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 pub struct InmuebleRepository;
@@ -38,11 +43,13 @@ impl InmuebleRepository {
         let id = Uuid::new_v4();
         sqlx::query_as::<_, InmuebleRow>(
             "INSERT INTO inmuebles (id, titulo, descripcion, ubicacion, precio, tipo, \
-              operacion, habitaciones, banos, metros, metros_terreno, estado, slug) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) \
+              operacion, habitaciones, banos, metros, metros_terreno, estado, slug, \
+              copy_corta, copy_larga, copy_modelo, copy_actualizada_en) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, \
+              $14, $15, $16, $17) \
              RETURNING id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
               habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
-              created_at, updated_at",
+              copy_corta, copy_larga, copy_modelo, copy_actualizada_en, created_at, updated_at",
         )
         .bind(id)
         .bind(nuevo.titulo)
@@ -57,6 +64,10 @@ impl InmuebleRepository {
         .bind(nuevo.metros_terreno)
         .bind(nuevo.estado)
         .bind(&nuevo.slug)
+        .bind(nuevo.copy_corta)
+        .bind(nuevo.copy_larga)
+        .bind(nuevo.copy_modelo)
+        .bind(nuevo.copy_actualizada_en)
         .fetch_one(pool)
         .await
     }
@@ -71,7 +82,7 @@ impl InmuebleRepository {
         sqlx::query_as::<_, InmuebleRow>(
             "SELECT id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
               habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
-              created_at, updated_at \
+              copy_corta, copy_larga, copy_modelo, copy_actualizada_en, created_at, updated_at \
              FROM inmuebles WHERE id = $1",
         )
         .bind(id)
@@ -87,7 +98,7 @@ impl InmuebleRepository {
         sqlx::query_as::<_, InmuebleRow>(
             "SELECT id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
               habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
-              created_at, updated_at \
+              copy_corta, copy_larga, copy_modelo, copy_actualizada_en, created_at, updated_at \
              FROM inmuebles WHERE slug = $1 AND publicado = TRUE",
         )
         .bind(slug)
@@ -104,7 +115,7 @@ impl InmuebleRepository {
         let rows = sqlx::query_as::<_, InmuebleRow>(
             "SELECT id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
               habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
-              created_at, updated_at \
+              copy_corta, copy_larga, copy_modelo, copy_actualizada_en, created_at, updated_at \
              FROM inmuebles ORDER BY updated_at DESC LIMIT $1 OFFSET $2",
         )
         .bind(per_page)
@@ -178,6 +189,10 @@ impl InmuebleRepository {
         metros: Option<f64>,
         metros_terreno: Option<f64>,
         estado: Option<&str>,
+        copy_corta: Option<&str>,
+        copy_larga: Option<&str>,
+        copy_modelo: Option<&str>,
+        copy_actualizada_en: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
         sqlx::query_as::<_, InmuebleRow>(
             "UPDATE inmuebles \
@@ -192,11 +207,15 @@ impl InmuebleRepository {
                  metros = COALESCE($9, metros), \
                  metros_terreno = COALESCE($10, metros_terreno), \
                  estado = COALESCE($11, estado), \
+                 copy_corta = COALESCE($12, copy_corta), \
+                 copy_larga = COALESCE($13, copy_larga), \
+                 copy_modelo = COALESCE($14, copy_modelo), \
+                 copy_actualizada_en = COALESCE($15, copy_actualizada_en), \
                  updated_at = NOW() \
-             WHERE id = $12 \
+             WHERE id = $16 \
              RETURNING id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
               habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
-              created_at, updated_at",
+              copy_corta, copy_larga, copy_modelo, copy_actualizada_en, created_at, updated_at",
         )
         .bind(titulo)
         .bind(descripcion)
@@ -209,6 +228,10 @@ impl InmuebleRepository {
         .bind(metros)
         .bind(metros_terreno)
         .bind(estado)
+        .bind(copy_corta)
+        .bind(copy_larga)
+        .bind(copy_modelo)
+        .bind(copy_actualizada_en)
         .bind(id)
         .fetch_optional(pool)
         .await
@@ -223,7 +246,7 @@ impl InmuebleRepository {
             "UPDATE inmuebles SET publicado = $1, updated_at = NOW() WHERE id = $2 \
              RETURNING id, titulo, descripcion, ubicacion, precio, tipo, operacion, \
               habitaciones, banos, metros, metros_terreno, estado, publicado, slug, \
-              created_at, updated_at",
+              copy_corta, copy_larga, copy_modelo, copy_actualizada_en, created_at, updated_at",
         )
         .bind(publicado)
         .bind(id)
@@ -295,5 +318,16 @@ impl InmuebleRepository {
             .await?;
 
         Ok(result.rows_affected() > 0)
+    }
+
+    /// Una foto por id (para localizar su archivo en disco al borrar)
+    pub async fn find_foto(pool: &PgPool, foto_id: Uuid) -> Result<Option<Foto>, sqlx::Error> {
+        sqlx::query_as::<_, Foto>(
+            "SELECT id, inmueble_id, storage_key, orden, origen, created_at \
+             FROM fotos WHERE id = $1",
+        )
+        .bind(foto_id)
+        .fetch_optional(pool)
+        .await
     }
 }

@@ -8,8 +8,8 @@ use validator::Validate;
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
 use crate::models::{
-    AddFotoRequest, CreateInmuebleRequest, Foto, Inmueble, PaginatedInmuebles, PaginationParams,
-    PublicacionRequest, UpdateInmuebleRequest,
+    AddFotoRequest, CreateInmuebleRequest, FotoPublica, Inmueble, PaginatedInmuebles,
+    PaginationParams, PublicacionRequest, UpdateInmuebleRequest,
 };
 use crate::services::InmuebleService;
 use crate::AppState;
@@ -149,7 +149,7 @@ pub async fn delete_inmueble(
     _auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
-    InmuebleService::delete(&state.pool, id).await?;
+    InmuebleService::delete(&state.pool, &state.upload_dir, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -160,7 +160,7 @@ pub async fn delete_inmueble(
     params(("id" = Uuid, Path, description = "ID del inmueble")),
     request_body = AddFotoRequest,
     responses(
-        (status = 201, description = "Foto añadida", body = Foto),
+        (status = 201, description = "Foto añadida", body = FotoPublica),
         (status = 404, description = "Inmueble no encontrado", body = crate::errors::ErrorResponse),
         (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse)
     ),
@@ -171,7 +171,7 @@ pub async fn add_foto(
     _auth: AuthUser,
     Path(id): Path<Uuid>,
     Json(req): Json<AddFotoRequest>,
-) -> Result<(StatusCode, Json<Foto>), AppError> {
+) -> Result<(StatusCode, Json<FotoPublica>), AppError> {
     req.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
@@ -196,7 +196,7 @@ pub async fn delete_foto(
     _auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
-    InmuebleService::delete_foto(&state.pool, id).await?;
+    InmuebleService::delete_foto(&state.pool, &state.upload_dir, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
