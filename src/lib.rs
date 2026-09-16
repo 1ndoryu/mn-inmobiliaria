@@ -22,4 +22,7 @@ pub struct AppState {
     pub pool: PgPool,
     pub jwt_secret: String,
     pub upload_dir: PathBuf,
+    /* [169A-4] Mismo hub que el router visitante: el staff emite al WS del
+     * visitante (`ChatHub` es `Clone` con interiores `Arc`). */
+    pub hub: glory_agent::session::ChatHub,
 }

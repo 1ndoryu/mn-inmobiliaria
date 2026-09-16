@@ -30,7 +30,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Servidor iniciando en {addr}");
     tracing::info!("Swagger UI disponible en http://{addr}/swagger-ui/");
 
-    let app = handlers::create_router(pool, config);
+    let app = handlers::create_router(pool.clone(), config);
+    /* [169A-4] Worker de avisos WhatsApp (outbox kind='whatsapp').
+     * Sin `GLORY_ALERT_GATEWAY_URL` avisa en logs y no itera: los avisos
+     * quedan 'pending' visibles en el panel (nunca silencio). */
+    tokio::spawn(glory_backend::services::vigilar_alertas_whatsapp(
+        pool,
+        std::env::var("GLORY_ALERT_GATEWAY_URL").ok(),
+    ));
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
 

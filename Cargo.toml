@@ -45,6 +45,12 @@ argon2 = "0.5"
 uuid = { version = "1", features = ["serde", "v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 
+# Chat visitante con IA (169A-1): crate agnostico por path (misma area-trabajo)
+glory-agent = { path = "../glory-agent" }
+
+# Avisos WhatsApp del chat (169A-4): POST al gateway desde el worker
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
 [dev-dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio-test = "0.4"

@@ -1,6 +1,9 @@
 #![allow(clippy::needless_for_each)] // Generado por utoipa OpenApi derive
 
 mod auth;
+mod chat;
+mod chat_staff;
+mod chat_tools;
 mod health;
 mod inmuebles;
 mod notes;
@@ -95,10 +98,17 @@ pub struct ApiDoc;
 
 /// Crea el router principal con CORS, tracing, Swagger UI y todas las rutas
 pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Router {
+    /* [169A-1] El chat trae estado propio (AgentState): se anida ya con
+     * estado en /api para exponer /api/agent/{ws,messages,history}.
+     * [169A-4] Comparte un `ChatHub` con las rutas staff: el humano
+     * responde por el mismo WS que escucha el visitante. */
+    let hub = glory_agent::session::ChatHub::new();
+    let agent = chat::agent_router(pool.clone(), hub.clone());
     let state = AppState {
         pool,
         jwt_secret: config.jwt_secret,
         upload_dir: config.upload_dir.into(),
+        hub,
     };
 
     /* CORS: en desarrollo se permite todo. En producción, restringir orígenes */
@@ -111,6 +121,9 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/uploads/:inmueble/:archivo", get(uploads::servir_archivo))
         .nest("/api", api_routes())
+        /* nest_service porque el chat trae Router<()> (estado propio):
+         * nest exige el mismo estado. Despoja /api igual que nest. */
+        .nest_service("/api", agent)
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(state)
@@ -131,4 +144,7 @@ fn admin_routes() -> Router<AppState> {
         .merge(inmuebles::routes())
         .merge(uploads::routes())
         .merge(users::routes())
+        /* [169A-4] Atención del chat: bandeja, hilo, responder, tomar/soltar
+         * IA y config (rutas bajo /api/admin/agent). */
+        .merge(chat_staff::staff_routes())
 }
