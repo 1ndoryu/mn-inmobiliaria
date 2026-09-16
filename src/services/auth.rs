@@ -113,10 +113,12 @@ impl AuthService {
         })
     }
 
-    /// Genera un JWT con expiración de 24 horas
+    /* La sesion del admin dura 1 año: el front guarda el token en
+     * localStorage y solo se sale con "Salir" o secreto rotado. */
+    /// Genera un JWT con expiración de 365 días (1 año)
     pub fn generate_token(user_id: Uuid, secret: &str) -> Result<String, AppError> {
         let timestamp = chrono::Utc::now()
-            .checked_add_signed(chrono::Duration::hours(24))
+            .checked_add_signed(chrono::Duration::days(365))
             .ok_or_else(|| AppError::Internal("Error calculando expiración del token".into()))?
             .timestamp();
         let exp = usize::try_from(timestamp)
