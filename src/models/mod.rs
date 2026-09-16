@@ -1,5 +1,6 @@
 mod inmueble;
 mod note;
+mod solicitud;
 mod user;
 
 pub use inmueble::{
@@ -10,4 +11,9 @@ pub use inmueble::{
 };
 
 pub use note::{CreateNoteRequest, Note, PaginatedNotes, PaginationParams, UpdateNoteRequest};
+pub use solicitud::{
+    ConteoEstado, CreateSolicitudRequest, FiltrosSolicitudes, FotoSolicitud, FotoSolicitudSubida,
+    PaginatedSolicitudes, Solicitud, SolicitudRow, SolicitudesAdminParams, StatsSolicitudes,
+    UpdateEstadoSolicitud, ESTADOS_SOLICITUD, MAX_FOTOS_SOLICITUD, ORIGENES_CONTACTO,
+};
 pub use user::{AuthResponse, LoginRequest, RegisterRequest, User, UserResponse};

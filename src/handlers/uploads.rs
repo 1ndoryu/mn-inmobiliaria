@@ -101,6 +101,56 @@ pub async fn servir_archivo(
     Ok(([(header::CONTENT_TYPE, mime)], bytes).into_response())
 }
 
+/// Servir una foto de solicitud — pública, sin JWT (vista previa del modal
+/// y revisión del admin cuelgan de aquí; la clave la genera el servidor)
+#[utoipa::path(
+    get,
+    path = "/uploads/solicitudes/{sesion}/{archivo}",
+    params(
+        ("sesion" = Uuid, Path, description = "Carpeta de sesión de subida"),
+        ("archivo" = String, Path, description = "Archivo <uuid>.<ext>"),
+    ),
+    responses(
+        (status = 200, description = "Imagen", body = Vec<u8>, content_type = "image/jpeg"),
+        (status = 404, description = "No encontrada", body = crate::errors::ErrorResponse)
+    )
+)]
+pub async fn servir_archivo_solicitud(
+    State(state): State<AppState>,
+    Path((sesion, archivo)): Path<(String, String)>,
+) -> Result<Response, AppError> {
+    let clave = clave_solicitud_valida(&sesion, &archivo)
+        .ok_or_else(|| AppError::NotFound("No encontrado".into()))?;
+    let bytes = tokio::fs::read(InmuebleService::ruta_archivo(&state.upload_dir, &clave))
+        .await
+        .map_err(|_| AppError::NotFound("No encontrado".into()))?;
+    let mime = match std::path::Path::new(&clave)
+        .extension()
+        .and_then(|e| e.to_str())
+    {
+        Some(e) if e.eq_ignore_ascii_case("png") => "image/png",
+        Some(e) if e.eq_ignore_ascii_case("webp") => "image/webp",
+        _ => "image/jpeg",
+    };
+    Ok(([(header::CONTENT_TYPE, mime)], bytes).into_response())
+}
+
+/// Solo `solicitudes/<uuid>/<uuid>.<ext permitida>`: el prefijo es fijo,
+/// nada de `..`, subrutas ni extensiones raras
+fn clave_solicitud_valida(sesion: &str, archivo: &str) -> Option<String> {
+    if archivo.contains('/') || archivo.contains('\\') {
+        return None;
+    }
+    Uuid::parse_str(sesion).ok()?;
+    let punto = archivo.rfind('.')?;
+    Uuid::parse_str(&archivo[..punto]).ok()?;
+    let extension = archivo[punto..].to_lowercase();
+    if EXTENSIONES_FOTO.iter().any(|e| *e == extension) {
+        Some(format!("solicitudes/{sesion}/{}", archivo.to_lowercase()))
+    } else {
+        None
+    }
+}
 /// Solo `<uuid>/<uuid>.<ext permitida>`: nada de `..`, subrutas ni extensiones raras
 fn clave_valida(ruta: &str) -> Option<String> {
     let (inmueble, archivo) = ruta.split_once('/')?;
@@ -128,7 +178,7 @@ pub fn routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
-    use super::clave_valida;
+    use super::{clave_solicitud_valida, clave_valida};
 
     #[test]
     fn clave_valida_acepta_y_rechaza() {
@@ -142,5 +192,19 @@ mod tests {
         assert!(clave_valida(&format!("{id}/{id}.exe")).is_none());
         assert!(clave_valida(&format!("{id}/a/b.jpg")).is_none());
         assert!(clave_valida("no-es-uuid/archivo.jpg").is_none());
+    }
+
+    #[test]
+    fn clave_solicitud_solo_prefijo_y_uuids() {
+        let id = "aa03ccec-c424-40e1-86ed-5f862d1bfa8f";
+        assert_eq!(
+            clave_solicitud_valida(id, &format!("{id}.png")),
+            Some(format!("solicitudes/{id}/{id}.png"))
+        );
+        assert!(clave_solicitud_valida(id, &format!("{id}.WEBP")).is_some());
+        assert!(clave_solicitud_valida(id, "../fuga.jpg").is_none());
+        assert!(clave_solicitud_valida(id, "no-uuid.jpg").is_none());
+        assert!(clave_solicitud_valida(id, &format!("{id}.pdf")).is_none());
+        assert!(clave_solicitud_valida("no-es-uuid", &format!("{id}.jpg")).is_none());
     }
 }

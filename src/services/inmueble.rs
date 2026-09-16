@@ -305,28 +305,13 @@ impl InmuebleService {
         {
             return Err(AppError::NotFound("Inmueble no encontrado".into()));
         }
-        if bytes.is_empty() {
-            return Err(AppError::BadRequest("Archivo vacío".into()));
-        }
-        if bytes.len() > MAX_FOTO_BYTES {
-            return Err(AppError::PayloadMuyGrande);
-        }
-        let extension = Self::extension_valida(filename)?;
-        Self::magia_valida(bytes, extension)?;
         let origen = origen
             .map(|v| Self::normalizar(v, ORIGENES_FOTO, "origen"))
             .transpose()?
             .unwrap_or_else(|| "original".to_string());
 
-        let dir = upload_dir.join(inmueble_id.to_string());
-        tokio::fs::create_dir_all(&dir)
-            .await
-            .map_err(AppError::from)?;
-        let nombre = format!("{}.{}", Uuid::new_v4(), &extension[1..]);
-        tokio::fs::write(dir.join(&nombre), bytes)
-            .await
-            .map_err(AppError::from)?;
-        let storage_key = format!("{inmueble_id}/{nombre}");
+        let storage_key =
+            Self::guardar_archivo(upload_dir, &inmueble_id.to_string(), filename, bytes).await?;
 
         match InmuebleRepository::add_foto(pool, inmueble_id, &storage_key, orden, &origen).await {
             Ok(foto) => Ok(FotoPublica::from(foto)),
@@ -336,6 +321,35 @@ impl InmuebleService {
                 Err(e.into())
             }
         }
+    }
+
+    /* [169A-2] Núcleo reutilizable: valida y guarda bytes en
+     * `UPLOAD_DIR/<carpeta>/<uuid>.<ext>`, devuelve la clave. Lo usan las
+     * fotos de inmueble y las de solicitud (carpeta `solicitudes/<uuid>`). */
+    pub async fn guardar_archivo(
+        upload_dir: &Path,
+        carpeta: &str,
+        filename: &str,
+        bytes: &[u8],
+    ) -> Result<String, AppError> {
+        if bytes.is_empty() {
+            return Err(AppError::BadRequest("Archivo vacío".into()));
+        }
+        if bytes.len() > MAX_FOTO_BYTES {
+            return Err(AppError::PayloadMuyGrande);
+        }
+        let extension = Self::extension_valida(filename)?;
+        Self::magia_valida(bytes, extension)?;
+
+        let dir = upload_dir.join(carpeta);
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .map_err(AppError::from)?;
+        let nombre = format!("{}.{}", Uuid::new_v4(), &extension[1..]);
+        tokio::fs::write(dir.join(&nombre), bytes)
+            .await
+            .map_err(AppError::from)?;
+        Ok(format!("{carpeta}/{nombre}"))
     }
 
     /// Borra un archivo del volumen; los fallos se registran pero no rompen la operación

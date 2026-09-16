@@ -46,6 +46,17 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   reales en `MN-Inmobiliaria/.env` (sin key el chat persiste y reenvia
   en realtime pero la IA no responde).
 
+## Publicar mi inmueble: solicitudes pendientes (169A-2, en curso 2026-09-16)
+
+- Plan: `Agente/planes/plan-solicitudes-2026-09-16.md`.
+- Backend: tabla `solicitudes`, subida publica de fotos (reutiliza
+  validacion magic-bytes + 10 MiB), `POST /api/public/solicitudes`,
+  `POST /api/public/solicitudes/fotos`, `GET/PATCH /api/admin/solicitudes`
+  (JWT). Validacion basica de email/telefono.
+- Front (`INMOBILIARIA`, repo hermano): `ModalPublicar` cuadrado con
+  borrador persistente; las fotos ya subidas son claves (no pesan).
+- Sin UI admin de revision (pendiente explicito para despues).
+
 ## Chat con atencion humana + WhatsApp + config admin (169A-3..6, 2026-09-16)
 
 - Plan: `Agente/planes/plan-chat-atencion-2026-09-16.md` (diseno cerrado

@@ -8,6 +8,7 @@ mod health;
 mod inmuebles;
 mod notes;
 mod public;
+mod solicitud;
 mod uploads;
 mod users;
 
@@ -61,6 +62,11 @@ impl utoipa::Modify for SecurityAddon {
         inmuebles::delete_foto,
         uploads::upload_foto,
         uploads::servir_archivo,
+        uploads::servir_archivo_solicitud,
+        solicitud::subir_foto_solicitud,
+        solicitud::create_solicitud,
+        solicitud::list_solicitudes,
+        solicitud::revisar_solicitud,
         public::list_public,
         public::get_public,
     ),
@@ -84,6 +90,12 @@ impl utoipa::Modify for SecurityAddon {
         crate::models::PublicacionRequest,
         crate::models::AddFotoRequest,
         crate::models::PaginatedInmuebles,
+        crate::models::Solicitud,
+        crate::models::FotoSolicitud,
+        crate::models::FotoSolicitudSubida,
+        crate::models::CreateSolicitudRequest,
+        crate::models::UpdateEstadoSolicitud,
+        crate::models::PaginatedSolicitudes,
         crate::errors::ErrorResponse,
     )),
     modifiers(&SecurityAddon),
@@ -120,6 +132,10 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/uploads/:inmueble/:archivo", get(uploads::servir_archivo))
+        .route(
+            "/uploads/solicitudes/:sesion/:archivo",
+            get(uploads::servir_archivo_solicitud),
+        )
         .nest("/api", api_routes())
         /* nest_service porque el chat trae Router<()> (estado propio):
          * nest exige el mismo estado. Despoja /api igual que nest. */
@@ -142,6 +158,7 @@ fn api_routes() -> Router<AppState> {
 fn admin_routes() -> Router<AppState> {
     Router::new()
         .merge(inmuebles::routes())
+        .merge(solicitud::admin_routes())
         .merge(uploads::routes())
         .merge(users::routes())
         /* [169A-4] Atención del chat: bandeja, hilo, responder, tomar/soltar
