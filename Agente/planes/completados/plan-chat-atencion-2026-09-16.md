@@ -91,6 +91,12 @@ Núcleo agnóstico, sin lógica de inmobiliaria.
   token (`leerToken`), errores `ok:false` visibles.
 - DoD: `oxlint` 0 + `build` ok + verificación visual 2 resoluciones;
   commit en `INMOBILIARIA`.
+- Hecho 2026-09-16 (commits `fae846e` + `fa745e0` en `INMOBILIARIA`):
+  `cliente-admin` + hooks bandeja/config + 4 vistas + nav Mensajes +
+  frente visitante 169A-1 + tarjeta contacto/escalado. `oxlint` 0
+  errores (warnings solo familia preexistente), `tsc -b + vite build`
+  verde, dev 200. Verificación visual 2 resoluciones pendiente del
+  usuario (sin herramienta de captura en este entorno).
 
 ### 169A-6 — Widget: contacto + escalado visible + E2E y cierre (F9)
 - Widget: banner al escalar (teléfono + botón WhatsApp `wa.me` con texto
@@ -103,6 +109,15 @@ Núcleo agnóstico, sin lógica de inmobiliaria.
   ya verificado en 169A-1.
 - Cierre: completadas en los 3 repos, roadmap limpio, lecciones si aplica.
 - DoD: flujo verificado contra backend real + commits + push por repo.
+- Hecho 2026-09-16: E2E en vivo con binario dev recien compilado
+  (`C:\tmp`, 3m49s) + migraciones al arrancar: `GET /api/health`→200,
+  `POST /api/agent/messages`→`seq:1/2 reply:null` (sin clave IA,
+  degradado honesto), `GET history`→2 `[client]` persistidos,
+  `GET /api/agent/info`→defaults sin sembrar,
+  `POST /sesiones/:id/contacto`→`{ok:true}`,
+  `GET /api/admin/agent/sesiones` sin token→401. Cleanup: proceso
+  detenido + logs/sid temporales borrados. Push pendiente: MN sin
+  `origin` (solo remoto `template`); `glory-agent` sin remoto.
 
 ## No alcance
 - Sin streaming token-a-token (v1 ya decidido). Sin multi-instancia

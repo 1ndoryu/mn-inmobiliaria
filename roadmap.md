@@ -59,8 +59,9 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Chat con atencion humana + WhatsApp + config admin (169A-3..6, 2026-09-16)
 
-- Plan: `Agente/planes/plan-chat-atencion-2026-09-16.md` (diseno cerrado
-  contra Nakomi como referencia solo-lectura).
+- Plan: `Agente/planes/completados/plan-chat-atencion-2026-09-16.md`
+  (cerrado 2026-09-16; diseno contra Nakomi como referencia
+  solo-lectura).
 - 169A-3 (repo `glory-agent`): loop de tools F6 + gate IA real
   (`ai_enabled` + ciclo `escalated` se hacen cumplir) + `0002_config.sql`
   + persistencia sesiones/config + tests. Nucleo agnostico.
@@ -72,10 +73,15 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   con defaults en codigo. Gate verde (fmt/check/clippy/test 11 lib OK);
   humo BD rama OK (tools contra esquema real, staff toma hilo, config
   roundtrip, worker marca `failed` sin gateway, 2 tests HTTP OK).
-- 169A-5 (repo `INMOBILIARIA`): admin Mensajes (lista + hilo + responder
-  + tomar/soltar IA) y Config chat (prompt_extra, telefonos, kill-switch).
-- 169A-6 (repo `INMOBILIARIA`): widget con banner escalado, WhatsApp
-  `wa.me`, form nombre/telefono + E2E en rama y cierre documental.
+- 169A-5 (repo `INMOBILIARIA`) [x] 2026-09-16, commit `fae846e`: admin
+  Mensajes (lista + hilo + responder + tomar/soltar IA) y Config chat
+  (prompt_extra, telefonos, kill-switch). `oxlint` 0 errores, `npm run
+  build` verde, dev 200. Incluye frente visitante 169A-1 (cliente, canal
+  WS+REST, hook, ventana).
+- 169A-6 (repo `INMOBILIARIA`) [x] 2026-09-16, commit `fa745e0`: tarjeta
+  contacto/escalado en el widget (`pedirInfo` + `enviarContacto`,
+  auto-apertura si pide humano) + E2E en vivo contra este backend
+  (health/messages/history/info/contacto OK, staff 401 sin token).
 - Requiere del usuario: `GLORY_ALERT_GATEWAY_URL` + numero admin
   (`whatsapp_admin`); `OPENCODE_GO_API_KEY` + `AGENTE_CONTACTO` siguen
   pendientes de 169A-1.
