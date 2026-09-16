@@ -11,7 +11,7 @@ use validator::Validate;
  * [159A-2] Copy IA como columnas anulables + `FotoPublica` con URL lista. */
 
 /// Valores permitidos para `tipo`
-pub const TIPOS: &[&str] = &["piso", "casa", "local", "terreno", "townhouse", "otro"];
+pub const TIPOS: &[&str] = &["apartamento", "casa", "local", "terreno", "townhouse"];
 /// Valores permitidos para `operacion`
 pub const OPERACIONES: &[&str] = &["venta", "alquiler"];
 /// Valores permitidos para `estado`
@@ -163,7 +163,7 @@ impl From<Foto> for FotoPublica {
 }
 
 fn default_tipo() -> String {
-    "otro".to_string()
+    "apartamento".to_string()
 }
 
 fn default_operacion() -> String {
@@ -261,7 +261,7 @@ pub struct AddFotoRequest {
 /// Filtros públicos + paginación
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct FiltrosPublicos {
-    /// Filtrar por tipo (piso, casa, local, terreno, townhouse, otro)
+    /// Filtrar por tipo (apartamento, casa, local, terreno, townhouse)
     pub tipo: Option<String>,
     /// Filtrar por operación (venta, alquiler)
     pub operacion: Option<String>,
