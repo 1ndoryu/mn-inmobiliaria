@@ -104,3 +104,11 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - Requiere del usuario: `GLORY_API_KEY` real en `MN-Inmobiliaria/.env`
   (sin ella GloryAPI queda `sin-clave` y todo va por OpenCode Go).
 
+## Sesion admin de 10 años (199A-3, en curso 2026-09-19)
+
+- El JWT ya duraba 365 dias con `JWT_SECRET` estable en `.env` (gitignored):
+  la sesion solo caia por secreto rotado o expiracion real.
+- 199A-3: `generate_token` pasa a 10 años. Tras arrancar el servidor nuevo,
+  salir y entrar una vez para que el token traiga la expiracion larga
+  (los tokens viejos conservan la suya).
+
