@@ -86,3 +86,21 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   (`whatsapp_admin`); `OPENCODE_GO_API_KEY` + `AGENTE_CONTACTO` siguen
   pendientes de 169A-1.
 
+## Centro de IA: GloryAPI + OpenCode Go via backend (199A-1/199A-2, en curso 2026-09-19)
+
+- Plan: `Agente/planes/plan-ia-central-2026-09-19.md`.
+- 199A-1 (este repo): `src/handlers/ia.rs` con `GET /api/admin/ia/estado`,
+  `PUT /api/admin/ia/config`, `POST /api/admin/ia/probar`,
+  `POST /api/admin/ia/completar` (JWT); config en `agent_config`
+  (`ia_activo`, `ia_hab_*`, `ia_check_*`); claves solo en `.env`
+  (`GLORY_API_URL`, `GLORY_API_KEY`, `OPENCODE_GO_API_KEY`).
+  Codigo completo 2026-09-19: `fmt` + `check` + `clippy -D warnings` +
+  `test --lib` 14/14 (3 nuevos `handlers::ia::pruebas`).
+  Pendiente humo HTTP: el dev-server vivo (otra sesion) usa binario anterior;
+  reiniciarlo y probar `estado` + `completar` antes de 199A-2.
+- 199A-2 (repo `INMOBILIARIA`): redaccion y copy via `completar` (activo
+  manual + fallback); pestana `ia` en Config con estado, habilitar/elegir
+  activo y probar por proveedor.
+- Requiere del usuario: `GLORY_API_KEY` real en `MN-Inmobiliaria/.env`
+  (sin ella GloryAPI queda `sin-clave` y todo va por OpenCode Go).
+

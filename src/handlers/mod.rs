@@ -5,6 +5,7 @@ mod chat;
 mod chat_staff;
 mod chat_tools;
 mod health;
+mod ia;
 mod inmuebles;
 mod notes;
 mod public;
@@ -164,4 +165,7 @@ fn admin_routes() -> Router<AppState> {
         /* [169A-4] Atención del chat: bandeja, hilo, responder, tomar/soltar
          * IA y config (rutas bajo /api/admin/agent). */
         .merge(chat_staff::staff_routes())
+        /* [199A-1] Centro de IA de texto: estado/config/probar/completar
+         * (rutas bajo /api/admin/ia). */
+        .merge(ia::routes())
 }
