@@ -121,3 +121,18 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   entero = reemplazo, semantica PUT correcta). `fijarPublicado` sigue PATCH
   (su ruta si es `patch`). Verificado con PUT+JWT a id inexistente → 404.
 
+## Fotos 404 al editar: sincronizarFotos borraba antes de re-descargar (199A-5, 2026-09-19)
+
+- Ante CUALQUIER cambio de fotos (anadir, quitar, reordenar, elegir
+  principal), `sincronizarFotos` borraba TODOS los originales (fila + archivo
+  en disco via `delete_foto`) y luego intentaba re-descargar las conservadas
+  del servidor para re-subirlas: 404 inevitable ("No se pudo leer la foto
+  para subirla") y el inmueble quedaba sin fotos (perdida real; los datos
+  texto si se guardaban porque el PUT va antes).
+- Fix en repo `INMOBILIARIA` (commit `c0037dc`): leer los bytes de TODAS las
+  deseadas ANTES de borrar; si alguna falla no se ha borrado nada. Servidor
+  verificado sano (fotos existentes responden 200, 92 archivos en
+  `uploads/`); causa 100 % front, no backend.
+- Pendiente usuario: revisar la propiedad editada y re-subirle las fotos
+  perdidas; recargar `:5200` con `Ctrl+F5`.
+
