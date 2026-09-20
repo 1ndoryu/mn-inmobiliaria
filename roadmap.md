@@ -136,3 +136,22 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - Pendiente usuario: revisar la propiedad editada y re-subirle las fotos
   perdidas; recargar `:5200` con `Ctrl+F5`.
 
+## Principal + mejoradas en el frente público (199A-6, 2026-09-19)
+
+- Dos causas front (repo `INMOBILIARIA`, commit `7e245b2`; backend intacto,
+  la API pública ya devuelve originales + mejoradas emparejadas por `orden`):
+  1. La galería del detalle público (`modal-detalle-publico.tsx`) mostraba
+     `i.fotos` = solo originales; las mejoradas solo aparecían en la portada
+     de la tarjeta. Ahora usa `fotosVisiblesDe` (mejorada por posición si
+     existe, si no el original; `portadaDe` = primera visible).
+  2. Al reordenar/elegir principal, `sincronizarFotos` re-creaba los
+     originales con `orden` nuevo pero dejaba las mejoradas con el viejo: el
+     pareo por `orden` quedaba roto y la portada mostraba la mejora de otra
+     foto. Ahora las mejoradas se descargan antes de borrar y se re-suben
+     siguiendo a su original (misma garantía sin-pérdida de 199A-5); la de un
+     original eliminado se descarta.
+- Pendiente usuario: `Ctrl+F5` en `:5200` y comprobar Townhouse/Orquídea
+  (editadas hoy 17:07): si alguna portada sigue mostrando la mejora de otra
+  foto (pareo roto anterior, irreparable por contenido), avisar cuál para
+  limpiar sus mejoradas y regenerarlas pareadas.
+
