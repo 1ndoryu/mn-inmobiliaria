@@ -155,3 +155,21 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   foto (pareo roto anterior, irreparable por contenido), avisar cuál para
   limpiar sus mejoradas y regenerarlas pareadas.
 
+## Pareo roto en Orquídea: reparado por contenido (199A-7, 2026-09-19)
+
+- La usuaria elegía principal en admin (se guardaba bien) pero en público
+  seguía viendo otra foto: el pareo `orden` original↔mejorada de Orquídea
+  estaba roto por un reorden anterior (las mejoradas conservaban el `orden`
+  viejo). Demostrado por hash perceptual (dHash, distancias 0-8 = misma
+  escena): mejorada 0→original 8, 1→9, 2→10, 3→0, 4→11, 5→12. La portada
+  (mejorada 0) mostraba la mejora del original 8, no de la principal.
+- Townhouse comprobada igual: sus 6 parejas correctas, no se tocó.
+- Reparación solo-datos vía API (sin código ni reinicio): subidas primero
+  las 6 mejoradas con `orden` correcto (`origen=mejorada`, mismos bytes),
+  luego borradas las 6 viejas por id, verificado por contenido (las 6
+  parejas distancia ≤8). Total Orquídea: 15 originales + 6 mejoradas = 21.
+- El fix 199A-6 impide futuros despareos al reordenar desde el front.
+- Seguimiento propuesto (no urgente): endpoint `PATCH /api/admin/fotos/:id`
+  con `{orden}` para reordenar sin borrar+re-subir (menos churn y sin
+  cambiar urls/ids que cachea el store local de mejora).
+
