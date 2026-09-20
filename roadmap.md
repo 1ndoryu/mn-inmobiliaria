@@ -112,3 +112,12 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   salir y entrar una vez para que el token traiga la expiracion larga
   (los tokens viejos conservan la suya).
 
+## Editar inmueble 405: front mandaba PATCH, contrato es PUT (199A-4, 2026-09-19)
+
+- `actualizarRemoto` enviaba `PATCH /api/admin/inmuebles/:id` pero el router
+  solo acepta `PUT` (asi desde 159A-2 + utoipa `put`): 405 preexistente, no
+  causado por los reinicios de 199A-1/199A-3.
+- Fix en repo `INMOBILIARIA`: `PUT` en `actualizarRemoto` (manda el objeto
+  entero = reemplazo, semantica PUT correcta). `fijarPublicado` sigue PATCH
+  (su ruta si es `patch`). Verificado con PUT+JWT a id inexistente → 404.
+
