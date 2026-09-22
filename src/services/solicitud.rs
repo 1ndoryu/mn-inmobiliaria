@@ -70,6 +70,8 @@ impl SolicitudService {
             email,
             descripcion: req.descripcion.trim(),
             ubicacion: req.ubicacion.trim(),
+            puestos: req.puestos,
+            residencia: req.residencia.trim(),
             precio_estimado: req.precio_estimado.map(|p| p.max(0.0)),
             operacion: &operacion,
             fotos: &req.fotos,

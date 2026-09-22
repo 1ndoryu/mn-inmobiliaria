@@ -659,7 +659,7 @@ mod pruebas {
     fn parsear_diagnostico_redondea() {
         let d = parsear_diagnostico(Some("ok|1726233600|420|muse-spark-1.3".to_string()));
         assert_eq!(d.estado, "ok");
-        assert_eq!(d.comprobado_en, Some(1726233600));
+        assert_eq!(d.comprobado_en, Some(1_726_233_600));
         assert_eq!(d.latencia_ms, Some(420));
         assert_eq!(d.ultimo_modelo.as_deref(), Some("muse-spark-1.3"));
         let e = parsear_diagnostico(Some("error|1726233600|sin clave".to_string()));

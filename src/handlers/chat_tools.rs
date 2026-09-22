@@ -157,9 +157,12 @@ async fn buscar(pool: &PgPool, args: &Value) -> Result<Value, AgentError> {
         .and_then(Value::as_i64)
         .unwrap_or(5)
         .clamp(1, 10);
-    let filas: Vec<(Uuid, String, String, String, f64, String, String)> =
+    /* [229A-1] Struct en vez de tupla de 9 (mismo patrón que `Ficha`):
+     * legible y evita el lint de tipos complejos. */
+    let filas: Vec<Tarjeta> =
         sqlx::query_as(
-            "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug FROM inmuebles \
+            "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug, puestos, residencia \
+             FROM inmuebles \
              WHERE publicado AND estado = 'disponible' \
              AND ($1::TEXT IS NULL OR titulo ILIKE '%' || $1 || '%' OR ubicacion ILIKE '%' || $1 || '%') \
              AND ($2::TEXT IS NULL OR tipo = $2) \
@@ -177,13 +180,30 @@ async fn buscar(pool: &PgPool, args: &Value) -> Result<Value, AgentError> {
         .map_err(|e| AgentError::Db(e.to_string()))?;
     let items: Vec<Value> = filas
         .into_iter()
-        .map(|(id, titulo, tipo, operacion, precio, ubicacion, slug)| {
-            json!({"id": id, "titulo": titulo, "tipo": tipo, "operacion": operacion,
-                   "precio": precio, "ubicacion": ubicacion, "slug": slug})
+        .map(|t| {
+            json!({"id": t.id, "titulo": t.titulo, "tipo": t.tipo, "operacion": t.operacion,
+                   "precio": t.precio, "ubicacion": t.ubicacion, "slug": t.slug,
+                   "puestos": t.puestos, "residencia": t.residencia})
         })
         .collect();
     let total = items.len();
     Ok(json!({"inmuebles": items, "total": total}))
+}
+
+/// Tarjeta breve de un inmueble para `buscar_inmuebles` (struct en vez de
+/// tupla de 9: legible y evita el lint de tipos complejos). Incluye
+/// `puestos` y `residencia` para que el agente responda con esos datos.
+#[derive(Debug, sqlx::FromRow)]
+struct Tarjeta {
+    id: Uuid,
+    titulo: String,
+    tipo: String,
+    operacion: String,
+    precio: f64,
+    ubicacion: String,
+    slug: String,
+    puestos: i32,
+    residencia: String,
 }
 
 /// Ficha completa de un inmueble para `detalle_inmueble` (struct en vez de
@@ -194,6 +214,8 @@ struct Ficha {
     titulo: String,
     descripcion: String,
     ubicacion: String,
+    puestos: i32,
+    residencia: String,
     precio: f64,
     tipo: String,
     operacion: String,
@@ -213,7 +235,7 @@ async fn detalle(pool: &PgPool, args: &Value) -> Result<Value, AgentError> {
         .parse()
         .map_err(|_| AgentError::BadRequest("id de inmueble invalido".to_string()))?;
     let fila: Option<Ficha> = sqlx::query_as(
-        "SELECT titulo, descripcion, ubicacion, precio, tipo, operacion, \
+        "SELECT titulo, descripcion, ubicacion, puestos, residencia, precio, tipo, operacion, \
              habitaciones, banos, metros, metros_terreno, estado, copy_corta \
              FROM inmuebles WHERE id = $1 AND publicado",
     )
@@ -227,6 +249,7 @@ async fn detalle(pool: &PgPool, args: &Value) -> Result<Value, AgentError> {
     let descripcion: String = f.descripcion.chars().take(600).collect();
     Ok(
         json!({"id": id, "titulo": f.titulo, "descripcion": descripcion, "ubicacion": f.ubicacion,
+              "puestos": f.puestos, "residencia": f.residencia,
               "precio": f.precio, "tipo": f.tipo, "operacion": f.operacion, "habitaciones": f.habitaciones,
               "banos": f.banos, "metros": f.metros, "metros_terreno": f.metros_terreno, "estado": f.estado,
               "resumen": f.copy_corta.unwrap_or_default()}),

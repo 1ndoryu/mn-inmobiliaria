@@ -45,6 +45,10 @@ pub struct InmuebleRow {
     pub titulo: String,
     pub descripcion: String,
     pub ubicacion: String,
+    /// Puestos de estacionamiento (>= 0).
+    pub puestos: i32,
+    /// Nombre de la residencia/conjunto ('' = sin especificar).
+    pub residencia: String,
     pub precio: f64,
     pub tipo: String,
     pub operacion: String,
@@ -70,6 +74,10 @@ pub struct Inmueble {
     pub titulo: String,
     pub descripcion: String,
     pub ubicacion: String,
+    /// Puestos de estacionamiento (>= 0).
+    pub puestos: i32,
+    /// Nombre de la residencia/conjunto ('' = sin especificar).
+    pub residencia: String,
     pub precio: f64,
     pub tipo: String,
     pub operacion: String,
@@ -109,6 +117,8 @@ impl Inmueble {
             titulo: row.titulo,
             descripcion: row.descripcion,
             ubicacion: row.ubicacion,
+            puestos: row.puestos,
+            residencia: row.residencia,
             precio: row.precio,
             tipo: row.tipo,
             operacion: row.operacion,
@@ -190,6 +200,12 @@ pub struct CreateInmuebleRequest {
     #[validate(length(max = 500, message = "La ubicación no debe exceder 500 caracteres"))]
     pub ubicacion: String,
     #[serde(default)]
+    #[validate(range(min = 0, message = "Puestos no puede ser negativo"))]
+    pub puestos: i32,
+    #[serde(default)]
+    #[validate(length(max = 500, message = "La residencia no debe exceder 500 caracteres"))]
+    pub residencia: String,
+    #[serde(default)]
     #[validate(range(min = 0.0, message = "El precio no puede ser negativo"))]
     pub precio: f64,
     #[serde(default = "default_tipo")]
@@ -225,6 +241,10 @@ pub struct UpdateInmuebleRequest {
     pub descripcion: Option<String>,
     #[validate(length(max = 500))]
     pub ubicacion: Option<String>,
+    #[validate(range(min = 0))]
+    pub puestos: Option<i32>,
+    #[validate(length(max = 500))]
+    pub residencia: Option<String>,
     #[validate(range(min = 0.0))]
     pub precio: Option<f64>,
     pub tipo: Option<String>,

@@ -49,6 +49,10 @@ pub struct SolicitudRow {
     pub email: String,
     pub descripcion: String,
     pub ubicacion: String,
+    /// Puestos de estacionamiento (>= 0).
+    pub puestos: i32,
+    /// Nombre de la residencia/conjunto ('' = sin especificar).
+    pub residencia: String,
     pub precio_estimado: Option<f64>,
     pub operacion: String,
     pub estado: String,
@@ -84,6 +88,8 @@ pub struct Solicitud {
     pub email: String,
     pub descripcion: String,
     pub ubicacion: String,
+    pub puestos: i32,
+    pub residencia: String,
     pub precio_estimado: Option<f64>,
     pub operacion: String,
     pub estado: String,
@@ -106,6 +112,8 @@ impl Solicitud {
             email: row.email,
             descripcion: row.descripcion,
             ubicacion: row.ubicacion,
+            puestos: row.puestos,
+            residencia: row.residencia,
             precio_estimado: row.precio_estimado,
             operacion: row.operacion,
             estado: row.estado,
@@ -217,6 +225,12 @@ pub struct CreateSolicitudRequest {
     #[serde(default)]
     #[validate(length(max = 500, message = "La ubicación no debe exceder 500 caracteres"))]
     pub ubicacion: String,
+    #[serde(default)]
+    #[validate(range(min = 0, message = "Puestos no puede ser negativo"))]
+    pub puestos: i32,
+    #[serde(default)]
+    #[validate(length(max = 500, message = "La residencia no debe exceder 500 caracteres"))]
+    pub residencia: String,
     #[serde(default)]
     #[validate(range(min = 0.0, message = "El precio estimado no puede ser negativo"))]
     pub precio_estimado: Option<f64>,

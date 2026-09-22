@@ -8,11 +8,12 @@ use crate::models::SolicitudRow;
  * en `pendiente` (el estado lo mueve solo la revisión).
  * [169A-4+7] La fila incluye trazabilidad (`ip_origen`, `user_agent`,
  * `origen_contacto`) y `precio_estimado` nullable: toda SELECT/RETURNING
- * debe listarlas o `FromRow` falla en runtime. */
+ * debe listarlas o `FromRow` falla en runtime.
+ * [229A-1] Todas usan `{COLUMNAS}` (constante única). */
 
 const COLUMNAS: &str = "id, nombre, telefono, email, descripcion, ubicacion, \
-    precio_estimado, operacion, estado, fotos, ip_origen, user_agent, \
-    origen_contacto, created_at, updated_at";
+    puestos, residencia, precio_estimado, operacion, estado, fotos, ip_origen, \
+    user_agent, origen_contacto, created_at, updated_at";
 
 /// Valores ya normalizados listos para insertar (el estado lo fija la BD)
 pub struct NuevaSolicitud<'a> {
@@ -21,6 +22,8 @@ pub struct NuevaSolicitud<'a> {
     pub email: &'a str,
     pub descripcion: &'a str,
     pub ubicacion: &'a str,
+    pub puestos: i32,
+    pub residencia: &'a str,
     pub precio_estimado: Option<f64>,
     pub operacion: &'a str,
     pub fotos: &'a Vec<String>,
@@ -37,21 +40,21 @@ impl SolicitudRepository {
         nueva: &NuevaSolicitud<'_>,
     ) -> Result<SolicitudRow, sqlx::Error> {
         let id = Uuid::new_v4();
-        sqlx::query_as::<_, SolicitudRow>(
+        sqlx::query_as::<_, SolicitudRow>(&format!(
             "INSERT INTO solicitudes (id, nombre, telefono, email, descripcion, \
-              ubicacion, precio_estimado, operacion, fotos, ip_origen, user_agent, \
-              origen_contacto) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) \
-             RETURNING id, nombre, telefono, email, descripcion, ubicacion, \
-              precio_estimado, operacion, estado, fotos, ip_origen, user_agent, \
-              origen_contacto, created_at, updated_at",
-        )
+              ubicacion, puestos, residencia, precio_estimado, operacion, fotos, \
+              ip_origen, user_agent, origen_contacto) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) \
+             RETURNING {COLUMNAS}",
+        ))
         .bind(id)
         .bind(nueva.nombre)
         .bind(nueva.telefono)
         .bind(nueva.email)
         .bind(nueva.descripcion)
         .bind(nueva.ubicacion)
+        .bind(nueva.puestos)
+        .bind(nueva.residencia)
         .bind(nueva.precio_estimado)
         .bind(nueva.operacion)
         .bind(nueva.fotos)
@@ -63,12 +66,9 @@ impl SolicitudRepository {
     }
 
     pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<SolicitudRow>, sqlx::Error> {
-        sqlx::query_as::<_, SolicitudRow>(
-            "SELECT id, nombre, telefono, email, descripcion, ubicacion, \
-              precio_estimado, operacion, estado, fotos, ip_origen, user_agent, \
-              origen_contacto, created_at, updated_at \
-             FROM solicitudes WHERE id = $1",
-        )
+        sqlx::query_as::<_, SolicitudRow>(&format!(
+            "SELECT {COLUMNAS} FROM solicitudes WHERE id = $1",
+        ))
         .bind(id)
         .fetch_optional(pool)
         .await
@@ -109,12 +109,10 @@ impl SolicitudRepository {
         id: Uuid,
         estado: &str,
     ) -> Result<Option<SolicitudRow>, sqlx::Error> {
-        sqlx::query_as::<_, SolicitudRow>(
+        sqlx::query_as::<_, SolicitudRow>(&format!(
             "UPDATE solicitudes SET estado = $2, updated_at = NOW() WHERE id = $1 \
-             RETURNING id, nombre, telefono, email, descripcion, ubicacion, \
-              precio_estimado, operacion, estado, fotos, ip_origen, user_agent, \
-              origen_contacto, created_at, updated_at",
-        )
+             RETURNING {COLUMNAS}",
+        ))
         .bind(id)
         .bind(estado)
         .fetch_optional(pool)
