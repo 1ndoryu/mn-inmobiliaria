@@ -26,15 +26,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
-## Puestos + residencia en inmuebles y solicitudes (229A-1, en curso 2026-09-22)
-
-- `inmuebles`: columnas `puestos` (INTEGER >= 0, defecto 0) y `residencia`
-  (TEXT, defecto '') + modelo/repo/servicio; la API las expone tal cual.
-- `solicitudes`: mismas columnas para la subida pública (formulario con
-  Residencia + Puestos); el alta las guarda, la revisión las muestra.
-- Front (`INMOBILIARIA`, repo hermano): formulario interno, ficha IA, copy,
-  publicidad (iconos carro/pin + residencia en línea 2, Inter Bold) y relleno
-  de los 6 inmuebles existentes.
+*(Agregar nuevas tareas aquí)*
 
 ## Notas
 
