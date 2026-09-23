@@ -10,6 +10,7 @@ mod inmuebles;
 mod notes;
 mod public;
 mod solicitud;
+mod suscriptor;
 mod uploads;
 mod users;
 
@@ -70,6 +71,7 @@ impl utoipa::Modify for SecurityAddon {
         solicitud::revisar_solicitud,
         public::list_public,
         public::get_public,
+        suscriptor::suscribir,
     ),
     components(schemas(
         health::HealthResponse,
@@ -97,6 +99,8 @@ impl utoipa::Modify for SecurityAddon {
         crate::models::CreateSolicitudRequest,
         crate::models::UpdateEstadoSolicitud,
         crate::models::PaginatedSolicitudes,
+        crate::models::CreateSuscriptorRequest,
+        crate::models::Suscriptor,
         crate::errors::ErrorResponse,
     )),
     modifiers(&SecurityAddon),

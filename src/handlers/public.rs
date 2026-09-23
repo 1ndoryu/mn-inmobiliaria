@@ -8,6 +8,7 @@ use crate::services::InmuebleService;
 use crate::AppState;
 
 use super::solicitud;
+use super::suscriptor;
 
 /* [159A-1] Web pública de solo lectura: solo inmuebles con `publicado = TRUE`.
  * Sin JWT: la visibilidad la decide el backend, no el cliente. */
@@ -53,4 +54,5 @@ pub fn routes() -> Router<AppState> {
         .route("/inmuebles", get(list_public))
         .route("/inmuebles/:slug", get(get_public))
         .merge(solicitud::public_routes())
+        .merge(suscriptor::public_routes())
 }
