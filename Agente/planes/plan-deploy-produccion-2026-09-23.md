@@ -48,7 +48,14 @@
 2. `.env` → `DATABASE_URL=.../glory_backend_inmobiliaria` (canonical de la rama).
 3. Gate local: `tsc -b` + `vite build` (front), `fmt/check/clippy/test` (backend), E2E receta.
 
-### Fase 1 — Fusión monorepo (local, commit en `inmobiliaria`)
+### Fase 1 — Fusión monorepo (local, commit en `inmobiliaria`) — COMPLETADA 2026-09-23 (`39f383de`)
+> Humo verificado: `/` 200 html, fallback SPA 200, `/api/health` 200 JSON, API inexistente 404
+> seco, asset `.js` con `Content-Type` correcto, 11 publicados. Gate: `fmt` + `clippy -D warnings`
+> + 15 tests + `tsc -b` + `vite build` (2.17 s). `glory-agent` se clona en el Dockerfile a ref
+> pineado (`GLORY_AGENT_REF=9e357fb`); publicar `github.com/1ndoryu/glory-agent` es Fase 2.
+> Gotchas: `try_exists` no vale para `/` (el dir pasa; usar `is_file`); `fallback` antes de
+> `with_state`; clippy prohíbe `fn` anidada tras statements; `frontend/node_modules` requiere
+> `npm ci` (un `tsc` global viejo da `erasableSyntaxOnly` falso).
 1. Mover `INMOBILIARIA/*` → `MN-Inmobiliaria/frontend/` (reemplaza stub; conservar `.gitignore`,
    `orval.config.ts` del template si aplica; `prebuild generar-llms` sigue válido).
 2. Backend: servir `STATIC_DIR` (`/app/dist`) con fallback SPA a `index.html` (solo si el
@@ -71,7 +78,9 @@
 
 ### Fase 2 — GitHub (acción del usuario)
 1. `gh auth login` (o web).
-2. Crear `github.com/1ndoryu/mn-inmobiliaria` (privado) + push rama `inmobiliaria`
+2a. Crear `github.com/1ndoryu/glory-agent` (privado) + push `master` (al menos `9e357fb`,
+   ref pineado en `Dockerfile.rust`): sin esto el build Docker no resuelve el path-dep.
+2b. Crear `github.com/1ndoryu/mn-inmobiliaria` (privado) + push rama `inmobiliaria`
    (incluye `frontend/` fusionado + `Dockerfile.rust`; el template-remote se conserva).
 
 ### Fase 3 — Recompilar manager + preflight (local)
