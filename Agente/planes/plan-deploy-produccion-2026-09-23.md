@@ -56,6 +56,13 @@
 > Gotchas: `try_exists` no vale para `/` (el dir pasa; usar `is_file`); `fallback` antes de
 > `with_state`; clippy prohíbe `fn` anidada tras statements; `frontend/node_modules` requiere
 > `npm ci` (un `tsc` global viejo da `erasableSyntaxOnly` falso).
+> Corrección 2026-09-23 (239A-2): en prod manda el `Dockerfile.rust` DEL TEMPLATE del manager
+> (`config/templates/Dockerfile.rust`: clona el repo dentro de la imagen en `/build`);
+> el `Dockerfile.rust` del repo NO se usa (el `dockerfile: Dockerfile.rust` del compose lo
+> resuelve el manager con su plantilla). Por eso el path-dep `../glory-agent` rompía el build
+> (`failed to read /glory-agent/Cargo.toml`): se cambió a git-dep pineado
+> `rev=f2f19e7` (publicado en `origin/main` de glory-agent, con caché `.sqlx`); build hermético
+> en cualquier layout. `check/clippy/test` verdes con el git-dep.
 1. Mover `INMOBILIARIA/*` → `MN-Inmobiliaria/frontend/` (reemplaza stub; conservar `.gitignore`,
    `orval.config.ts` del template si aplica; `prebuild generar-llms` sigue válido).
 2. Backend: servir `STATIC_DIR` (`/app/dist`) con fallback SPA a `index.html` (solo si el
@@ -83,19 +90,28 @@
    `Dockerfile.rust` sigue pineado a `GLORY_AGENT_REF=9e357fb` (estado verificado en el humo;
    subir el pin solo tras revalidar).
 3. `github.com/1ndoryu/mn-inmobiliaria` (público): `inmobiliaria` local → `main` remoto
-   (`0407ff8e`). Ramas locales intactas para no interferir con la sesión paralela.
+   (`0407ff8e` + `944bacf8` con el git-dep 239A-2). Ramas locales intactas para no interferir
+   con la sesión paralela.
 
-### Fase 3 — Recompilar manager + preflight (local)
+### Fase 3 — Recompilar manager + preflight (local) — COMPLETADA 2026-09-23
 1. `cargo build --release` con `CARGO_TARGET_DIR=C:\tmp\glory-target\coolify-manager`.
-2. `cm --version`, `cm list`, `cm new --help` (la ayuda manda; confirmar flags
+2. `cm --version` (1.0.0), `cm list` (10 sitios), `cm new --help` (la ayuda manda; confirmar flags
    `--repo-url/--app-bin/--frontend-dir/--glory-branch`).
+3. Build inicial 13m50s; la tarea horaria `GloryTmpSweep` purgó el target en idle (>60 min) y
+   hubo que recompilar (9m24s con `RUSTC_WRAPPER=sccache`): para rachas deploy, recompilar
+   justo antes o verificar el binario con `Test-Path` antes de invocarlo.
 
-### Fase 4 — Crear sitio (REQUIERE autorización explícita del usuario en el momento)
+### Fase 4 — Crear sitio — COMPLETADA 2026-09-23 (autorización explícita del usuario)
 - `cm new --name inmobiliaria --domain "https://mn-inmobiliaria.com" --template rust
-  --glory-branch inmobiliaria --repo-url "https://github.com/1ndoryu/mn-inmobiliaria.git"
+  --glory-branch main --repo-url "https://github.com/1ndoryu/mn-inmobiliaria.git"
   --app-bin glory-backend --frontend-dir frontend --skip-theme --skip-cache`
-- `sync-env` para `OPENCODE_GO_API_KEY`, `GLORY_API_URL`, `AGENTE_CONTACTO`;
-  `VITE_API_URL` como build-arg en panel Coolify. Verificar con `exec printenv`.
+  → UUID `as0scgwg44wkkkccgwcwg8w0`.
+- `sync-env push` BLOQUEADO por validación del manager: exige `VITE_STRIPE_PUBLISHABLE_KEY`,
+  `GLORY_STRIPE_SECRET_KEY`, `GLORY_STRIPE_WEBHOOK_SECRET` en local aunque el proyecto no usa
+  Stripe, y el `RUST_PUSH_ALLOWLIST` no incluye `AGENTE_CONTACTO`/`OPENCODE_GO_API_KEY` (además
+  el backend no lee esas 3 claves: ni `src/`, ni `frontend/src/`, ni glory-agent las referencian).
+  Mejora pendiente al manager: template rust sin Stripe / required-keys por sitio. No se pusieron
+  dummies (ensuciarían prod y el `VITE_*` se hornearía en el front).
 
 ### Fase 5 — Migración de datos (con backup pre-write; SIN `--skip-backup`)
 1. `pg_dump` data-only de `glory_backend_inmobiliaria` (tablas `users/inmuebles/fotos/
@@ -108,12 +124,19 @@
    con la misma versión del crate, aplicado vía `run-sql`); eliminar `import@example.com`
    (confirmar en el momento).
 
-### Fase 6 — Deploy + verificación (autorización explícita)
-1. `deploy --name inmobiliaria --update` (build Rust 8–12 min; 503 intermedio = normal).
-2. `health` + `logs --target app --lines 50`.
-3. E2E contra `https://mn-inmobiliaria.com`: 11 publicados, fotos HD, login
-   `admin@admin.com`, guardar receta, crear solicitud de prueba y borrarla,
-   WhatsApp `wa.me/584249208855` (modo prod, sin banner local).
+### Fase 6 — Deploy + verificación (autorización explícita) — PARCIAL 2026-09-23
+1. `deploy --name inmobiliaria --update --skip-backup` (primer deploy: no hay contenedor que
+   respaldar; build 456 s). Falla 1: path-dep glory-agent (→ 239A-2 git-dep). Tras el fix:
+   swap OK, contenedor vivo (`Servidor iniciando en 0.0.0.0:3000`, `Front SPA embebido desde
+   Some("/app/dist")`, cwd `/app` ⇒ `./uploads` cae en el bind `/data/uploads/inmobiliaria`).
+2. Salud INTERNA verificada por `exec`: `curl localhost:3000/api/health` →
+   `{"status":"ok","version":"0.1.0"}`; `/app/dist/index.html` existe; `run-sql`:
+   13 migraciones aplicadas, `inmuebles` = 0 (pendiente Fase 5). Warning E17 (bind en clave
+   `volumes`) cosmético; fixes post-build aplicados, `Runtime OK`.
+3. Salud PÚBLICA bloqueada: `https://mn-inmobiliaria.com` no resuelve (sin DNS Contabo) →
+   el manager hizo rollback automático (inofensivo: recreó el mismo contenedor nuevo).
+   E2E público pendiente de Fase 7: 11 publicados, fotos HD, login `admin@admin.com`,
+   guardar receta, solicitud de prueba + borrado, WhatsApp `wa.me/584249208855`.
 
 ### Fase 7 — DNS Contabo (usuario, paso final)
 1. En Contabo: registro A `mn-inmobiliaria.com` (+ `www` si se quiere) → IP del VPS

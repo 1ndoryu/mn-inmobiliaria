@@ -38,11 +38,19 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - Mejora IA queda solo-local (prompt Ultra HD + descarga `=s0` validados);
   cookies fuera del VPS; sync prod→local solo lectura.
 - Fase 1 cerrada 2026-09-23 (`39f383de`+`4c9f1d45`): humo local `/`+fallback SPA 200,
-  `/api/health` 200, 11 publicados; `Dockerfile.rust` clona `glory-agent` a ref pineado
-  (publicarlo es Fase 2).
-- Requiere del usuario: autorización explícita `cm new` (Fase 4), DNS Contabo al final.
-  (Fase 2 hecha 2026-09-23: repos públicos `1ndoryu/glory-agent` y `1ndoryu/mn-inmobiliaria`
-  con `main` por defecto y push al día.)
+  `/api/health` 200, 11 publicados. En prod manda el `Dockerfile.rust` del template del
+  manager (no el del repo): 239A-2 (`944bacf8`) cambió `glory-agent` a git-dep pineado
+  `f2f19e7` tras el fallo `failed to read /glory-agent/Cargo.toml`.
+- Fase 3+4 hechas 2026-09-23: manager recompilado (1.0.0), sitio `inmobiliaria`
+  (`as0scgwg44wkkkccgwcwg8w0`) creado. `sync-env push` bloqueado (el manager exige claves
+  Stripe que el proyecto no usa; mejora pendiente a la herramienta, sin dummies).
+- Fase 6 parcial 2026-09-23: deploy OK (swap, 13 migraciones, salud interna
+  `{"status":"ok"}` por `exec`); salud pública bloqueada sin DNS. Pendiente: Fase 5
+  (dump data-only + `import-database` + `uploads/` + rotar admin + quitar
+  `import@example.com`) y E2E público tras el DNS.
+- Requiere del usuario: DNS Contabo (registro A → IP del VPS) + nueva password admin para
+  la rotación de Fase 5.4. (Fase 2 hecha 2026-09-23: repos públicos `1ndoryu/glory-agent`
+  y `1ndoryu/mn-inmobiliaria` con `main` por defecto y push al día.)
 
 ## Receta publicitaria en el servidor (229A-2, en curso 2026-09-22)
 
