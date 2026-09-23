@@ -26,6 +26,23 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
+## Deploy mn-inmobiliaria.com (239A-1, en curso 2026-09-23)
+
+- Plan: `Agente/planes/plan-deploy-produccion-2026-09-23.md`.
+- Monorepo: `INMOBILIARIA/*` → `frontend/`; servir `STATIC_DIR` + fallback SPA;
+  CORS prod solo dominio; `Dockerfile.rust` multi-stage (`VITE_API_URL` build-arg).
+- Fase 0 cerrada 2026-09-23: commits receta+mejora (INMOBILIARIA `5a113f5`,
+  `70a6361`) y suscriptor+plan (`6cd8a90e`, `3ac8ca46`); `.env` a
+  `glory_backend_inmobiliaria`; gate local verde (tsc, vite build, fmt, check,
+  clippy `-D warnings`, test 15/15).
+- Mejora IA queda solo-local (prompt Ultra HD + descarga `=s0` validados);
+  cookies fuera del VPS; sync prod→local solo lectura.
+- Fase 1 cerrada 2026-09-23 (`39f383de`+`4c9f1d45`): humo local `/`+fallback SPA 200,
+  `/api/health` 200, 11 publicados; `Dockerfile.rust` clona `glory-agent` a ref pineado
+  (publicarlo es Fase 2).
+- Requiere del usuario: `gh auth login` + crear repo privado (Fase 2),
+  autorización explícita `cm new` (Fase 4), DNS Contabo al final.
+
 ## Receta publicitaria en el servidor (229A-2, en curso 2026-09-22)
 
 - El modal público genera la publi con receta automática; lo configurado en
