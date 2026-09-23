@@ -18,6 +18,35 @@ pub const OPERACIONES: &[&str] = &["venta", "alquiler"];
 pub const ESTADOS: &[&str] = &["disponible", "reservado", "vendido", "alquilado"];
 /// Valores permitidos para `origen` de foto
 pub const ORIGENES_FOTO: &[&str] = &["original", "mejorada"];
+/// Valores permitidos para `formato` de receta publicitaria
+pub const FORMATOS_RECETA: &[&str] = &["post-3-4", "post-4-5", "cuadrado-1-1"];
+
+/// Receta de la imagen publicitaria: qué fotos (por ÍNDICE sobre las
+/// visibles) + formato + título + precio. Vive en `inmuebles.receta` (JSONB)
+/// para que lo configurado en admin llegue al frente público; `None` = usar
+/// la automática (portada + 2ª/3ª, 3:4). [229A-2]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate, ToSchema)]
+pub struct RecetaPublicidad {
+    #[validate(range(min = 0, message = "fondo_idx no puede ser negativo"))]
+    pub fondo_idx: i32,
+    #[validate(range(min = 0, message = "circular_grande_idx no puede ser negativo"))]
+    pub circular_grande_idx: i32,
+    #[validate(range(min = 0, message = "circular_mediano_idx no puede ser negativo"))]
+    pub circular_mediano_idx: i32,
+    pub formato: String,
+    #[serde(default = "default_con_precio")]
+    pub con_precio: bool,
+    #[validate(length(max = 120, message = "titulo1 no debe exceder 120 caracteres"))]
+    #[serde(default)]
+    pub titulo1: String,
+    #[validate(length(max = 120, message = "titulo2 no debe exceder 120 caracteres"))]
+    #[serde(default)]
+    pub titulo2: String,
+}
+
+fn default_con_precio() -> bool {
+    true
+}
 /// Extensiones de imagen aceptadas en subida (minúsculas, con punto)
 pub const EXTENSIONES_FOTO: &[&str] = &[".jpg", ".jpeg", ".png", ".webp"];
 /// Tope de subida por foto: 10 MiB
@@ -63,6 +92,8 @@ pub struct InmuebleRow {
     pub copy_larga: Option<String>,
     pub copy_modelo: Option<String>,
     pub copy_actualizada_en: Option<DateTime<Utc>>,
+    /// Receta publicitaria elegida en admin (`None` = automática)
+    pub receta: Option<sqlx::types::Json<RecetaPublicidad>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -89,6 +120,8 @@ pub struct Inmueble {
     pub publicado: bool,
     pub slug: String,
     pub copy: Option<CopyInmueble>,
+    /// Receta publicitaria elegida en admin (`None` = automática)
+    pub receta: Option<RecetaPublicidad>,
     pub fotos: Vec<FotoPublica>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -130,6 +163,7 @@ impl Inmueble {
             publicado: row.publicado,
             slug: row.slug,
             copy,
+            receta: row.receta.map(|j| j.0),
             fotos: fotos.into_iter().map(FotoPublica::from).collect(),
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -261,6 +295,9 @@ pub struct UpdateInmuebleRequest {
     /// Copy IA (`Some` la fija, `None` la deja como está; no se puede borrar por PUT)
     #[validate(nested)]
     pub copy: Option<CopyInmueble>,
+    /// Receta publicitaria (`Some` la fija, `None` la deja como está)
+    #[validate(nested)]
+    pub receta: Option<RecetaPublicidad>,
 }
 
 /// Cambio de visibilidad pública — el backend decide qué se publica

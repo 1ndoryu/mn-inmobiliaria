@@ -1,0 +1,1 @@
+ALTER TABLE inmuebles ADD COLUMN receta JSONB;

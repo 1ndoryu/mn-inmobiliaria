@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::errors::AppError;
 use crate::models::{
     AddFotoRequest, CreateInmuebleRequest, FiltrosPublicos, FotoPublica, Inmueble, InmuebleRow,
-    PaginatedInmuebles, UpdateInmuebleRequest, ESTADOS, EXTENSIONES_FOTO, MAX_FOTO_BYTES,
-    OPERACIONES, ORIGENES_FOTO, TIPOS,
+    PaginatedInmuebles, UpdateInmuebleRequest, ESTADOS, EXTENSIONES_FOTO, FORMATOS_RECETA,
+    MAX_FOTO_BYTES, OPERACIONES, ORIGENES_FOTO, TIPOS,
 };
 use crate::repositories::InmuebleRepository;
 
@@ -197,6 +197,17 @@ impl InmuebleService {
             .as_deref()
             .map(|v| Self::normalizar(v, ESTADOS, "estado"))
             .transpose()?;
+        /* El formato de la receta no admite normalización con defecto (vacío
+         * no es válido): allowlist directa. Los índices los cubre `range`
+         * del validador en el modelo. [229A-2] */
+        if let Some(receta) = &req.receta {
+            if !FORMATOS_RECETA.contains(&receta.formato.as_str()) {
+                return Err(AppError::Validation(format!(
+                    "Valor inválido para formato: {}",
+                    receta.formato
+                )));
+            }
+        }
 
         let row = InmuebleRepository::update(
             pool,
@@ -218,6 +229,7 @@ impl InmuebleService {
             req.copy.as_ref().map(|c| c.larga.as_str()),
             req.copy.as_ref().map(|c| c.modelo.as_str()),
             req.copy.as_ref().map(|c| c.actualizada_en),
+            req.receta.clone().map(sqlx::types::Json),
         )
         .await?
         .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
@@ -434,5 +446,103 @@ mod tests {
         assert!(InmuebleService::magia_valida(&png, ".png").is_ok());
         assert!(InmuebleService::magia_valida(b"RIFFxxxxWEBP", ".webp").is_ok());
         assert!(InmuebleService::magia_valida(&[], ".jpg").is_err());
+    }
+}
+
+/* [229A-2] La receta publicitaria persiste en `inmuebles.receta` (JSONB):
+ * crear la deja NULL, `update` la fija y la relectura la trae; un formato
+ * fuera del allowlist se rechaza. Humo contra la BD real de rama
+ * (`DATABASE_URL`); sin ella se omite como el resto de humos. */
+#[cfg(test)]
+mod pruebas_receta {
+    use super::*;
+    use crate::models::{CreateInmuebleRequest, RecetaPublicidad, UpdateInmuebleRequest};
+
+    fn pool_si_hay() -> Option<PgPool> {
+        let url = std::env::var("DATABASE_URL").ok()?;
+        sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy(&url)
+            .ok()
+    }
+
+    fn receta_valida() -> RecetaPublicidad {
+        RecetaPublicidad {
+            fondo_idx: 0,
+            circular_grande_idx: 1,
+            circular_mediano_idx: 2,
+            formato: "post-4-5".to_string(),
+            con_precio: false,
+            titulo1: "Casa".to_string(),
+            titulo2: "en Prueba".to_string(),
+        }
+    }
+
+    fn crear_humo() -> CreateInmuebleRequest {
+        CreateInmuebleRequest {
+            titulo: "Humo receta 229A-2".to_string(),
+            descripcion: String::new(),
+            ubicacion: String::new(),
+            puestos: 0,
+            residencia: String::new(),
+            precio: 0.0,
+            tipo: "apartamento".to_string(),
+            operacion: "venta".to_string(),
+            habitaciones: 0,
+            banos: 0,
+            metros: 0.0,
+            metros_terreno: 0.0,
+            estado: "disponible".to_string(),
+            copy: None,
+        }
+    }
+
+    fn solo_receta(receta: Option<RecetaPublicidad>) -> UpdateInmuebleRequest {
+        UpdateInmuebleRequest {
+            titulo: None,
+            descripcion: None,
+            ubicacion: None,
+            puestos: None,
+            residencia: None,
+            precio: None,
+            tipo: None,
+            operacion: None,
+            habitaciones: None,
+            banos: None,
+            metros: None,
+            metros_terreno: None,
+            estado: None,
+            copy: None,
+            receta,
+        }
+    }
+
+    #[tokio::test]
+    async fn receta_persiste_y_formato_invalido_rechaza() {
+        let Some(pool) = pool_si_hay() else { return };
+        let creado = InmuebleService::create(&pool, crear_humo()).await.unwrap();
+        assert!(creado.receta.is_none());
+
+        let con_receta =
+            InmuebleService::update(&pool, creado.id, solo_receta(Some(receta_valida())))
+                .await
+                .unwrap();
+        let guardada = con_receta.receta.expect("receta guardada");
+        assert_eq!(guardada.formato, "post-4-5");
+        assert!(!guardada.con_precio);
+
+        let releido = InmuebleService::get_admin(&pool, creado.id).await.unwrap();
+        assert_eq!(releido.receta.map(|r| r.titulo1), Some("Casa".to_string()));
+
+        let mut mala = receta_valida();
+        mala.formato = "banner-9-16".to_string();
+        let err = InmuebleService::update(&pool, creado.id, solo_receta(Some(mala)))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AppError::Validation(_)));
+
+        InmuebleService::delete(&pool, Path::new("."), creado.id)
+            .await
+            .unwrap();
     }
 }

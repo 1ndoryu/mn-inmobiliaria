@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use sqlx::{PgPool, Postgres, QueryBuilder};
 use uuid::Uuid;
 
-use crate::models::{FiltrosPublicos, Foto, InmuebleRow};
+use crate::models::{FiltrosPublicos, Foto, InmuebleRow, RecetaPublicidad};
 
 /* [159A-1] Acceso a `inmuebles`/`fotos` con prepared statements.
  * Listas públicas con QueryBuilder: el SQL dinámico solo concatena
@@ -13,7 +13,7 @@ use crate::models::{FiltrosPublicos, Foto, InmuebleRow};
 
 const COLUMNAS: &str = "id, titulo, descripcion, ubicacion, puestos, residencia, precio, \
     tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, publicado, \
-    slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, created_at, updated_at";
+    slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, receta, created_at, updated_at";
 
 /// Valores ya normalizados listos para insertar
 pub struct NuevoInmueble<'a> {
@@ -188,6 +188,7 @@ impl InmuebleRepository {
         copy_larga: Option<&str>,
         copy_modelo: Option<&str>,
         copy_actualizada_en: Option<chrono::DateTime<chrono::Utc>>,
+        receta: Option<sqlx::types::Json<RecetaPublicidad>>,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
         sqlx::query_as::<_, InmuebleRow>(&format!(
             "UPDATE inmuebles \
@@ -206,11 +207,12 @@ impl InmuebleRepository {
                  estado = COALESCE($13, estado), \
                  copy_corta = COALESCE($14, copy_corta), \
                  copy_larga = COALESCE($15, copy_larga), \
-                 copy_modelo = COALESCE($16, copy_modelo), \
-                 copy_actualizada_en = COALESCE($17, copy_actualizada_en), \
-                 updated_at = NOW() \
-             WHERE id = $18 \
-             RETURNING {COLUMNAS}",
+                  copy_modelo = COALESCE($16, copy_modelo), \
+                  copy_actualizada_en = COALESCE($17, copy_actualizada_en), \
+                  receta = COALESCE($18, receta), \
+                  updated_at = NOW() \
+              WHERE id = $19 \
+              RETURNING {COLUMNAS}",
         ))
         .bind(titulo)
         .bind(descripcion)
@@ -229,6 +231,7 @@ impl InmuebleRepository {
         .bind(copy_larga)
         .bind(copy_modelo)
         .bind(copy_actualizada_en)
+        .bind(receta)
         .bind(id)
         .fetch_optional(pool)
         .await

@@ -26,7 +26,15 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
-*(Agregar nuevas tareas aquí)*
+## Receta publicitaria en el servidor (229A-2, en curso 2026-09-22)
+
+- El modal público genera la publi con receta automática; lo configurado en
+  admin vive solo en `localStorage` del admin y nunca llega al público.
+- Backend: columna `inmuebles.receta JSONB` (migración `...12`), struct
+  `RecetaPublicidad` validada (formato allowlist, índices >= 0), `PUT`
+  la fija, el `GET` público la expone.
+- Front (repo `INMOBILIARIA`): `guardar` hace PUT con la receta; el modal
+  público usa `i.receta` (servidor manda, local queda de reserva).
 
 ## Notas
 
