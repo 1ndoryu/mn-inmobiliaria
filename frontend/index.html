@@ -2,8 +2,20 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Glory RS</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#18181b" />
+    <meta name="description" content="Gestor de inmobiliaria: inmuebles, fotos, precio y ubicación." />
+    <title>Inmobiliaria — Gestión de inmuebles</title>
+    <script>
+      // Aplica el tema antes del primer pintado para evitar parpadeo.
+      try {
+        var t = localStorage.getItem('inmobiliaria:tema:v1') || 'sistema';
+        if (t === 'oscuro' || (t === 'sistema' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

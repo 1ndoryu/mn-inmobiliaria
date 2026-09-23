@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rescate — Copia de seguridad INMOBILIARIA</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+  button { font-size: 1rem; padding: .6rem 1.2rem; cursor: pointer; }
+  pre { background: #111; color: #eee; padding: 1rem; border-radius: 8px; white-space: pre-wrap; }
+  .ok { color: green; } .err { color: crimson; }
+</style>
+</head>
+<body>
+<h1>Rescate INMOBILIARIA</h1>
+<p>Abre esta página <strong>en el Chrome donde ves los 5 inmuebles</strong>
+(misma dirección que la app, p. ej. <code>http://127.0.0.1:5199/rescate.html</code>).
+No escribe nada: solo lee y descarga.</p>
+<p>
+  <button id="btn">1) Leer y descargar copia completa (.json)</button>
+</p>
+<pre id="salida">Pulsa el botón…</pre>
+<script>
+(async function () {
+  const salida = document.getElementById('salida');
+  const btn = document.getElementById('btn');
+  const log = (m) => { salida.textContent += '\n' + m; };
+
+  function leerLocalStorage() {
+    const datos = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('inmobiliaria:') === 0) {
+        const raw = localStorage.getItem(k);
+        try { datos[k] = JSON.parse(raw); }
+        catch { datos[k] = { __raw: raw }; }
+      }
+    }
+    return datos;
+  }
+
+  function abrirBdSoloLectura() {
+    return new Promise((resolve, reject) => {
+      if (typeof indexedDB === 'undefined') { reject(new Error('Sin IndexedDB')); return; }
+      // Sin número de versión: abre la actual sin migrar ni crear nada.
+      const req = indexedDB.open('inmobiliaria');
+      req.onupgradeneeded = () => {
+        // Si no existía, no hay nada que rescatar; aborta sin crear.
+        req.transaction.abort();
+        resolve(null);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('No se pudo abrir IndexedDB'));
+    });
+  }
+
+  function leerStore(db, nombre) {
+    return new Promise((resolve, reject) => {
+      try {
+        const trx = db.transaction(nombre, 'readonly');
+        const req = trx.objectStore(nombre).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error || new Error('Error leyendo ' + nombre));
+      } catch (e) { reject(e); }
+    });
+  }
+
+  btn.onclick = async () => {
+    salida.textContent = 'Leyendo…';
+    try {
+      const ls = leerLocalStorage();
+      const claves = Object.keys(ls);
+      log('localStorage: ' + claves.length + ' claves (' + claves.join(', ') + ')');
+
+      let fotosInmueble = [], fotosMejora = [], bdAusente = false;
+      const db = await abrirBdSoloLectura();
+      if (!db) {
+        bdAusente = true;
+        log('IndexedDB: no existe la base "inmobiliaria" en este navegador.');
+      } else {
+        try {
+          if (db.objectStoreNames.contains('fotos-inmueble')) {
+            fotosInmueble = await leerStore(db, 'fotos-inmueble');
+          }
+          if (db.objectStoreNames.contains('fotos-mejora')) {
+            fotosMejora = await leerStore(db, 'fotos-mejora');
+          }
+          log('IndexedDB fotos-inmueble: ' + fotosInmueble.length + ' registros.');
+          log('IndexedDB fotos-mejora: ' + fotosMejora.length + ' registros.');
+        } finally { db.close(); }
+      }
+
+      const meta = ls['inmobiliaria:inmuebles:v1'];
+      const nInm = Array.isArray(meta) ? meta.length : 0;
+      let nFotos = 0;
+      for (const r of fotosInmueble) nFotos += (r.fotos || []).length;
+
+      const copia = {
+        app: 'inmobiliaria-rescate-v1',
+        exportedAt: new Date().toISOString(),
+        origin: location.origin,
+        resumen: { inmuebles: nInm, registrosFotos: fotosInmueble.length, fotosTotal: nFotos, fotosMejora: fotosMejora.length, bdAusente },
+        localStorage: ls,
+        indexeddb: { 'fotos-inmueble': fotosInmueble, 'fotos-mejora': fotosMejora },
+      };
+      const texto = JSON.stringify(copia);
+      const blob = new Blob([texto], { type: 'application/json' });
+      const a = document.createElement('a');
+      const f = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'inmobiliaria-rescate-' + f.getFullYear() + pad(f.getMonth()+1) + pad(f.getDate())
+        + '-' + pad(f.getHours()) + pad(f.getMinutes()) + '.json';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      log('OK: ' + nInm + ' inmuebles, ' + nFotos + ' fotos en ' + (texto.length/1048576).toFixed(1) + ' MB descargados.');
+      log('Guarda ese .json a buen recaudo y dime: inmuebles, fotos y MB.');
+    } catch (e) {
+      log('ERROR: ' + (e && e.message ? e.message : e));
+    }
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+@import "@fontsource-variable/geist";
+@import "tailwindcss";
+
+@theme {
+  /* Söhne de driesbos.com (Buch 400 / Kräftig 700), alojada temporal
+   * pendiente de licencia Klim; relevo por sistema si falta un glifo. */
+  --font-soehne: 'Söhne', 'Helvetica Neue', Arial, system-ui, sans-serif;
+}
+
+/* Söhne Buch (texto) y Kräftig (destacados). Subsets temporales. */
+@font-face {
+  font-family: 'Söhne';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/soehne-buch.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Söhne';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/soehne-kraftig.woff2') format('woff2');
+}
+
+/* Inter variable (400–800) para la imagen publicitaria: el Figma "Post
+ * con Ubicacion y puestos" va en Inter Bold; el canvas la pide como
+ * primera familia y cae a Söhne/sistema si el archivo falta. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-variable.woff2') format('woff2');
+}
+
+/* Receta de render de driesbos.com para Söhne (mismo subset): sin ella,
+ * Windows usa hinting agresivo y la letra se ve gruesa/borrosa.
+ * `geometricPrecision` prioriza la geometría sobre el hinting. */
+.font-soehne {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  font-kerning: normal;
+}
+
+/* Tamaño único de texto de la página pública: cambiar este valor lo
+ * cambia en toda la página (logo, buscador, filtros, títulos, specs,
+ * precio y paginación). Peso 400 e interletraje normal en todos. */
+:root {
+  --texto-publica: 16px;
+}
+.texto-publica {
+  font-size: var(--texto-publica);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+/* Descanso asistido en la hoja (scroll-snap con proximity: la deja clavada
+ * a 200px bajo la cabecera al soltar cerca, sin atrapar el scroll dentro
+ * de la lista larga). Las fases del cuadro van libres, sin snap. */
+html {
+  scroll-snap-type: y proximity;
+}
+
+/* Fundido del cuadro de presentación ligado al scroll de la página (CSS
+ * scroll-driven, sin JS): opacidad 1→0 mientras la hoja sube y lo tapa.
+ * Sin soporte en el navegador, el cuadro queda fijo detrás. */
+@keyframes desvanecer-presentacion {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.desvanecer-presentacion {
+  animation: desvanecer-presentacion linear both;
+  animation-timeline: scroll();
+  animation-range: 0 calc(100dvh - 107px);
+}
+/* Presentación en 3 fases (pista de 130dvh con escenario fijo): de pantalla
+ * completa sin márgenes a caja (16px + tope bajo cabecera + 1120 máx), y
+ * fundido que se solapa con la llegada de la hoja (la cubre al subir,
+ * como antes). Una sola regla combina ambas animaciones: dos `animation`
+ * separados se pisarían entre sí. Sin soporte, caja fija. */
+/* Sin mates con % (el minificador las rompe): el centrado se logra con
+ * left 50% + translate -50%, y el tope de ancho con min(). */
+@keyframes encoger-presentacion {
+  from {
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    translate: 0 0;
+  }
+  to {
+    top: 83px;
+    left: 50%;
+    bottom: 24px;
+    width: min(100%, 1120px);
+    translate: -50% 0;
+  }
+}
+.fases-presentacion {
+  animation: encoger-presentacion linear both, desvanecer-presentacion linear both;
+  animation-timeline: scroll(root), scroll(root);
+  animation-range: 0 15dvh, 12dvh 90dvh;
+}
+@media (prefers-reduced-motion: reduce) {
+  .desvanecer-presentacion {
+    animation: none;
+  }
+  .parpadeo-cursor {
+    animation: none;
+  }
+  .fases-presentacion {
+    animation: none;
+    top: 83px;
+    left: 50%;
+    bottom: 24px;
+    width: min(100%, 1120px);
+    translate: -50% 0;
+    opacity: 1;
+  }
+}
+
+/* Cursor de la máquina de escribir del titular (concepto 2): parpadeo
+ * por pasos con animación temporal (no ligada al scroll). Valores
+ * simples a propósito: el minificador rompe mates con % en keyframes. */
+@keyframes parpadeo-cursor {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.parpadeo-cursor {
+  animation: parpadeo-cursor 1.1s steps(1) infinite;
+}
+
+/* Puente shadcn→v4: las utilidades bg-background, text-muted-foreground…
+ * siguen leyendo las variables del tema (claro/oscuro del admin). */
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+/* Tema oficial shadcn "neutral" en formato HSL (canales sin envoltorio;
+ * el puente @theme inline les añade el hsl()). */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 9%;
+    --radius: 0.625rem;
+  }
+  .dark {
+    --background: 0 0% 9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 100% / 10%;
+    --input: 0 0% 100% / 15%;
+    --ring: 0 0% 64%;
+  }
+  * {
+    @apply border-border;
+  }
+  /* Scroll minimalista global: fino, sin flechas, adaptado al tema.
+     El color sale del propio tema (foreground con transparencia). */
+  :root {
+    color-scheme: light;
+    --scroll-thumb: hsl(0 0% 9% / 22%);
+    --scroll-thumb-hover: hsl(0 0% 9% / 38%);
+  }
+  .dark {
+    color-scheme: dark;
+    --scroll-thumb: hsl(0 0% 98% / 22%);
+    --scroll-thumb-hover: hsl(0 0% 98% / 38%);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover);
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Geist Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
+  }
+  /* El nav del aside nunca empuja el lateral fuera de la pantalla: si la
+   * lista de inmuebles crece, el desplazamiento lo absorbe el main/aside. */
+  aside nav {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}

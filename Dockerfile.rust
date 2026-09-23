@@ -1,0 +1,51 @@
+# [239A-1] Imagen de produccion del monorepo MN-Inmobiliaria (Rust + SPA).
+# Etapa 1: build del front (Vite) con la URL publica horneada.
+# Etapa 2: build del binario `glory-backend` (el repo se clona como
+#   /src/mn-inmobiliaria y `glory-agent` como /src/glory-agent para que el
+#   path-dep `../glory-agent` de Cargo.toml resuelva igual que en local).
+# Etapa 3: runtime minimo debian-slim con binario + /app/dist + migraciones
+#   (el binario ejecuta `sqlx::migrate!()` al arrancar).
+#
+# Requiere publicados: github.com/1ndoryu/mn-inmobiliaria (este repo) y
+# github.com/1ndoryu/glory-agent en el ref de GLORY_AGENT_REF.
+
+# ---------- Etapa 1: front ----------
+FROM node:20-bookworm-slim AS front
+WORKDIR /front
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY frontend/ ./
+ARG VITE_API_URL=https://mn-inmobiliaria.com
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build
+
+# ---------- Etapa 2: backend ----------
+FROM rust:bookworm AS back
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+ARG GLORY_AGENT_URL=https://github.com/1ndoryu/glory-agent.git
+ARG GLORY_AGENT_REF=9e357fb
+WORKDIR /src/mn-inmobiliaria
+COPY . ./
+RUN git submodule update --init --depth 1 || true
+RUN git clone "${GLORY_AGENT_URL}" /src/glory-agent \
+    && git -C /src/glory-agent checkout --detach "${GLORY_AGENT_REF}"
+RUN cargo build --release --bin glory-backend
+
+# ---------- Etapa 3: runtime ----------
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl tzdata \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=back /src/mn-inmobiliaria/target/release/glory-backend /app/glory-backend
+COPY --from=front /front/dist /app/dist
+RUN mkdir -p /app/uploads
+ENV HOST=0.0.0.0 \
+    PORT=3000 \
+    UPLOAD_DIR=/app/uploads \
+    STATIC_DIR=/app/dist \
+    RUST_LOG=info
+EXPOSE 3000
+CMD ["/app/glory-backend"]

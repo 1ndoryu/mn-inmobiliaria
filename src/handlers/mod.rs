@@ -14,9 +14,12 @@ mod suscriptor;
 mod uploads;
 mod users;
 
+use std::path::{Path, PathBuf};
+
+use axum::http::{HeaderValue, Method, StatusCode, Uri};
 use axum::routing::get;
 use axum::Router;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -126,15 +129,47 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
         jwt_secret: config.jwt_secret,
         upload_dir: config.upload_dir.into(),
         hub,
+        static_dir: config.static_dir.map(PathBuf::from),
     };
 
-    /* CORS: en desarrollo se permite todo. En producción, restringir orígenes */
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    /* [239A-1] CORS: abierto solo si no hay `CORS_ORIGINS` (dev). En prod se
+     * fija `CORS_ORIGINS=https://mn-inmobiliaria.com` y el resto se rechaza. */
+    let permitidos: Vec<HeaderValue> = config
+        .cors_origins
+        .iter()
+        .filter_map(|o| o.parse().ok())
+        .collect();
+    let cors = if permitidos.is_empty() {
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    } else {
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(permitidos))
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::PATCH,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers(Any)
+    };
 
-    Router::new()
+    /* [239A-1] Monorepo: si `STATIC_DIR` trae `index.html`, el front SPA se
+     * sirve desde el propio binario (fichero tal cual o `index.html`). En dev
+     * (sin `STATIC_DIR`) no se registra nada y todo sigue igual. */
+    let sirve_front = state
+        .static_dir
+        .as_ref()
+        .is_some_and(|d| d.join("index.html").is_file());
+    if sirve_front {
+        tracing::info!("Front SPA embebido desde {:?}", state.static_dir);
+    }
+
+    let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/uploads/:inmueble/:archivo", get(uploads::servir_archivo))
         .route(
@@ -146,8 +181,14 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
          * nest exige el mismo estado. Despoja /api igual que nest. */
         .nest_service("/api", agent)
         .layer(TraceLayer::new_for_http())
-        .layer(cors)
-        .with_state(state)
+        .layer(cors);
+    /* El fallback va antes de `with_state`: el handler usa `State<AppState>`. */
+    let app = if sirve_front {
+        app.fallback(fallback_spa)
+    } else {
+        app
+    };
+    app.with_state(state)
 }
 
 fn api_routes() -> Router<AppState> {
@@ -172,4 +213,69 @@ fn admin_routes() -> Router<AppState> {
         /* [199A-1] Centro de IA de texto: estado/config/probar/completar
          * (rutas bajo /api/admin/ia). */
         .merge(ia::routes())
+}
+
+/* [239A-1] SPA del monorepo: sirve el fichero tal cual si existe y cae a
+ * `index.html` en cualquier otra ruta (el front resuelve sus rutas). Las
+ * rutas de API nunca caen aquí: devuelven 404 seco para no enmascarar
+ * errores del backend con HTML. */
+async fn fallback_spa(
+    axum::extract::State(est): axum::extract::State<AppState>,
+    uri: Uri,
+) -> impl axum::response::IntoResponse {
+    use axum::response::IntoResponse as _;
+    const RUTAS_API: [&str; 4] = ["/api", "/uploads", "/swagger-ui", "/api-docs"];
+    let ruta = uri.path();
+    if RUTAS_API
+        .iter()
+        .any(|p| ruta == *p || ruta.starts_with(&format!("{p}/")))
+    {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let base = est.static_dir.unwrap_or_default();
+    /* `is_file` y no `exists`: `/` resuelve al propio directorio base y debe
+     * caer a `index.html` en vez de intentar leer el directorio. */
+    let candidato = Path::new(&base).join(ruta.trim_start_matches('/'));
+    let archivo = if es_fichero(&candidato).await {
+        candidato
+    } else {
+        Path::new(&base).join("index.html")
+    };
+    match tokio::fs::read(&archivo).await {
+        Ok(bytes) => {
+            let ext = archivo
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or_default();
+            (
+                [(axum::http::header::CONTENT_TYPE, tipo_contenido(ext))],
+                bytes,
+            )
+                .into_response()
+        }
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+/// `true` si la ruta es un fichero legible (no directorio).
+async fn es_fichero(p: &Path) -> bool {
+    tokio::fs::metadata(p).await.is_ok_and(|m| m.is_file())
+}
+
+/// `Content-Type` mínimo para los ficheros del SPA (el `index.html` del build
+/// solo referencia `.js`, `.css`, imágenes y fuentes).
+fn tipo_contenido(ext: &str) -> &'static str {
+    match ext {
+        "html" => "text/html; charset=utf-8",
+        "js" => "text/javascript; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "json" | "map" => "application/json",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "ico" => "image/x-icon",
+        "woff2" => "font/woff2",
+        _ => "application/octet-stream",
+    }
 }

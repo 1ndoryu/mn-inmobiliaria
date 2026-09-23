@@ -5,6 +5,7 @@
 
 # Environment (secrets)
 .env
+/frontend/.env.local
 
 # Frontend
 /frontend/node_modules/

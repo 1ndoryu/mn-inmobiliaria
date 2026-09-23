@@ -25,6 +25,10 @@ async fn servidor() -> (String, sqlx::PgPool) {
         host: "127.0.0.1".to_string(),
         port: 0,
         upload_dir: r"C:\tmp\humo169A4-uploads-test".to_string(),
+        /* [239A-1] Monorepo: el humo corre sin front embebido ni CORS
+         * restringido (igual que dev sin `STATIC_DIR`/`CORS_ORIGINS`). */
+        static_dir: None,
+        cors_origins: Vec::new(),
     };
     let app = glory_backend::handlers::create_router(pool.clone(), config.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

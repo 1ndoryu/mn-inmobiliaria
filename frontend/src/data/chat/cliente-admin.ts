@@ -1,0 +1,68 @@
+// Cliente staff del chat con IA (169A-5): bandeja, hilo, responder,
+// tomar/soltar IA y config. Reutiliza `apiFetch` (JWT + 401) y el tipo
+// `MensajeServidor` del cliente visitante: nada duplicado.
+
+import { apiFetch } from '../inmuebles/api';
+import type { MensajeServidor } from './cliente-chat';
+
+export type EstadoSesionChat = 'open' | 'escalated' | 'closed';
+
+/* Fila de `GET /api/admin/agent/sesiones` (snake_case del backend). */
+export interface ResumenSesion {
+  id: string;
+  visitor_name: string | null;
+  contact: string | null;
+  status: string;
+  ai_enabled: boolean;
+  last_body: string | null;
+  last_sender: string | null;
+  last_at: string | null;
+  alertas: number | null;
+  updated_at: string;
+}
+
+/* Allowlist del backend (`CLAVES_CONFIG` en `chat_staff.rs`). */
+export const CLAVES_CONFIG = [
+  'prompt_extra',
+  'contacto_telefono',
+  'whatsapp_admin',
+  'ai_enabled_global',
+  'tools_deshabilitadas',
+] as const;
+export type ClaveConfig = (typeof CLAVES_CONFIG)[number];
+export type MapaConfig = Record<ClaveConfig, string | null>;
+
+export function listarSesiones(estado?: EstadoSesionChat): Promise<ResumenSesion[]> {
+  const q = estado ? `?estado=${estado}&limit=100` : '?limit=100';
+  return apiFetch<ResumenSesion[]>(`/api/admin/agent/sesiones${q}`);
+}
+
+export function historialSesion(id: string): Promise<MensajeServidor[]> {
+  return apiFetch<MensajeServidor[]>(`/api/admin/agent/sesiones/${encodeURIComponent(id)}/historial?limit=100`);
+}
+
+/* Responder toma el hilo (backend apaga la IA y marca `escalated`). */
+export function responderSesion(id: string, texto: string): Promise<{ ok: boolean; sequence_num: number }> {
+  return apiFetch(`/api/admin/agent/sesiones/${encodeURIComponent(id)}/mensajes`, {
+    method: 'POST',
+    body: JSON.stringify({ body: texto }),
+  });
+}
+
+export function actualizarSesion(
+  id: string,
+  cambio: { aiEnabled?: boolean; status?: EstadoSesionChat },
+): Promise<ResumenSesion> {
+  return apiFetch(`/api/admin/agent/sesiones/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(cambio),
+  });
+}
+
+export function leerConfig(): Promise<MapaConfig> {
+  return apiFetch<MapaConfig>('/api/admin/agent/config');
+}
+
+export function guardarConfig(valores: Partial<Record<ClaveConfig, string>>): Promise<{ ok: boolean }> {
+  return apiFetch('/api/admin/agent/config', { method: 'PUT', body: JSON.stringify(valores) });
+}
