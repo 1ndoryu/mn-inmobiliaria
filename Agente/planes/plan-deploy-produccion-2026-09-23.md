@@ -76,12 +76,14 @@
    y se suben a prod con el modal de fotos normal. Las 34 mejoradas ya importadas viajan
    con `uploads/` sin problema (son ficheros estáticos).
 
-### Fase 2 — GitHub (acción del usuario)
-1. `gh auth login` (o web).
-2a. Crear `github.com/1ndoryu/glory-agent` (privado) + push `master` (al menos `9e357fb`,
-   ref pineado en `Dockerfile.rust`): sin esto el build Docker no resuelve el path-dep.
-2b. Crear `github.com/1ndoryu/mn-inmobiliaria` (privado) + push rama `inmobiliaria`
-   (incluye `frontend/` fusionado + `Dockerfile.rust`; el template-remote se conserva).
+### Fase 2 — GitHub — COMPLETADA 2026-09-23 (repos PÚBLICOS, rama `main`)
+1. Sesión `gh` como `1ndoryu` guardada en el equipo (token classic con scope `repo`;
+   el fine-grained no puede crear repos: `createRepository` denegado).
+2. `github.com/1ndoryu/glory-agent` (público): `master` local → `main` remoto (`962e463`).
+   `Dockerfile.rust` sigue pineado a `GLORY_AGENT_REF=9e357fb` (estado verificado en el humo;
+   subir el pin solo tras revalidar).
+3. `github.com/1ndoryu/mn-inmobiliaria` (público): `inmobiliaria` local → `main` remoto
+   (`0407ff8e`). Ramas locales intactas para no interferir con la sesión paralela.
 
 ### Fase 3 — Recompilar manager + preflight (local)
 1. `cargo build --release` con `CARGO_TARGET_DIR=C:\tmp\glory-target\coolify-manager`.

@@ -40,8 +40,9 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - Fase 1 cerrada 2026-09-23 (`39f383de`+`4c9f1d45`): humo local `/`+fallback SPA 200,
   `/api/health` 200, 11 publicados; `Dockerfile.rust` clona `glory-agent` a ref pineado
   (publicarlo es Fase 2).
-- Requiere del usuario: `gh auth login` + crear repo privado (Fase 2),
-  autorización explícita `cm new` (Fase 4), DNS Contabo al final.
+- Requiere del usuario: autorización explícita `cm new` (Fase 4), DNS Contabo al final.
+  (Fase 2 hecha 2026-09-23: repos públicos `1ndoryu/glory-agent` y `1ndoryu/mn-inmobiliaria`
+  con `main` por defecto y push al día.)
 
 ## Receta publicitaria en el servidor (229A-2, en curso 2026-09-22)
 
