@@ -113,16 +113,21 @@
   Mejora pendiente al manager: template rust sin Stripe / required-keys por sitio. No se pusieron
   dummies (ensuciarían prod y el `VITE_*` se hornearía en el front).
 
-### Fase 5 — Migración de datos (con backup pre-write; SIN `--skip-backup`)
-1. `pg_dump` data-only de `glory_backend_inmobiliaria` (tablas `users/inmuebles/fotos/
-   solicitudes/suscriptores/agent_config/notes` si aplica; sin `_sqlx_migrations`:
-   el esquema lo crean las 13 migraciones al primer arranque).
-2. `import-database` al postgres del stack (`rust_db`).
-3. Transferir `uploads/` (230 ficheros, ~28 MB) al bind `/data/uploads/inmobiliaria`
-   vía capacidad del manager (`restore`/`exec`; nunca SCP/SSH directo).
-4. Rotar `users.password_hash` de `admin@admin.com` a hash argon2 nuevo (generado local
-   con la misma versión del crate, aplicado vía `run-sql`); eliminar `import@example.com`
-   (confirmar en el momento).
+### Fase 5 — Migración de datos — COMPLETADA 2026-09-24 (autorización explícita)
+1. `pg_dump --data-only` (11 tablas incl. `agent_*`, sin `_sqlx_migrations`) → `C:\tmp`
+   (54 KB; prod vacío confirmado: 0 users, 0 inmuebles). `import` del manager es solo-WP
+   (busca contenedor `wordpress` inexistente en stacks Rust) → se usó `run-sql --file`
+   (COPY 11/218/2). Mejora pendiente al manager: `import` agnóstico al stack.
+2. Uploads (218 filas .jpg, 234 ficheros en disco con 16 huérfanos, 27.4 MB, máx 265 KB):
+   el manager no tiene push local→volumen, así que se usó el canal propio de la app:
+   `DELETE FROM fotos` (filas huérfanas) + 218× `POST /api/admin/fotos/upload`
+   (`inmueble_id` UUID preservado, `orden`+`origen` explícitos, claves nuevas generadas
+   por el servidor). 218/218 sin fallos (2 mitades de 109, reintento ×3).
+3. Rotación PRIMERO (evita pedir la password local): password nueva de 27 chars generada
+   con `secrets.token_urlsafe`, hash argon2id vía Python (`argon2-cffi`; el crate Rust
+   `Argon2::default().verify_password` acepta cualquier param PHC) aplicado con
+   `run-sql`; login prod con la nueva password verificado (token 165 chars).
+   `import@example.com` eliminado; queda solo `admin@admin.com` (role admin).
 
 ### Fase 6 — Deploy + verificación (autorización explícita) — COMPLETADA 2026-09-24
 1. `deploy --name inmobiliaria --update --skip-backup` (primer deploy: no hay contenedor que
@@ -141,9 +146,13 @@
    existente, sin recompilar) → `Deploy exitoso! .../api/health respondiendo (status=200)`.
    Verificado desde local: `HEALTH:200 {"status":"ok","version":"0.1.0"}`,
    `HOME:200 text/html 1042 bytes` con cert válido.
-4. E2E público completo pendiente de Fase 5 (sitio vacío: 0 inmuebles): 11 publicados,
-   fotos HD, login `admin@admin.com`, guardar receta, solicitud de prueba + borrado,
-   WhatsApp `wa.me/584249208855`.
+4. E2E público COMPLETADO 2026-09-24: 11 publicados (`/api/public/inmuebles`, suma fotos
+   24+14+16+20+12+18+12+30+12+32+28 = 218), foto HD 200 (116 KB reales), login
+   `admin@admin.com` con password nueva, receta PUT (ojo: PATCH da 405; `None` en PUT
+   conserva, no borra) → visible en pública → revertida a NULL vía `run-sql`, solicitud
+   POST pública → visible en admin → borrada vía `run-sql` (no hay DELETE de solicitud),
+   WhatsApp horneado en el front (`NUMERO_WHATSAPP = '584249208855'`). Estado final
+   prod: 11 inmuebles, 218 fotos, 0 solicitudes, 1 user, `agent_config` con flags IA.
 
 ### Fase 7 — DNS (usuario) — COMPLETADA 2026-09-24
 1. Dynadot → `Dynadot DNS`; A `@` → `66.94.100.241` (la sección "Registro de dominio" ES el
