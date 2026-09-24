@@ -66,6 +66,10 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   `Agente/planes/completados/plan-optimizacion-pagespeed-seo-2026-09-24.md`.
 - Restos abiertos: F8 SEO profundo (h1/alt/canonical/JSON-LD `ItemList` si falta);
   rerun PageSpeed movil (la API devolvia 429 por cuota).
+- 249A-3 (2026-09-24, desplegada): preload del heroe muerto eliminado
+  (`PresentacionCaja` no se renderiza; 502 KB que competian con JS/CSS) + `cn`
+  local (`clsx`+`tailwind-merge`) en vez del paquete `cn`; JS 192.73 KB gzip.
+  Ver `Agente/completados/tareas-2026-09-24.md`.
 - Requiere del usuario: confirmar que https://mn-inmobiliaria.com muestra la lista
   y correr PageSpeed movil para el puntaje final.
 
