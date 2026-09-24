@@ -20,6 +20,7 @@ use axum::http::{HeaderValue, Method, StatusCode, Uri};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
+use tower_http::compression::predicate::{NotForContentType, Predicate, SizeAbove};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -183,18 +184,28 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
         .nest("/api", api_routes())
         /* nest_service porque el chat trae Router<()> (estado propio):
          * nest exige el mismo estado. Despoja /api igual que nest. */
-        .nest_service("/api", agent)
-        .layer(TraceLayer::new_for_http())
-        /* [249A-1] Compresión gzip de respuestas (el JS de 612 KB viaja
-         * comprimido; PageSpeed lo exigía: no había Content-Encoding). */
-        .layer(CompressionLayer::new())
-        .layer(cors);
-    /* El fallback va antes de `with_state`: el handler usa `State<AppState>`. */
+        .nest_service("/api", agent);
+    /* [249A-2] El fallback va ANTES de los layers: en axum un layer solo
+     * envuelve lo ya registrado; con el fallback despues de los layers el
+     * SPA (JS/CSS/HTML) salia sin gzip aunque la API si comprimia
+     * (verificado en prod: `Content-Encoding` ausente en el JS/CSS/HTML).
+     * `with_state` sigue ultimo y da estado a rutas y fallback por igual. */
     let app = if sirve_front {
         app.fallback(fallback_spa)
     } else {
         app
     };
+    let app = app
+        .layer(TraceLayer::new_for_http())
+        /* [249A-1] Compresión gzip de respuestas (el JS de 612 KB viaja
+         * comprimido; PageSpeed lo exigía: no había Content-Encoding).
+         * [249A-2] Salvo imágenes (JPEG/PNG/WebP ya van comprimidos;
+         * comprimirlos quema CPU sin ahorrar bytes) y cuerpos < 1 KB. */
+        .layer(
+            CompressionLayer::new()
+                .compress_when(SizeAbove::new(1024).and(NotForContentType::IMAGES)),
+        )
+        .layer(cors);
     app.with_state(state)
 }
 
