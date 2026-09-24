@@ -1,6 +1,6 @@
 use axum::body::Bytes;
 use axum::extract::{DefaultBodyLimit, Path, Query, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
 use axum::{Json, Router};
@@ -84,12 +84,34 @@ pub async fn upload_foto(
 pub async fn servir_archivo(
     State(state): State<AppState>,
     Path((inmueble, archivo)): Path<(String, String)>,
+    cabeceras: HeaderMap,
 ) -> Result<Response, AppError> {
     let clave = clave_valida(&format!("{inmueble}/{archivo}"))
         .ok_or_else(|| AppError::NotFound("No encontrado".into()))?;
-    let bytes = tokio::fs::read(InmuebleService::ruta_archivo(&state.upload_dir, &clave))
+    /* [249A-1] Backfill perezoso del thumb: si falta y existe el
+     * original, se genera al vuelo, se guarda y se sirve. Asi las
+     * 218 fotos existentes ganan miniatura sin migraciones ni exec. */
+    let directa = tokio::fs::read(InmuebleService::ruta_archivo(&state.upload_dir, &clave)).await;
+    let bytes = if let Ok(b) = directa {
+        b
+    } else {
+        let original = clave
+            .split_once('/')
+            .and_then(|(c, a)| a.strip_prefix("thumb-").map(|o| format!("{c}/{o}")))
+            .unwrap_or_default();
+        let crudos = tokio::fs::read(InmuebleService::ruta_archivo(&state.upload_dir, &original))
+            .await
+            .map_err(|_| AppError::NotFound("No encontrado".into()))?;
+        let mini = InmuebleService::miniatura(&crudos)
+            .ok_or_else(|| AppError::NotFound("No encontrado".into()))?;
+        tokio::fs::write(
+            InmuebleService::ruta_archivo(&state.upload_dir, &clave),
+            &mini,
+        )
         .await
-        .map_err(|_| AppError::NotFound("No encontrado".into()))?;
+        .map_err(AppError::from)?;
+        mini
+    };
     let mime = match std::path::Path::new(&clave)
         .extension()
         .and_then(|e| e.to_str())
@@ -98,7 +120,7 @@ pub async fn servir_archivo(
         Some(e) if e.eq_ignore_ascii_case("webp") => "image/webp",
         _ => "image/jpeg",
     };
-    Ok(([(header::CONTENT_TYPE, mime)], bytes).into_response())
+    Ok(respuesta_archivo(bytes, mime, &cabeceras))
 }
 
 /// Servir una foto de solicitud — pública, sin JWT (vista previa del modal
@@ -118,6 +140,7 @@ pub async fn servir_archivo(
 pub async fn servir_archivo_solicitud(
     State(state): State<AppState>,
     Path((sesion, archivo)): Path<(String, String)>,
+    cabeceras: HeaderMap,
 ) -> Result<Response, AppError> {
     let clave = clave_solicitud_valida(&sesion, &archivo)
         .ok_or_else(|| AppError::NotFound("No encontrado".into()))?;
@@ -132,7 +155,34 @@ pub async fn servir_archivo_solicitud(
         Some(e) if e.eq_ignore_ascii_case("webp") => "image/webp",
         _ => "image/jpeg",
     };
-    Ok(([(header::CONTENT_TYPE, mime)], bytes).into_response())
+    Ok(respuesta_archivo(bytes, mime, &cabeceras))
+}
+
+/* [249A-1] Fotos con caché larga + ETag: las URLs llevan `?v=<updated_at>`
+ * y el backend toca el inmueble al subir/borrar, así `immutable` es seguro.
+ * `If-None-Match` coincidente devuelve 304 sin reenviar bytes. */
+fn respuesta_archivo(bytes: Vec<u8>, mime: &'static str, cabeceras: &HeaderMap) -> Response {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut suma = DefaultHasher::new();
+    bytes.hash(&mut suma);
+    let etag = format!("\"{:x}-{}\"", suma.finish(), bytes.len());
+    if cabeceras
+        .get(header::IF_NONE_MATCH)
+        .is_some_and(|v| v.as_bytes() == etag.as_bytes())
+    {
+        return StatusCode::NOT_MODIFIED.into_response();
+    }
+    let mut mapa = HeaderMap::new();
+    mapa.insert(header::CONTENT_TYPE, HeaderValue::from_static(mime));
+    mapa.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    if let Ok(valor) = HeaderValue::from_str(&etag) {
+        mapa.insert(header::ETAG, valor);
+    }
+    (mapa, bytes).into_response()
 }
 
 /// Solo `solicitudes/<uuid>/<uuid>.<ext permitida>`: el prefijo es fijo,
@@ -151,7 +201,9 @@ fn clave_solicitud_valida(sesion: &str, archivo: &str) -> Option<String> {
         None
     }
 }
-/// Solo `<uuid>/<uuid>.<ext permitida>`: nada de `..`, subrutas ni extensiones raras
+/// Solo `<uuid>/<uuid>.<ext permitida>` (nada de `..`, subrutas ni extensiones raras)
+/// más su miniatura `thumb-<uuid>.jpg` ([249A-1]: la genera la subida o el
+/// backfill perezoso de `servir_archivo`).
 fn clave_valida(ruta: &str) -> Option<String> {
     let (inmueble, archivo) = ruta.split_once('/')?;
     if archivo.contains('/') || archivo.contains('\\') {
@@ -159,7 +211,9 @@ fn clave_valida(ruta: &str) -> Option<String> {
     }
     Uuid::parse_str(inmueble).ok()?;
     let punto = archivo.rfind('.')?;
-    Uuid::parse_str(&archivo[..punto]).ok()?;
+    let base = archivo.strip_prefix("thumb-").unwrap_or(archivo);
+    let base_sin_ext = base.strip_suffix(&archivo[punto..]).unwrap_or(base);
+    Uuid::parse_str(base_sin_ext).ok()?;
     let extension = archivo[punto..].to_lowercase();
     if EXTENSIONES_FOTO.iter().any(|e| *e == extension) {
         Some(format!("{inmueble}/{}", archivo.to_lowercase()))

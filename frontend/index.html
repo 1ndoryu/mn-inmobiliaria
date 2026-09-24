@@ -2,11 +2,39 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/img/logo-mn.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#18181b" />
-    <meta name="description" content="Gestor de inmobiliaria: inmuebles, fotos, precio y ubicación." />
-    <title>Inmobiliaria — Gestión de inmuebles</title>
+    <meta name="theme-color" content="#F59820" />
+    <meta name="description" content="MN Inmobiliaria: apartamentos, casas y locales en venta y alquiler en Puerto Ordaz, Venezuela. Fotos reales, precio claro y contacto directo por WhatsApp." />
+    <!-- [249A-1] SEO con intencion local: canonica absoluta, OG/Twitter para
+      compartir y JSON-LD del negocio (el detalle es solo-modal, sin URLs con
+      slug: el SEO por inmueble va en sitemap + ItemList, ver F5/F8). -->
+    <link rel="canonical" href="https://mn-inmobiliaria.com/" />
+    <!-- [249A-1] El heroe es fondo CSS (`presentacion.jpg` 502 KB): el preload
+      lo pone primero en la cola de red y recorta el LCP en movil. -->
+    <link rel="preload" as="image" href="/img/presentacion.jpg" fetchpriority="high" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MN Inmobiliaria" />
+    <meta property="og:title" content="MN Inmobiliaria - Inmuebles en Puerto Ordaz" />
+    <meta property="og:description" content="Apartamentos, casas y locales en venta y alquiler en Puerto Ordaz. Fotos reales y contacto directo." />
+    <meta property="og:url" content="https://mn-inmobiliaria.com/" />
+    <meta property="og:image" content="https://mn-inmobiliaria.com/img/presentacion.jpg" />
+    <meta property="og:locale" content="es_VE" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MN Inmobiliaria - Inmuebles en Puerto Ordaz" />
+    <meta name="twitter:description" content="Apartamentos, casas y locales en venta y alquiler en Puerto Ordaz." />
+    <meta name="twitter:image" content="https://mn-inmobiliaria.com/img/presentacion.jpg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "RealEstateAgent",
+        "name": "MN Inmobiliaria",
+        "url": "https://mn-inmobiliaria.com/",
+        "areaServed": { "@type": "City", "name": "Puerto Ordaz" },
+        "address": { "@type": "PostalAddress", "addressLocality": "Puerto Ordaz", "addressCountry": "VE" }
+      }
+    </script>
+    <title>MN Inmobiliaria - Inmuebles en Puerto Ordaz</title>
     <script>
       // Aplica el tema antes del primer pintado para evitar parpadeo.
       try {

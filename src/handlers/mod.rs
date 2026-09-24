@@ -17,8 +17,10 @@ mod users;
 use std::path::{Path, PathBuf};
 
 use axum::http::{HeaderValue, Method, StatusCode, Uri};
+use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
@@ -176,11 +178,16 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
             "/uploads/solicitudes/:sesion/:archivo",
             get(uploads::servir_archivo_solicitud),
         )
+        /* [249A-1] Sitemap dinámico (ruta explícita: no cae al fallback). */
+        .route("/sitemap.xml", get(sitemap))
         .nest("/api", api_routes())
         /* nest_service porque el chat trae Router<()> (estado propio):
          * nest exige el mismo estado. Despoja /api igual que nest. */
         .nest_service("/api", agent)
         .layer(TraceLayer::new_for_http())
+        /* [249A-1] Compresión gzip de respuestas (el JS de 612 KB viaja
+         * comprimido; PageSpeed lo exigía: no había Content-Encoding). */
+        .layer(CompressionLayer::new())
         .layer(cors);
     /* El fallback va antes de `with_state`: el handler usa `State<AppState>`. */
     let app = if sirve_front {
@@ -247,14 +254,61 @@ async fn fallback_spa(
                 .extension()
                 .and_then(|e| e.to_str())
                 .unwrap_or_default();
+            /* [249A-1] Caché del SPA: los ficheros con hash de Vite
+             * (`/assets/`) son inmutables un año; el HTML se revalida
+             * siempre para que cada deploy tome efecto sin purgas. */
+            let inmutable = ruta.starts_with("/assets/")
+                || matches!(
+                    ext,
+                    "js" | "css" | "woff2" | "png" | "jpg" | "jpeg" | "webp" | "svg" | "ico"
+                );
+            let control = if inmutable {
+                "public, max-age=31536000, immutable"
+            } else {
+                "no-cache"
+            };
             (
-                [(axum::http::header::CONTENT_TYPE, tipo_contenido(ext))],
+                [
+                    (axum::http::header::CONTENT_TYPE, tipo_contenido(ext)),
+                    (axum::http::header::CACHE_CONTROL, control),
+                ],
                 bytes,
             )
                 .into_response()
         }
         Err(_) => StatusCode::NOT_FOUND.into_response(),
     }
+}
+
+/* [249A-1] Sitemap mínimo y honesto: el detalle es solo-modal (sin URLs con
+ * slug indexables), así que declara `/` con su última modificación. Las URLs
+ * `/inmueble/:slug` quedan para el bloque de ruteo futuro. */
+async fn sitemap(
+    axum::extract::State(est): axum::extract::State<AppState>,
+) -> impl axum::response::IntoResponse {
+    use crate::repositories::InmuebleRepository;
+    let ultima = InmuebleRepository::ultima_modificacion_publica(&est.pool)
+        .await
+        .ok()
+        .flatten()
+        .map_or_else(
+            || "2026-09-24".to_string(),
+            |f| f.format("%Y-%m-%d").to_string(),
+        );
+    let xml = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+         <urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n\
+         <url><loc>https://mn-inmobiliaria.com/</loc><lastmod>{ultima}</lastmod></url>\n\
+         </urlset>\n"
+    );
+    (
+        [
+            (axum::http::header::CONTENT_TYPE, "application/xml"),
+            (axum::http::header::CACHE_CONTROL, "public, max-age=3600"),
+        ],
+        xml,
+    )
+        .into_response()
 }
 
 /// `true` si la ruta es un fichero legible (no directorio).
@@ -275,6 +329,8 @@ fn tipo_contenido(ext: &str) -> &'static str {
         "jpg" | "jpeg" => "image/jpeg",
         "webp" => "image/webp",
         "ico" => "image/x-icon",
+        "txt" => "text/plain; charset=utf-8",
+        "xml" => "application/xml",
         "woff2" => "font/woff2",
         _ => "application/octet-stream",
     }

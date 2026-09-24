@@ -318,6 +318,29 @@ impl InmuebleRepository {
         Ok(result.rows_affected() > 0)
     }
 
+    /* [249A-1] Las fotos versionan su URL con `?v=<updated_at>` (front
+     * `fotosVisiblesDe`): al cambiar fotos hay que tocar el padre para que
+     * la caché del navegador/CDN se invalide sin renombrar ficheros. */
+    pub async fn tocar_inmueble(pool: &PgPool, inmueble_id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE inmuebles SET updated_at = NOW() WHERE id = $1")
+            .bind(inmueble_id)
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+
+    /* [249A-1] Sitemap: última modificación del conjunto publicado (el
+     * detalle es solo-modal, sin URLs con slug: el sitemap declara `/`). */
+    pub async fn ultima_modificacion_publica(
+        pool: &PgPool,
+    ) -> Result<Option<chrono::DateTime<chrono::Utc>>, sqlx::Error> {
+        let fila: (Option<chrono::DateTime<chrono::Utc>>,) =
+            sqlx::query_as("SELECT MAX(updated_at) FROM inmuebles WHERE publicado = TRUE")
+                .fetch_one(pool)
+                .await?;
+        Ok(fila.0)
+    }
+
     /// Una foto por id (para localizar su archivo en disco al borrar)
     pub async fn find_foto(pool: &PgPool, foto_id: Uuid) -> Result<Option<Foto>, sqlx::Error> {
         sqlx::query_as::<_, Foto>(

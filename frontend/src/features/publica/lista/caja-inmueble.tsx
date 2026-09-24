@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ArrowRight, Bath, BedDouble, CarFront, Ruler } from 'lucide-react';
-import { portadaDe, type InmueblePublico } from '../../../domain/inmueble';
+import { portadaDe, miniaturaDe, type InmueblePublico } from '../../../domain/inmueble';
 import {
   ALTO_CAJA,
   ANCHO_PRECIO,
@@ -34,7 +34,9 @@ function CeldaSpec({ icono, valor, etiqueta, ancho = ANCHO_SPEC }: { icono: Reac
  * Toda la caja abre el detalle (clic o Enter/Espacio). En móvil (<md) solo
  * imagen (más pequeña) y título: specs, precio y flecha se ocultan. */
 export function CajaInmueble({ inmueble: i, alElegir }: { inmueble: InmueblePublico; alElegir: (i: InmueblePublico) => void }) {
-  const portada = portadaDe(i);
+  /* [249A-1] La tabla pide el thumb de 320 px; el modal (máxima
+   * resolución) lo pide `ModalDetallePublico` al abrirse. */
+  const portada = miniaturaDe(portadaDe(i));
   return (
     <article
       onClick={() => alElegir(i)}

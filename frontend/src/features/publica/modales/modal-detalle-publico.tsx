@@ -113,7 +113,10 @@ function Contenido({ inmueble: i }: { inmueble: InmueblePublico }) {
                   onClick={() => irA(idx)}
                   className={`rounded-none p-0 ${idx === ((indice % total) + total) % total ? CLASE_MINIATURA_ACTIVA : CLASE_MINIATURA_REPOSO}`}
                 >
-                  <img src={f} alt="" className="h-12 w-16 rounded-none object-cover" />
+                {/* [249A-1] La tira carga miniaturas en diferido: la foto a
+                  * máxima resolución solo se pide al verla en grande (la
+                  * principal al abrir, las demás al navegar). */}
+                  <img src={f} alt="" loading="lazy" decoding="async" className="h-12 w-16 rounded-none object-cover" />
                 </button>
               ))}
             </div>

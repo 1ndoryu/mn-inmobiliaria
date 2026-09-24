@@ -93,6 +93,22 @@ export interface InmueblePublico extends Inmueble {
   slug: string;
 }
 
+/* [249A-1] Miniatura de tabla (`thumb-<uuid>.jpg` junto al original): la
+ * tabla pide la versión de 320 px y el modal sigue a máxima resolución.
+ * Solo URLs http(s) de `/uploads` con nombre simple; dataURLs y thumbs ya
+ * formados se devuelven intactos. */
+export function miniaturaDe(url: string): string {
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
+  const q = url.indexOf('?');
+  const base = q < 0 ? url : url.slice(0, q);
+  const resto = q < 0 ? '' : url.slice(q);
+  const barra = base.lastIndexOf('/');
+  if (barra < 0) return url;
+  const nombre = base.slice(barra + 1);
+  if (nombre.startsWith('thumb-') || nombre.includes('/')) return url;
+  return `${base.slice(0, barra + 1)}thumb-${nombre}${resto}`;
+}
+
 /* Portada para tarjetas y modal: la mejorada del primer `orden` si existe,
  * si no el primer original. */
 export function portadaDe(i: Inmueble): string {
@@ -101,9 +117,20 @@ export function portadaDe(i: Inmueble): string {
 
 /* Fotos tal como las ve el público: cada original con su versión mejorada
  * cuando existe (emparejada por `orden`), si no el original. La primera es
- * siempre la principal (fotos[0]) en su mejor versión disponible. */
+ * siempre la principal (fotos[0]) en su mejor versión disponible.
+ * [249A-1] Versión de caché `?v=<updatedAt>`: el backend toca `updated_at` al
+ * subir/borrar fotos, así cambiar fotos invalida la caché del navegador/CDN
+ * sin renombrar ficheros. Solo en URLs http(s): los dataURL de borradores
+ * (admin, aún sin subir) se dejan intactos. No versionar en `remotoADominio`:
+ * `sincronizarFotos` compara URLs con `relativa()` y el `?v=` rompería la
+ * igualdad (re-subiría las fotos en cada guardado). */
 export function fotosVisiblesDe(i: Inmueble): string[] {
-  return i.fotos.map((f, indice) => i.mejoradasServidor.find((m) => m.orden === indice)?.url ?? f);
+  const version = `v=${encodeURIComponent(i.updatedAt)}`;
+  const conVersion = (url: string): string => {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
+    return url.includes('?') ? `${url}&${version}` : `${url}?${version}`;
+  };
+  return i.fotos.map((f, indice) => conVersion(i.mejoradasServidor.find((m) => m.orden === indice)?.url ?? f));
 }
 
 /* Texto libre del borrador. */

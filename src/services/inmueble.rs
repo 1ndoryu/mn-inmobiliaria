@@ -300,8 +300,37 @@ impl InmuebleService {
             .await?
             .ok_or_else(|| AppError::NotFound("Foto no encontrada".into()))?;
         InmuebleRepository::delete_foto(pool, foto_id).await?;
+        /* [249A-1] Invalida la caché de fotos (`?v=<updated_at>`). */
+        InmuebleRepository::tocar_inmueble(pool, foto.inmueble_id).await?;
         Self::borrar_archivo(upload_dir, &foto.storage_key).await;
+        /* El thumb muere con su original (si no existe, no pasa nada). */
+        if let Some(clave_thumb) = Self::clave_miniatura(&foto.storage_key) {
+            Self::borrar_archivo(upload_dir, &clave_thumb).await;
+        }
         Ok(())
+    }
+
+    /* [249A-1] Miniatura de tabla: JPEG 320 px de lado mayor, calidad 70.
+     * Puro Rust (crate `image`, sin libs del sistema). Devuelve `None` si los
+     * bytes no decodifican: la subida principal no debe caer por el thumb. */
+    pub(crate) fn miniatura(bytes: &[u8]) -> Option<Vec<u8>> {
+        let img = image::load_from_memory(bytes).ok()?;
+        let reducida = img.thumbnail(320, 320);
+        let mut salida = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut salida, 70)
+            .encode_image(&reducida)
+            .ok()?;
+        Some(salida)
+    }
+
+    /* Clave del thumb junto al original: `<inmueble>/thumb-<uuid>.jpg`. */
+    fn clave_miniatura(storage_key: &str) -> Option<String> {
+        let (carpeta, archivo) = storage_key.split_once('/')?;
+        let punto = archivo.rfind('.')?;
+        if archivo.starts_with("thumb-") {
+            return None;
+        }
+        Some(format!("{carpeta}/thumb-{}.jpg", &archivo[..punto]))
     }
 
     /// Guarda bytes subidos en `UPLOAD_DIR/<inmueble>/<uuid>.<ext>` y registra la foto.
@@ -330,7 +359,22 @@ impl InmuebleService {
             Self::guardar_archivo(upload_dir, &inmueble_id.to_string(), filename, bytes).await?;
 
         match InmuebleRepository::add_foto(pool, inmueble_id, &storage_key, orden, &origen).await {
-            Ok(foto) => Ok(FotoPublica::from(foto)),
+            Ok(foto) => {
+                /* [249A-1] Invalida la caché de fotos (`?v=<updated_at>`). */
+                InmuebleRepository::tocar_inmueble(pool, inmueble_id).await?;
+                /* Thumb best-effort: si falla, la tabla usa el original. */
+                if let Some(clave_thumb) = Self::clave_miniatura(&storage_key) {
+                    if let Some(mini) = Self::miniatura(bytes) {
+                        if let Err(e) = tokio::fs::write(upload_dir.join(&clave_thumb), mini).await
+                        {
+                            tracing::warn!("No se pudo guardar {clave_thumb}: {e}");
+                        }
+                    } else {
+                        tracing::warn!("No se pudo generar miniatura de {storage_key}");
+                    }
+                }
+                Ok(FotoPublica::from(foto))
+            }
             Err(e) => {
                 /* Sin fila no hay foto: se retira el archivo huérfano */
                 Self::borrar_archivo(upload_dir, &storage_key).await;
