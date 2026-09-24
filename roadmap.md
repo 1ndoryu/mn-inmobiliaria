@@ -44,6 +44,12 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - Fase 3+4 hechas 2026-09-23: manager recompilado (1.0.0), sitio `inmobiliaria`
   (`as0scgwg44wkkkccgwcwg8w0`) creado. `sync-env push` bloqueado (el manager exige claves
   Stripe que el proyecto no usa; mejora pendiente a la herramienta, sin dummies).
+- Incidencia 2026-09-24 CERRADA: `Servidor no disponible` con API sana = `VITE_API_URL`
+  sin hornear (bundle con `127.0.0.1:3000`). Fix herramienta (`d908b94` template
+  `ARG VITE_API_URL`, `3008e65` push `--only` exime trio Stripe) + push var + rebuild
+  6/6 OK; bundle `index-EZwYRSQX.js` con dominio; API `total=11` fotos `218`.
+  Detalle en plan (seccion incidencia) y `Agente/completados/tareas-2026-09-24.md`.
+  Pendiente del usuario: recargar https://mn-inmobiliaria.com y confirmar lista visible.
 - Fase 5 COMPLETADA 2026-09-24: dump data-only + `run-sql --file` (el `import` del
   manager es solo-WP) → 11/218/2; 218 fotos vía `POST /api/admin/fotos/upload` (el
   manager no tiene push a volúmenes); admin rotado a password nueva generada,
