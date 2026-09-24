@@ -4,7 +4,7 @@ Disallow: /admin
 Disallow: /api/
 
 Sitemap: https://mn-inmobiliaria.com/sitemap.xml
-# [249A-4] Descubrimiento agéntico (ARD): el catálogo dinámico lo sirve el
-# backend en `/.well-known/ai-catalog.json`; sin esta línea Lighthouse no
-# lo encuentra (3/4 en navegación agéntica).
-Agentmap: https://mn-inmobiliaria.com/.well-known/ai-catalog.json
+# [249A-5] Descubrimiento agéntico SOLO vía `<link rel="ai-catalog">` en
+# `index.html`: `Agentmap:` se quitó porque Google lo marca como directiva
+# desconocida y el SEO cae 100→92 (PSI escritorio 2026-09-24). El catálogo
+# lo sigue sirviendo el backend en `/.well-known/ai-catalog.json`.

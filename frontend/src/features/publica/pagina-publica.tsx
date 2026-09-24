@@ -4,8 +4,10 @@ import { useFiltrosAvanzados } from '../../hooks/publica/use-filtros-avanzados';
 import { useFiltrosPagina } from '../../hooks/publica/use-filtros-pagina';
 import { useModalLogin } from '../../hooks/publica/modales/use-modal-login';
 import { useModalPublicar } from '../../hooks/publica/modales/use-modal-publicar';
+import { useMontarAlAbrir } from '../../hooks/publica/use-montar-al-abrir';
 import { usePublica } from '../../hooks/publica/use-publica';
 import { BuscadorPublica } from './lista/buscador-publica';
+import { EsqueletoLista } from './lista/esqueleto-lista';
 import { construirIndice, extraerTerminos, filtrarIndice } from './busqueda';
 import { CabeceraPublica } from './cabecera-publica';
 import { CajaInmueble } from './lista/caja-inmueble';
@@ -50,6 +52,14 @@ export function PaginaPublica() {
   const avanzados = useFiltrosAvanzados();
   /* Login del panel: hook propio; la página solo lo abre y lo renderiza. */
   const acceso = useModalLogin();
+  /* [249A-5] Pestillos de montaje: los overlays `lazy` montan en su primera
+   * apertura (no en la carga: salen de la ruta crítica) y quedan montados
+   * para conservar la animación de cierre. El estado vive en cada hook. */
+  const detalleMontado = useMontarAlAbrir(detalle.seleccionado !== null);
+  const publicarMontado = useMontarAlAbrir(publicar.abierto);
+  const filtrosMontado = useMontarAlAbrir(avanzados.abierto);
+  const accesoMontado = useMontarAlAbrir(acceso.abierto);
+  const chatMontado = useMontarAlAbrir(chatAbierto);
 
   const indice = useMemo(() => construirIndice(inmuebles), [inmuebles]);
   const terminos = useMemo(() => extraerTerminos(busqueda), [busqueda]);
@@ -84,11 +94,13 @@ export function PaginaPublica() {
           filtrosActivos={avanzados.hayActivos}
         />
         <div className={SOLO_ESCRITORIO_ANCHO}>
-          <FiltrosTipo filtro={filtro} elegir={elegirFiltro} inmuebles={inmuebles} />
+          <FiltrosTipo filtro={filtro} elegir={elegirFiltro} inmuebles={inmuebles} cargando={cargando} />
         </div>
         <div className={`w-full divide-y ${CLASE_DIVISOR} border border-t-0 ${CLASE_BORDE} px-0 py-0`}>
           {cargando ? (
-            <p className={`text-center ${RELLENO_VACIO}`}>Cargando…</p>
+            /* [249A-5] Esqueleto con la altura final en vez de `Cargando…`:
+             * reserva el alto de la lista antes de que llegue la API. */
+            <EsqueletoLista />
           ) : error ? (
             <p className={`border ${CLASE_BORDE} text-center ${RELLENO_VACIO}`}>{error}</p>
           ) : visibles.length === 0 ? (
@@ -105,18 +117,25 @@ export function PaginaPublica() {
             enPagina.map((i, indice) => <CajaInmueble key={i.id} inmueble={i} alElegir={detalle.elegir} prioritaria={indice === 0} />)
           )}
         </div>
-        <Paginacion pagina={paginaSegura} totalPaginas={totalPaginas} irA={setPagina} />
+        {/* [249A-5] La paginación aparece al cargar (1→2 páginas con 11
+          * inmuebles) y empujaba el pie: cargando reserva su alto exacto
+          * (`mt-5` + botones `h-10`). */}
+        {cargando ? (
+          <div aria-hidden className="mt-5 flex h-10 w-full" />
+        ) : (
+          <Paginacion pagina={paginaSegura} totalPaginas={totalPaginas} irA={setPagina} />
+        )}
         </div>
         <Suspense fallback={null}>
-          <ModalDetallePublico inmueble={detalle.seleccionado} alCerrar={detalle.cerrar} />
-          <ModalPublicar modal={publicar} />
-          <ModalFiltros modal={avanzados} alAplicar={() => setPagina(1)} tipo={filtro} alElegirTipo={elegirFiltro} />
-          <ModalLogin modal={acceso} />
+          {detalleMontado && <ModalDetallePublico inmueble={detalle.seleccionado} alCerrar={detalle.cerrar} />}
+          {publicarMontado && <ModalPublicar modal={publicar} />}
+          {filtrosMontado && <ModalFiltros modal={avanzados} alAplicar={() => setPagina(1)} tipo={filtro} alElegirTipo={elegirFiltro} />}
+          {accesoMontado && <ModalLogin modal={acceso} />}
         </Suspense>
       </div>
       {/* [169A-1] Chat del visitante: ventana solo si lo abre el boton Mensaje. */}
       <Suspense fallback={null}>
-        <ChatVisitante abierto={chatAbierto} alCerrar={() => setChatAbierto(false)} />
+        {chatMontado && <ChatVisitante abierto={chatAbierto} alCerrar={() => setChatAbierto(false)} />}
       </Suspense>
       {/* [189A-1] Pie simple: solo la línea de derechos. La suscripción
         * (backend + cliente + hook) queda aparcada hasta el panel. */}

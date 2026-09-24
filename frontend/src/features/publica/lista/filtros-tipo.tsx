@@ -24,12 +24,14 @@ function BotonFiltro({
   icono: Icono,
   etiqueta,
   total,
+  cargando = false,
 }: {
   activo: boolean;
   alElegir: () => void;
   icono: LucideIcon;
   etiqueta: string;
   total: number;
+  cargando?: boolean;
 }) {
   return (
     <button
@@ -41,7 +43,11 @@ function BotonFiltro({
       }`}
     >
       <Icono className="h-4 w-4" />
-      {etiqueta} ({total})
+      {/* [249A-5] Conteo con ancho fijo (`tabular-nums` + `min-w`): al llegar
+        * la API los totales 0→N ensanchaban las píldoras (CLS 0.018 en PSI
+        * escritorio). Cargando muestra `–` con el mismo ancho reservado. */}
+      {etiqueta} (
+      <span className="inline-block min-w-[3ch] text-center tabular-nums">{cargando ? '–' : total}</span>)
     </button>
   );
 }
@@ -50,10 +56,12 @@ export function FiltrosTipo({
   filtro,
   elegir,
   inmuebles,
+  cargando = false,
 }: {
   filtro: TipoInmueble | null;
   elegir: (t: TipoInmueble | null) => void;
   inmuebles: InmueblePublico[];
+  cargando?: boolean;
 }) {
   // TEMPORAL: se muestran todos los tipos para previsualizar (aunque tengan 0).
   const tiposPresentes = TIPOS;
@@ -65,6 +73,7 @@ export function FiltrosTipo({
         icono={LayoutGrid}
         etiqueta="Todos"
         total={inmuebles.length}
+        cargando={cargando}
       />
       {tiposPresentes.map((t) => (
         <BotonFiltro
@@ -74,6 +83,7 @@ export function FiltrosTipo({
           icono={ICONOS_TIPO[t]}
           etiqueta={ETIQUETAS_TIPO[t]}
           total={inmuebles.filter((i) => i.tipo === t).length}
+          cargando={cargando}
         />
       ))}
     </div>
