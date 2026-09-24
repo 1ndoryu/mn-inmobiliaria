@@ -72,6 +72,17 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   Ver `Agente/completados/tareas-2026-09-24.md`.
 - Requiere del usuario: confirmar que https://mn-inmobiliaria.com muestra la lista
   y correr PageSpeed movil para el puntaje final.
+- 249A-4b+249A-4d (2026-09-24, desplegadas commit `c8ae5341`): thumbs de tabla
+  320→160 (`min160-<uuid>.jpg`, legacy `thumb-` con backfill+borrado al servir)
+  + `llms.txt` y `/.well-known/ai-catalog.json` dinámicos desde el backend
+  (11 entries, URNs saneadas, validados con el tester oficial ARD: 0 errores);
+  prebuild `generar-llms.mjs` y `public/llms.txt` eliminados; `lighthouse`,
+  `@radix-ui/*` y `shadcn` desinstalados del front. Verify prod: `/llms.txt`
+  200 6092 B, ai-catalog 200 11 entries, thumb `min160-` 200 jpeg, health 200.
+  Ver `Agente/completados/tareas-2026-09-24.md`.
+- Restos abiertos de 249A-4: 4a (fallback metric-matched Söhne+Geist en
+  `src/index.css`), 4c (`React.lazy` en overlays públicos), F8 SEO profundo,
+  rerun PageSpeed móvil (cuota API 429 el 2026-09-24).
 
 ## Receta publicitaria en el servidor (229A-2, en curso 2026-09-22)
 
