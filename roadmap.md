@@ -44,10 +44,13 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - Fase 3+4 hechas 2026-09-23: manager recompilado (1.0.0), sitio `inmobiliaria`
   (`as0scgwg44wkkkccgwcwg8w0`) creado. `sync-env push` bloqueado (el manager exige claves
   Stripe que el proyecto no usa; mejora pendiente a la herramienta, sin dummies).
-- Fase 6 COMPLETADA 2026-09-24: `deploy-service --skip-build --skip-backup` tras el DNS
-  (Dynadot DNS, A `@`+`www` → `.241`); `https://mn-inmobiliaria.com/api/health` 200 y home
-  200 con cert válido. Sitio vacío (0 inmuebles): pendiente Fase 5 (dump data-only +
-  `import-database` + `uploads/` + rotar admin + quitar `import@example.com`) y E2E público.
+- Fase 5 COMPLETADA 2026-09-24: dump data-only + `run-sql --file` (el `import` del
+  manager es solo-WP) → 11/218/2; 218 fotos vía `POST /api/admin/fotos/upload` (el
+  manager no tiene push a volúmenes); admin rotado a password nueva generada,
+  `import@example.com` eliminado.
+- Fase 6.3 E2E COMPLETADO 2026-09-24: 11 publicados, fotos HD 200, login admin, receta
+  PUT→pública→revertida, solicitud POST→admin→borrada, WhatsApp horneado.
+  Estado prod: 11 inmuebles, 218 fotos, 0 solicitudes, 1 user.
 - Requiere del usuario: nueva password admin para la rotación de Fase 5.4 (o confirmar
   mantener la actual / que la genere yo).
 
