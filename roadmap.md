@@ -80,9 +80,19 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   `@radix-ui/*` y `shadcn` desinstalados del front. Verify prod: `/llms.txt`
   200 6092 B, ai-catalog 200 11 entries, thumb `min160-` 200 jpeg, health 200.
   Ver `Agente/completados/tareas-2026-09-24.md`.
-- Restos abiertos de 249A-4: 4a (fallback metric-matched Söhne+Geist en
-  `src/index.css`), 4c (`React.lazy` en overlays públicos), F8 SEO profundo,
-  rerun PageSpeed móvil (cuota API 429 el 2026-09-24).
+- 249A-4a+249A-4c (2026-09-24, desplegadas commit `80b6ba2e`): fallback
+  metric-matched `Söhne-relevo`/`Kräftig→Arial Bold` en `src/index.css`
+  (CLS footer 0.195), primera tarjeta `eager`+`fetchpriority=high` resto
+  `lazy`, `Agentmap:` en `robots.txt` + `<link rel=ai-catalog>` en
+  `index.html` (4/4 navegación agéntica), 5 overlays públicos tras
+  `React.lazy` (`modal-filtros 5.16kB, detalle 6.45kB, publicar 7.67kB,
+  chat 11.18kB, dialog 106.97kB gzip 35.70kB`). Verify prod: `robots.txt`
+  con `Agentmap:`, `/` con `rel=ai-catalog`, bundle nuevo
+  `index-D8vNccQi.js` + chunks `inmueble/plantilla-publicidad`.
+  Ver `Agente/completados/tareas-2026-09-24.md`.
+- Restos abiertos de 249A: F8 SEO profundo, rerun PageSpeed móvil (PSI
+  2026-09-24 16:37 manual del usuario: 88/100/100/100 + 3/4 agéntica;
+  cuota API 429 ese día).
 
 ## Receta publicitaria en el servidor (229A-2, en curso 2026-09-22)
 
