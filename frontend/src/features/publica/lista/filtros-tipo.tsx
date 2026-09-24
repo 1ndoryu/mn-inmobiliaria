@@ -38,16 +38,15 @@ function BotonFiltro({
       type="button"
       onClick={alElegir}
       aria-pressed={activo}
-      className={`flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 rounded-none border-0 px-4 py-3 ${CLASE_TEXTO} whitespace-nowrap ${
+      className={`flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 rounded-none border-0 px-4 py-3 ${CLASE_TEXTO} whitespace-nowrap tabular-nums ${
         activo ? CLASE_ACTIVO : CLASE_REPOSO
       }`}
     >
       <Icono className="h-4 w-4" />
-      {/* [249A-5] Conteo con ancho fijo (`tabular-nums` + `min-w`): al llegar
-        * la API los totales 0→N ensanchaban las píldoras (CLS 0.018 en PSI
-        * escritorio). Cargando muestra `–` con el mismo ancho reservado. */}
-      {etiqueta} (
-      <span className="inline-block min-w-[3ch] text-center tabular-nums">{cargando ? '–' : total}</span>)
+      {/* [249A-5] Conteo pegado a los paréntesis (`(5)`, sin caja ancha:
+        * el `min-w` con `text-center` separaba el valor). `tabular-nums`
+        * iguala el ancho de los dígitos para que el 0→N no mueva nada. */}
+      {etiqueta} ({cargando ? '–' : total})
     </button>
   );
 }
