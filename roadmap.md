@@ -60,28 +60,14 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - Requiere del usuario: nueva password admin para la rotación de Fase 5.4 (o confirmar
   mantener la actual / que la genere yo).
 
-## Optimizacion PageSpeed movil + SEO profundo (249A-1, en curso 2026-09-24)
+## Optimizacion PageSpeed movil + SEO profundo (249A-1, completada 2026-09-24)
 
-- Plan: `Agente/planes/plan-optimizacion-pagespeed-seo-2026-09-24.md`.
-- Base PageSpeed movil: 75 Rendimiento / 100 / 100 / 92 SEO; JS 612 KB sin
-  gzip, heroe 3 MB sin preload, thumbs inexistentes, sin Cache-Control/ETag.
-- F1 hecho: head SEO (titulo Puerto Ordaz, canonical, OG/Twitter, JSON-LD,
-  favicon logo), `robots.txt`, preload heroe.
-- F2 hecho: `presentacion.jpg` 3 MB (1844x2304) -> 502 KB (max 1200, q75).
-- F3 hecho: admin tras `React.lazy` (`app-admin.tsx` + `Suspense`).
-- F4 hecho: thumbs modal con `loading="lazy"` + `decoding="async"`.
-- F5 hecho: `updated_at` se toca al subir/borrar foto; `ETag`+`Cache-Control
-  immutable`+`304` en `/uploads/*`; `CompressionLayer` gzip; `Cache-Control`
-  en fallback SPA (assets inmutables 1 anio, HTML `no-cache`); `GET
-  /sitemap.xml` dinamico con `ultima_modificacion_publica`.
-- F6 hecho: fotos con `?v=<updated_at>` (solo http(s), no dataURL).
-- F7 hecho: thumbs `thumb-<uuid>.jpg` 320px q70 (crate `image`, puro Rust):
-  se generan al subir, se borran al borrar y backfill perezoso al servir.
-  La tabla pide el thumb (`miniaturaDe`); el modal sigue a maxima resolucion.
-- Pendiente: validacion (tsc, vite build, fmt, check, clippy, test),
-  commit+push, deploy con `coolify-manager-rs` y rerun PageSpeed.
-- Requiere del usuario: autorizacion para commit+push+deploy (escritura en
-  prod) y confirmar que https://mn-inmobiliaria.com muestra la lista.
+- Cerrada y desplegada: ver `Agente/completados/tareas-2026-09-24.md` y plan en
+  `Agente/planes/completados/plan-optimizacion-pagespeed-seo-2026-09-24.md`.
+- Restos abiertos: F8 SEO profundo (h1/alt/canonical/JSON-LD `ItemList` si falta);
+  rerun PageSpeed movil (la API devolvia 429 por cuota).
+- Requiere del usuario: confirmar que https://mn-inmobiliaria.com muestra la lista
+  y correr PageSpeed movil para el puntaje final.
 
 ## Receta publicitaria en el servidor (229A-2, en curso 2026-09-22)
 
