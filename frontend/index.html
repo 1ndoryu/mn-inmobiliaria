@@ -10,6 +10,9 @@
       compartir y JSON-LD del negocio (el detalle es solo-modal, sin URLs con
       slug: el SEO por inmueble va en sitemap + ItemList, ver F5/F8). -->
     <link rel="canonical" href="https://mn-inmobiliaria.com/" />
+    <!-- [249A-4] Descubrimiento agéntico en el DOM (el `Agentmap:` de
+      robots es la otra vía): el contenido lo sirve el backend dinámico. -->
+    <link rel="ai-catalog" href="https://mn-inmobiliaria.com/.well-known/ai-catalog.json" />
     <!-- [249A-3] Preload del heroe ELIMINADO: `PresentacionCaja` (el unico
       uso de `presentacion.jpg` como fondo) no se renderiza — la portada
       actual es `Presentacion` (texto). El preload competia con JS/CSS por

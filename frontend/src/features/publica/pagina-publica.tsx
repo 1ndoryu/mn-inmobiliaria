@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { useDetallePublico } from '../../hooks/publica/use-detalle-publico';
 import { useFiltrosAvanzados } from '../../hooks/publica/use-filtros-avanzados';
 import { useFiltrosPagina } from '../../hooks/publica/use-filtros-pagina';
@@ -9,13 +9,17 @@ import { BuscadorPublica } from './lista/buscador-publica';
 import { construirIndice, extraerTerminos, filtrarIndice } from './busqueda';
 import { CabeceraPublica } from './cabecera-publica';
 import { CajaInmueble } from './lista/caja-inmueble';
-import { ChatVisitante } from './chat/chat-visitante';
+/* [249A-4] Overlays fuera del JS inicial (PSI: 60.3 KiB sin usar de 121):
+ * `lazy` los saca del chunk crítico; `Suspense` sin fallback porque cada
+ * modal ya devuelve `null` cerrado. El mapeo a `default` es porque los
+ * modales usan exports nombrados. */
+const ModalDetallePublico = lazy(() => import('./modales/modal-detalle-publico').then((m) => ({ default: m.ModalDetallePublico })));
+const ModalFiltros = lazy(() => import('./modales/modal-filtros').then((m) => ({ default: m.ModalFiltros })));
+const ModalLogin = lazy(() => import('./modales/modal-login').then((m) => ({ default: m.ModalLogin })));
+const ModalPublicar = lazy(() => import('./modales/modal-publicar').then((m) => ({ default: m.ModalPublicar })));
+const ChatVisitante = lazy(() => import('./chat/chat-visitante').then((m) => ({ default: m.ChatVisitante })));
 import { ANCHO_PAGINA, CLASE_BORDE, CLASE_DIVISOR, CLASE_FONDO, POR_PAGINA, RELLENO_LATERAL_SITIO, RELLENO_VACIO, SOLO_ESCRITORIO_ANCHO } from './disenno';
 import { FiltrosTipo } from './lista/filtros-tipo';
-import { ModalDetallePublico } from './modales/modal-detalle-publico';
-import { ModalFiltros } from './modales/modal-filtros';
-import { ModalLogin } from './modales/modal-login';
-import { ModalPublicar } from './modales/modal-publicar';
 import { Paginacion } from './lista/paginacion';
 import { PiePublico } from './pie-publico';
 import { Presentacion } from './presentacion/presentacion';
@@ -98,18 +102,22 @@ export function PaginaPublica() {
                     : 'Sin propiedades de este tipo.'}
             </p>
           ) : (
-            enPagina.map((i) => <CajaInmueble key={i.id} inmueble={i} alElegir={detalle.elegir} />)
+            enPagina.map((i, indice) => <CajaInmueble key={i.id} inmueble={i} alElegir={detalle.elegir} prioritaria={indice === 0} />)
           )}
         </div>
         <Paginacion pagina={paginaSegura} totalPaginas={totalPaginas} irA={setPagina} />
         </div>
-        <ModalDetallePublico inmueble={detalle.seleccionado} alCerrar={detalle.cerrar} />
-        <ModalPublicar modal={publicar} />
-        <ModalFiltros modal={avanzados} alAplicar={() => setPagina(1)} tipo={filtro} alElegirTipo={elegirFiltro} />
-        <ModalLogin modal={acceso} />
+        <Suspense fallback={null}>
+          <ModalDetallePublico inmueble={detalle.seleccionado} alCerrar={detalle.cerrar} />
+          <ModalPublicar modal={publicar} />
+          <ModalFiltros modal={avanzados} alAplicar={() => setPagina(1)} tipo={filtro} alElegirTipo={elegirFiltro} />
+          <ModalLogin modal={acceso} />
+        </Suspense>
       </div>
       {/* [169A-1] Chat del visitante: ventana solo si lo abre el boton Mensaje. */}
-      <ChatVisitante abierto={chatAbierto} alCerrar={() => setChatAbierto(false)} />
+      <Suspense fallback={null}>
+        <ChatVisitante abierto={chatAbierto} alCerrar={() => setChatAbierto(false)} />
+      </Suspense>
       {/* [189A-1] Pie simple: solo la línea de derechos. La suscripción
         * (backend + cliente + hook) queda aparcada hasta el panel. */}
       <PiePublico />

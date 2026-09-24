@@ -33,9 +33,11 @@ function CeldaSpec({ icono, valor, etiqueta, ancho = ANCHO_SPEC }: { icono: Reac
 /* Cada inmueble va en su caja de 100px: imagen, título, specs, precio y flecha.
  * Toda la caja abre el detalle (clic o Enter/Espacio). En móvil (<md) solo
  * imagen (más pequeña) y título: specs, precio y flecha se ocultan. */
-export function CajaInmueble({ inmueble: i, alElegir }: { inmueble: InmueblePublico; alElegir: (i: InmueblePublico) => void }) {
-  /* [249A-1] La tabla pide el thumb de 320 px; el modal (máxima
-   * resolución) lo pide `ModalDetallePublico` al abrirse. */
+export function CajaInmueble({ inmueble: i, alElegir, prioritaria = false }: { inmueble: InmueblePublico; alElegir: (i: InmueblePublico) => void; prioritaria?: boolean }) {
+  /* [249A-1] La tabla pide el thumb `min160-`; el modal (máxima
+   * resolución) lo pide `ModalDetallePublico` al abrirse.
+   * [249A-4] La primera tarjeta es el LCP (PSI móvil 1.8s con `lazy`):
+   * va `eager` + `fetchpriority` alta; el resto sigue `lazy`. */
   const portada = miniaturaDe(portadaDe(i));
   return (
     <article
@@ -45,7 +47,7 @@ export function CajaInmueble({ inmueble: i, alElegir }: { inmueble: InmueblePubl
       className={`flex ${ALTO_CAJA} cursor-pointer items-center rounded-none ${CLASE_HOVER_CAJA}`}
     >
       {portada ? (
-        <img src={portada} alt={i.titulo} loading="lazy" className={`${MARGEN_IMAGEN_CAJA} ${TAMANO_IMAGEN_CAJA} shrink-0 object-cover`} />
+        <img src={portada} alt={i.titulo} loading={prioritaria ? 'eager' : 'lazy'} fetchPriority={prioritaria ? 'high' : 'auto'} className={`${MARGEN_IMAGEN_CAJA} ${TAMANO_IMAGEN_CAJA} shrink-0 object-cover`} />
       ) : (
         <div className={`${MARGEN_IMAGEN_CAJA} ${TAMANO_IMAGEN_CAJA} shrink-0 ${CLASE_RELLENO_SUAVE}`} aria-hidden />
       )}

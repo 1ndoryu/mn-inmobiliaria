@@ -4,7 +4,7 @@
 @theme {
   /* Söhne de driesbos.com (Buch 400 / Kräftig 700), alojada temporal
    * pendiente de licencia Klim; relevo por sistema si falta un glifo. */
-  --font-soehne: 'Söhne', 'Helvetica Neue', Arial, system-ui, sans-serif;
+  --font-soehne: 'Söhne', 'Söhne-relevo', 'Helvetica Neue', Arial, system-ui, sans-serif;
 }
 
 /* Söhne Buch (texto) y Kräftig (destacados). Subsets temporales. */
@@ -21,6 +21,35 @@
   font-weight: 700;
   font-display: swap;
   src: url('/fonts/soehne-kraftig.woff2') format('woff2');
+}
+
+/* [249A-4] Relevo métrico de Söhne con Arial local: el `swap` movía
+ * líneas (CLS 0.195 del pie en PSI móvil) porque Arial trae otros altos
+ * y ancho. Overrides medidos con fontTools (Buch avgAdv/u 0.5106 typo
+ * 1040/-234/0; Kräftig 0.5516 typo 1037/-289/0; Arial 0.5134 / Bold
+ * 0.5328): size-adjust iguala el ancho medio, ascent/descent el ritmo
+ * vertical. Geist (solo `body` del admin) no lleva relevo: PSI no lo mide. */
+@font-face {
+  font-family: 'Söhne-relevo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Arial');
+  size-adjust: 99.45%;
+  ascent-override: 104%;
+  descent-override: 23.4%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Söhne-relevo';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Arial Bold'), local('Arial-BoldMT');
+  size-adjust: 103.53%;
+  ascent-override: 103.7%;
+  descent-override: 28.9%;
+  line-gap-override: 0%;
 }
 
 /* Inter variable (400–800) para la imagen publicitaria: el Figma "Post
