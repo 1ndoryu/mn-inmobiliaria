@@ -90,9 +90,22 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   con `Agentmap:`, `/` con `rel=ai-catalog`, bundle nuevo
   `index-D8vNccQi.js` + chunks `inmueble/plantilla-publicidad`.
   Ver `Agente/completados/tareas-2026-09-24.md`.
-- Restos abiertos de 249A: F8 SEO profundo, rerun PageSpeed móvil (PSI
-  2026-09-24 16:37 manual del usuario: 88/100/100/100 + 3/4 agéntica;
-  cuota API 429 ese día).
+- 249A-5 (2026-09-24, desplegada commit `6cbe0134`): PSI escritorio
+  79/100/100/92 + 3/4 agéntica → `Agentmap:` fuera de `robots.txt`
+  (directiva desconocida para Google, SEO 92→100; descubrimiento solo
+  vía `<link rel=ai-catalog>`), 5 overlays `lazy` con pestillo de montaje
+  (`useMontarAlAbrir`: montan al primer uso, fuera de la ruta crítica,
+  conservan animación de cierre), esqueleto de 10 filas `h-[100px]` en
+  vez de `Cargando…` + conteos de píldoras con ancho fijo + reserva de
+  alto de paginación (CLS 0.484→~0). Verify prod: `robots.txt` sin
+  `Agentmap:`, bundle nuevo `index-Br2UKVtj.js` solo con preloads
+  estáticos (`inmueble`, `plantilla-publicidad`). Ver
+  `Agente/completados/tareas-2026-09-24.md`.
+- Restos abiertos de 249A: F8 SEO profundo, rerun PageSpeed escritorio y
+  móvil tras 249A-5 (cuota API 429 el 2026-09-24; último manual escritorio
+  79/100/100/92 + 3/4, móvil 88/100/100/100 + 3/4), y el sub-chequeo
+  agéntico que sigue en 3/4 (pendiente: nombre del chequeo fallido
+  expandiendo la sección en pagespeed.web.dev).
 
 ## Receta publicitaria en el servidor (229A-2, en curso 2026-09-22)
 
