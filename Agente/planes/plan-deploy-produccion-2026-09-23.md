@@ -124,7 +124,7 @@
    con la misma versión del crate, aplicado vía `run-sql`); eliminar `import@example.com`
    (confirmar en el momento).
 
-### Fase 6 — Deploy + verificación (autorización explícita) — PARCIAL 2026-09-23
+### Fase 6 — Deploy + verificación (autorización explícita) — COMPLETADA 2026-09-24
 1. `deploy --name inmobiliaria --update --skip-backup` (primer deploy: no hay contenedor que
    respaldar; build 456 s). Falla 1: path-dep glory-agent (→ 239A-2 git-dep). Tras el fix:
    swap OK, contenedor vivo (`Servidor iniciando en 0.0.0.0:3000`, `Front SPA embebido desde
@@ -133,16 +133,25 @@
    `{"status":"ok","version":"0.1.0"}`; `/app/dist/index.html` existe; `run-sql`:
    13 migraciones aplicadas, `inmuebles` = 0 (pendiente Fase 5). Warning E17 (bind en clave
    `volumes`) cosmético; fixes post-build aplicados, `Runtime OK`.
-3. Salud PÚBLICA bloqueada: `https://mn-inmobiliaria.com` no resuelve (sin DNS Contabo) →
-   el manager hizo rollback automático (inofensivo: recreó el mismo contenedor nuevo).
-   E2E público pendiente de Fase 7: 11 publicados, fotos HD, login `admin@admin.com`,
-   guardar receta, solicitud de prueba + borrado, WhatsApp `wa.me/584249208855`.
+3. Salud PÚBLICA: bloqueada al principio (sin DNS → rollback automático inofensivo).
+   Tras el DNS del usuario (Dynadot DNS, A `@`+`www` → `66.94.100.241`; el dominio estaba en
+   parking `dyna-ns.net`): Traefik servía `TRAEFIK DEFAULT CERT` (~10 min, backoff LE tras
+   intentar emitir contra el parking). `restart` rechaza sitios Rust; el camino es
+   `deploy-service --name inmobiliaria --skip-build --skip-backup` (recrea con la imagen
+   existente, sin recompilar) → `Deploy exitoso! .../api/health respondiendo (status=200)`.
+   Verificado desde local: `HEALTH:200 {"status":"ok","version":"0.1.0"}`,
+   `HOME:200 text/html 1042 bytes` con cert válido.
+4. E2E público completo pendiente de Fase 5 (sitio vacío: 0 inmuebles): 11 publicados,
+   fotos HD, login `admin@admin.com`, guardar receta, solicitud de prueba + borrado,
+   WhatsApp `wa.me/584249208855`.
 
-### Fase 7 — DNS Contabo (usuario, paso final)
-1. En Contabo: registro A `mn-inmobiliaria.com` (+ `www` si se quiere) → IP del VPS
-   (la confirma el preflight del manager al ejecutar).
-2. Esperar propagación; Traefik emite cert letsencrypt solo (~1–5 min).
-3. Re-verificar `health` + home pública por https.
+### Fase 7 — DNS (usuario) — COMPLETADA 2026-09-24
+1. Dynadot → `Dynadot DNS`; A `@` → `66.94.100.241` (la sección "Registro de dominio" ES el
+   apex, no pide host) + A `www` → `66.94.100.241`, TTL 5 min. (No hizo falta Cloudflare ni
+   panel Contabo; con proxy habría que dejarlo en "DNS only".)
+2. Propagación verificada desde local (`Resolve-DnsName` → `.241` en ambos); Traefik emitió
+   el cert letsencrypt tras el `deploy-service` de Fase 6.
+3. `health` + home pública por https verificados (ver Fase 6.3).
 
 ## Sincronización local ↔ prod (regla: prod es la única fuente de verdad)
 
