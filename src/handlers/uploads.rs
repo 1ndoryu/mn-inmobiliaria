@@ -90,14 +90,20 @@ pub async fn servir_archivo(
         .ok_or_else(|| AppError::NotFound("No encontrado".into()))?;
     /* [249A-1] Backfill perezoso del thumb: si falta y existe el
      * original, se genera al vuelo, se guarda y se sirve. Asi las
-     * 218 fotos existentes ganan miniatura sin migraciones ni exec. */
+     * fotos existentes ganan miniatura sin migraciones ni exec.
+     * [249A-4] El original se deriva quitando `min160-` (o el legado
+     * `thumb-`); al regenerar en nuevo formato se borra el legado. */
     let directa = tokio::fs::read(InmuebleService::ruta_archivo(&state.upload_dir, &clave)).await;
     let bytes = if let Ok(b) = directa {
         b
     } else {
         let original = clave
             .split_once('/')
-            .and_then(|(c, a)| a.strip_prefix("thumb-").map(|o| format!("{c}/{o}")))
+            .and_then(|(c, a)| {
+                a.strip_prefix("min160-")
+                    .or_else(|| a.strip_prefix("thumb-"))
+                    .map(|o| format!("{c}/{o}"))
+            })
             .unwrap_or_default();
         let crudos = tokio::fs::read(InmuebleService::ruta_archivo(&state.upload_dir, &original))
             .await
@@ -110,6 +116,17 @@ pub async fn servir_archivo(
         )
         .await
         .map_err(AppError::from)?;
+        /* El legado de 320 px muere al regenerar (si no existe, aviso y
+         * nada más: es limpieza, no parte de la respuesta). */
+        if clave.contains("/min160-") {
+            let legada = clave.replacen("min160-", "thumb-", 1);
+            if let Err(e) =
+                tokio::fs::remove_file(InmuebleService::ruta_archivo(&state.upload_dir, &legada))
+                    .await
+            {
+                tracing::debug!("Thumb legado no borrado ({legada}): {e}");
+            }
+        }
         mini
     };
     let mime = match std::path::Path::new(&clave)
@@ -202,8 +219,8 @@ fn clave_solicitud_valida(sesion: &str, archivo: &str) -> Option<String> {
     }
 }
 /// Solo `<uuid>/<uuid>.<ext permitida>` (nada de `..`, subrutas ni extensiones raras)
-/// más su miniatura `thumb-<uuid>.jpg` ([249A-1]: la genera la subida o el
-/// backfill perezoso de `servir_archivo`).
+/// más su miniatura `min160-<uuid>.jpg` ([249A-4]; el legado `thumb-` de
+/// [249A-1] se sigue sirviendo mientras exista en disco).
 fn clave_valida(ruta: &str) -> Option<String> {
     let (inmueble, archivo) = ruta.split_once('/')?;
     if archivo.contains('/') || archivo.contains('\\') {
@@ -211,7 +228,10 @@ fn clave_valida(ruta: &str) -> Option<String> {
     }
     Uuid::parse_str(inmueble).ok()?;
     let punto = archivo.rfind('.')?;
-    let base = archivo.strip_prefix("thumb-").unwrap_or(archivo);
+    let base = archivo
+        .strip_prefix("min160-")
+        .or_else(|| archivo.strip_prefix("thumb-"))
+        .unwrap_or(archivo);
     let base_sin_ext = base.strip_suffix(&archivo[punto..]).unwrap_or(base);
     Uuid::parse_str(base_sin_ext).ok()?;
     let extension = archivo[punto..].to_lowercase();
@@ -242,6 +262,13 @@ mod tests {
             Some(format!("{id}/{id}.jpg"))
         );
         assert!(clave_valida(&format!("{id}/{id}.WEBP")).is_some());
+        /* [249A-4] Formato actual `min160-` y legado `thumb-`. */
+        assert_eq!(
+            clave_valida(&format!("{id}/min160-{id}.jpg")),
+            Some(format!("{id}/min160-{id}.jpg"))
+        );
+        assert!(clave_valida(&format!("{id}/thumb-{id}.jpg")).is_some());
+        assert!(clave_valida(&format!("{id}/mini-{id}.jpg")).is_none());
         assert!(clave_valida("../secreto.jpg").is_none());
         assert!(clave_valida(&format!("{id}/{id}.exe")).is_none());
         assert!(clave_valida(&format!("{id}/a/b.jpg")).is_none());

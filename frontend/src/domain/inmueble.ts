@@ -93,10 +93,11 @@ export interface InmueblePublico extends Inmueble {
   slug: string;
 }
 
-/* [249A-1] Miniatura de tabla (`thumb-<uuid>.jpg` junto al original): la
- * tabla pide la versión de 320 px y el modal sigue a máxima resolución.
- * Solo URLs http(s) de `/uploads` con nombre simple; dataURLs y thumbs ya
- * formados se devuelven intactos. */
+/* [249A-1] Miniatura de tabla (`min160-<uuid>.jpg` junto al original):
+ * la tabla pide la versión de 160 px y el modal sigue a máxima resolución.
+ * [249A-4] Antes `thumb-` de 320 px: el backend sirve ambos y borra el
+ * legado al regenerar. Solo URLs http(s) de `/uploads` con nombre simple;
+ * dataURLs y thumbs ya formados se devuelven intactos. */
 export function miniaturaDe(url: string): string {
   if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
   const q = url.indexOf('?');
@@ -105,8 +106,8 @@ export function miniaturaDe(url: string): string {
   const barra = base.lastIndexOf('/');
   if (barra < 0) return url;
   const nombre = base.slice(barra + 1);
-  if (nombre.startsWith('thumb-') || nombre.includes('/')) return url;
-  return `${base.slice(0, barra + 1)}thumb-${nombre}${resto}`;
+  if (nombre.startsWith('min160-') || nombre.startsWith('thumb-') || nombre.includes('/')) return url;
+  return `${base.slice(0, barra + 1)}min160-${nombre}${resto}`;
 }
 
 /* Portada para tarjetas y modal: la mejorada del primer `orden` si existe,

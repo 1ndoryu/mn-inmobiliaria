@@ -181,6 +181,12 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
         )
         /* [249A-1] Sitemap dinámico (ruta explícita: no cae al fallback). */
         .route("/sitemap.xml", get(sitemap))
+        /* [249A-4] `llms.txt` y catálogo agente dinámicos desde la BD
+         * (siempre frescos, sin depender del prebuild): el estático
+         * `public/llms.txt` nunca llegaba al build de Coolify y el
+         * fallback servía `index.html` en su lugar (agéntica 1/4). */
+        .route("/llms.txt", get(llms_txt))
+        .route("/.well-known/ai-catalog.json", get(ai_catalog))
         .nest("/api", api_routes())
         /* nest_service porque el chat trae Router<()> (estado propio):
          * nest exige el mismo estado. Despoja /api igual que nest. */
@@ -322,6 +328,180 @@ async fn sitemap(
         .into_response()
 }
 
+/* [249A-4] `llms.txt` dinámico desde publicados: mismo contenido que el
+ * generador del prebuild (ya eliminado) más sección `## Enlaces` con
+ * enlaces markdown, que exige la auditoría `llms-txt` de Lighthouse
+ * (H1 + al menos un `[texto](url)` + 50 caracteres). */
+/* Vacío legible para el `llms.txt`: el campo ausente se muestra como "—". */
+fn linea(v: &str) -> &str {
+    if v.is_empty() {
+        "—"
+    } else {
+        v
+    }
+}
+
+async fn llms_txt(
+    axum::extract::State(est): axum::extract::State<AppState>,
+) -> Result<impl axum::response::IntoResponse, crate::errors::AppError> {
+    use crate::models::FiltrosPublicos;
+    use crate::services::InmuebleService;
+    use std::fmt::Write as _;
+    let filtros = FiltrosPublicos {
+        tipo: None,
+        operacion: None,
+        precio_min: None,
+        precio_max: None,
+        page: 1,
+        per_page: 100,
+    };
+    let lista = InmuebleService::list_public(&est.pool, filtros).await?;
+    let mut texto = String::from(
+        "# MN Inmobiliaria\n\n\
+         > Compra, venta y alquiler de inmuebles en Puerto Ordaz, Venezuela.\n\
+         > Publica tu inmueble o contacta por la web.\n\n\
+         ## Enlaces\n\n\
+         [Catálogo de inmuebles](https://mn-inmobiliaria.com/)\n\n\
+         [Mapa del sitio](https://mn-inmobiliaria.com/sitemap.xml)\n",
+    );
+    for it in &lista.items {
+        let mut specs = format!(
+            "Tipo: {} · Operación: {} · Precio: {} · Ubicación: {}",
+            linea(&it.tipo),
+            linea(&it.operacion),
+            it.precio,
+            linea(&it.ubicacion),
+        );
+        if !it.residencia.is_empty() {
+            let _ = write!(specs, " · Residencia: {}", it.residencia);
+        }
+        let _ = write!(
+            specs,
+            " · Habitaciones: {} · Baños: {}",
+            it.habitaciones, it.banos
+        );
+        if it.puestos > 0 {
+            let _ = write!(specs, " · Puestos: {}", it.puestos);
+        }
+        if it.metros > 0.0 {
+            let _ = write!(specs, " · Construcción: {} m²", it.metros);
+        }
+        if it.metros_terreno > 0.0 {
+            let _ = write!(specs, " · Terreno: {} m²", it.metros_terreno);
+        }
+        let _ = write!(
+            texto,
+            "\n## {}\n\n{}\n\n{}\n",
+            it.titulo,
+            specs,
+            linea(it.descripcion.trim())
+        );
+    }
+    Ok((
+        [
+            (
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; charset=utf-8",
+            ),
+            (axum::http::header::CACHE_CONTROL, "public, max-age=3600"),
+        ],
+        texto,
+    )
+        .into_response())
+}
+
+/* [249A-4] Catálogo ARD (`/.well-known/ai-catalog.json`, que Lighthouse
+ * prueba aunque no se anuncie): cada publicado es una entrada con URN
+ * `urn:air:mn-inmobiliaria:listings:<slug>`, exactamente un `data` (el
+ * detalle es solo-modal, sin URLs por inmueble) y 2 consultas
+ * representativas. Sin errores del validador oficial (warnings como
+ * mucho): `specVersion` es `"1.0"` y el esquema no admite props extra. */
+async fn ai_catalog(
+    axum::extract::State(est): axum::extract::State<AppState>,
+) -> Result<impl axum::response::IntoResponse, crate::errors::AppError> {
+    use crate::models::FiltrosPublicos;
+    use crate::services::InmuebleService;
+    let filtros = FiltrosPublicos {
+        tipo: None,
+        operacion: None,
+        precio_min: None,
+        precio_max: None,
+        page: 1,
+        per_page: 100,
+    };
+    let lista = InmuebleService::list_public(&est.pool, filtros).await?;
+    let entradas: Vec<serde_json::Value> = lista
+        .items
+        .iter()
+        .map(|it| {
+            let descripcion: String = it.descripcion.chars().take(200).collect();
+            serde_json::json!({
+                "identifier": urn_inmueble(&it.slug, &it.id.to_string()),
+                "displayName": it.titulo,
+                "type": "application/json",
+                "description": descripcion,
+                "tags": [it.tipo, it.operacion],
+                "data": {
+                    "titulo": it.titulo,
+                    "tipo": it.tipo,
+                    "operacion": it.operacion,
+                    "precio": it.precio,
+                    "ubicacion": it.ubicacion,
+                    "residencia": it.residencia,
+                    "habitaciones": it.habitaciones,
+                    "banos": it.banos,
+                    "puestos": it.puestos,
+                    "metros_construidos": it.metros,
+                    "metros_terreno": it.metros_terreno,
+                    "descripcion": it.descripcion,
+                    "fotos": it.fotos.len(),
+                },
+                "representativeQueries": [
+                    format!("{} en {} en {}", it.tipo, it.operacion, it.ubicacion),
+                    it.titulo,
+                ],
+                "updatedAt": it.updated_at.to_rfc3339(),
+            })
+        })
+        .collect();
+    let catalogo = serde_json::json!({
+        "specVersion": "1.0",
+        "host": {
+            "displayName": "MN Inmobiliaria",
+            "logoUrl": "https://mn-inmobiliaria.com/img/logo-mn.svg",
+        },
+        "entries": entradas,
+    });
+    Ok((
+        [
+            (axum::http::header::CONTENT_TYPE, "application/json"),
+            (axum::http::header::CACHE_CONTROL, "public, max-age=3600"),
+        ],
+        axum::Json(catalogo),
+    )
+        .into_response())
+}
+
+/* El esquema ARD solo admite `[a-zA-Z0-9._-]` tras el publisher y sin
+ * guiones en los segmentos finales: el slug (`[a-z0-9-]`) se sanea a ese
+ * alfabeto para que el `identifier` pase la validación estricta. */
+fn urn_inmueble(slug: &str, id: &str) -> String {
+    let mut nombre: String = slug
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if nombre.is_empty() {
+        nombre = format!("inmueble_{}", id.chars().take(8).collect::<String>());
+    }
+    format!("urn:air:mn-inmobiliaria:listings:{nombre}")
+}
+
 /// `true` si la ruta es un fichero legible (no directorio).
 async fn es_fichero(p: &Path) -> bool {
     tokio::fs::metadata(p).await.is_ok_and(|m| m.is_file())
@@ -344,5 +524,36 @@ fn tipo_contenido(ext: &str) -> &'static str {
         "xml" => "application/xml",
         "woff2" => "font/woff2",
         _ => "application/octet-stream",
+    }
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    /* [249A-4] El `identifier` ARD debe pasar la regex estricta del tester
+     * (`urn:air:<publisher>:<segmentos sin guiones>`): el slug real trae
+     * guiones y se sanea a `_` para no fallar la auditoría. */
+    #[test]
+    fn urn_inmueble_sanea_slug_a_alfabeto_ard() {
+        let urn = urn_inmueble("townhouse-2-niveles-en-arivana", "6e6706a7");
+        assert_eq!(
+            urn,
+            "urn:air:mn-inmobiliaria:listings:townhouse_2_niveles_en_arivana"
+        );
+        assert!(urn
+            .strip_prefix("urn:air:mn-inmobiliaria:")
+            .is_some_and(|resto| resto.chars().all(|c| c.is_ascii_alphanumeric()
+                || c == '.'
+                || c == '_'
+                || c == ':'
+                || c == '-')));
+        /* El esquema ARD admite guiones en el publisher, pero no en los
+         * segmentos finales (`:[a-zA-Z0-9._-]+`): `listings` y el nombre
+         * saneado van sin ellos. */
+        assert!(!urn
+            .strip_prefix("urn:air:mn-inmobiliaria:")
+            .is_some_and(|resto| resto.contains('-')));
+        assert!(urn_inmueble("", "6e6706a7").ends_with("inmueble_6e6706a7"));
     }
 }

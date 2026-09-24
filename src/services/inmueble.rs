@@ -303,19 +303,26 @@ impl InmuebleService {
         /* [249A-1] Invalida la caché de fotos (`?v=<updated_at>`). */
         InmuebleRepository::tocar_inmueble(pool, foto.inmueble_id).await?;
         Self::borrar_archivo(upload_dir, &foto.storage_key).await;
-        /* El thumb muere con su original (si no existe, no pasa nada). */
+        /* El thumb muere con su original (si no existe, no pasa nada):
+         * formato actual más legado `thumb-` de 320 px ([249A-4]). */
         if let Some(clave_thumb) = Self::clave_miniatura(&foto.storage_key) {
             Self::borrar_archivo(upload_dir, &clave_thumb).await;
+        }
+        if let Some(clave_legada) = Self::clave_miniatura_legada(&foto.storage_key) {
+            Self::borrar_archivo(upload_dir, &clave_legada).await;
         }
         Ok(())
     }
 
-    /* [249A-1] Miniatura de tabla: JPEG 320 px de lado mayor, calidad 70.
-     * Puro Rust (crate `image`, sin libs del sistema). Devuelve `None` si los
-     * bytes no decodifican: la subida principal no debe caer por el thumb. */
+    /* [249A-1] Miniatura de tabla: JPEG del lado mayor, calidad 70. Puro
+     * Rust (crate `image`, sin libs del sistema). Devuelve `None` si los
+     * bytes no decodifican: la subida principal no debe caer por el thumb.
+     * [249A-4] 320→160 px: la tabla pública muestra 64-80 px (DPR 2 cubierto
+     * con 160) y el admin usa originales; PageSpeed pedía ~113 KiB menos en
+     * las 8 portadas visibles. La clave cambia a `min160-` para regenerar. */
     pub(crate) fn miniatura(bytes: &[u8]) -> Option<Vec<u8>> {
         let img = image::load_from_memory(bytes).ok()?;
-        let reducida = img.thumbnail(320, 320);
+        let reducida = img.thumbnail(160, 160);
         let mut salida = Vec::new();
         image::codecs::jpeg::JpegEncoder::new_with_quality(&mut salida, 70)
             .encode_image(&reducida)
@@ -323,11 +330,22 @@ impl InmuebleService {
         Some(salida)
     }
 
-    /* Clave del thumb junto al original: `<inmueble>/thumb-<uuid>.jpg`. */
+    /* Clave del thumb junto al original: `<inmueble>/min160-<uuid>.jpg`. */
     fn clave_miniatura(storage_key: &str) -> Option<String> {
         let (carpeta, archivo) = storage_key.split_once('/')?;
         let punto = archivo.rfind('.')?;
-        if archivo.starts_with("thumb-") {
+        if archivo.starts_with("min160-") || archivo.starts_with("thumb-") {
+            return None;
+        }
+        Some(format!("{carpeta}/min160-{}.jpg", &archivo[..punto]))
+    }
+
+    /* Legado `thumb-<uuid>.jpg` de 320 px ([249A-1]): solo para borrar al
+     * regenerar o eliminar la foto; ya no se genera ni se pide. */
+    fn clave_miniatura_legada(storage_key: &str) -> Option<String> {
+        let (carpeta, archivo) = storage_key.split_once('/')?;
+        let punto = archivo.rfind('.')?;
+        if archivo.starts_with("min160-") || archivo.starts_with("thumb-") {
             return None;
         }
         Some(format!("{carpeta}/thumb-{}.jpg", &archivo[..punto]))
