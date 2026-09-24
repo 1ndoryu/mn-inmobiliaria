@@ -264,3 +264,21 @@ validado con `cargo check --tests` + `cargo test` (15 passed, 0 failed, target e
 - Reglas Traefik `Host()` con backticks (ya en template).
 - `frontend/dist`, `uploads/`, `.env` no van a git (verificar `.gitignore`).
 - `glory-rs` es submódulo: el clone de Coolify/Dockerfile debe traerlo (`--recursive`/init).
+
+## Incidencia post-deploy 2026-09-24 — "Servidor no disponible" con API sana
+- **Sintoma:** home 200 pero filtros `Todo (0)` + `Servidor no disponible`; API `/api/health` y
+  `/api/public/inmuebles` OK (11/218). No era DNS ni red del usuario.
+- **Causa:** bundle prod `index-C0mkx5NI.js` sin `mn-inmobiliaria.com` y con `http://127.0.0.1:3000`:
+  `Dockerfile.rust` no declaraba `ARG VITE_API_URL` y la var no existia en el servicio → Vite
+  horneo el fallback de `cliente-chat.ts:37` (`VITE_API_URL || 'http://127.0.0.1:3000'`).
+- **Defecto herramienta (resuelto):** `sync-env push` exigia el trio Stripe en local aunque el push
+  fuera `--only` de claves permitidas → sitios sin Stripe no podian sincronizar NADA.
+  Fix en `coolify-manager-rs` (`push_acotado_exime_requeridas` + test; commits `d908b94`
+  template `ARG VITE_API_URL`/`CACHE_BUST=3` y `3008e65` exencion push acotado; fmt+clippy+197 tests).
+- **Cierre:** `sync-env push --only VITE_API_URL` (1 var) + `deploy-service --skip-backup` con rebuild
+  (6/6 OK). Bundle nuevo `index-EZwYRSQX.js` con `VITE_API_URL:https://mn-inmobiliaria.com`;
+  los 2 `127.0.0.1:3000` restantes son literales muertos de `||` (nunca se evaluan).
+  Verificado: `total=11`, fotos `218`, `health ok v=0.1.0`, `http_ok=true app_ok=true`.
+- **Pendiente (no bloquea):** endurecer fallbacks a mismo-origen en front
+  (`cliente-chat.ts`, `publica.ts`, `suscriptores/api.ts`); quitar `VITE_*` dummy de `required_env_keys`
+  o hacerlo por-sitio si Stripe sigue sin usarse.
