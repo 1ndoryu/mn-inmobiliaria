@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Loader2, RotateCcw, Undo2, X } from 'lucide-react';
+import { Download, EllipsisVertical, Loader2, RotateCcw, Undo2, X } from 'lucide-react';
 import type { FotoMejora } from '@/domain/foto-mejora';
 import type { InfoReintento } from '@/hooks/mejora/use-cola-mejora';
+import { descargarUrl } from '@/platform/descarga';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,6 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const ETIQUETA: Record<FotoMejora['estado'], string> = {
   pendiente: 'Pendiente',
@@ -25,6 +33,14 @@ function variante(estado: FotoMejora['estado']): 'default' | 'secondary' | 'dest
   return 'outline';
 }
 
+/* Nombre seguro para la descarga: último segmento de la URL sin query,
+ * saneado porque `:` (p. ej. en blob:) es inválido en Windows. */
+function nombreArchivo(url: string, defecto: string): string {
+  const base = url.split('/').pop()?.split('?')[0]?.trim() || defecto;
+  const limpio = base.replace(/[^A-Za-z0-9._-]/g, '_');
+  return limpio || `${defecto}.jpg`;
+}
+
 /* Tarjeta compacta: original a la izquierda y mejorada a la derecha para
  * comparar; el clic en cada una la abre completa. La mejorada se guarda en
  * la mejor resolución que devuelva el backend. `reintento` muestra el
@@ -34,7 +50,9 @@ function variante(estado: FotoMejora['estado']): 'default' | 'secondary' | 'dest
  * original retenido sin re-subir).
  * 259A-1: IDs de fila del original y la mejorada visibles + Restaurar
  * (borra la mejorada del servidor con confirmación; la copia local queda
- * pendiente para mejorarla de nuevo). */
+ * pendiente para mejorarla de nuevo).
+ * 259A-3: acciones (Reintentar/Cancelar/Restaurar) en menú contextual de
+ * 3 puntos + Descargar original/mejorada (vía blob, ver descarga.ts). */
 export function TarjetaFotoMejora(props: {
   foto: FotoMejora;
   /** ID de fila del original en la API (null en borradores sin subir). */
@@ -51,6 +69,10 @@ export function TarjetaFotoMejora(props: {
   const { foto, idOriginal, idServidor, alReintentar, alCancelar, alRestaurar, ocupado, reintento } = props;
   const [ampliada, setAmpliada] = useState<'original' | 'mejorada' | null>(null);
   const [restaura, setRestaura] = useState<{ enCurso: boolean; error: string | null }>({
+    enCurso: false,
+    error: null,
+  });
+  const [descarga, setDescarga] = useState<{ enCurso: boolean; error: string | null }>({
     enCurso: false,
     error: null,
   });
@@ -77,6 +99,20 @@ export function TarjetaFotoMejora(props: {
       setRestaura({ enCurso: false, error: null });
     } catch (e) {
       setRestaura({ enCurso: false, error: e instanceof Error ? e.message : 'No se pudo restaurar el original.' });
+    }
+  }
+  /* Descarga original o mejorada como archivo (vía blob temporal; el
+   * atributo `download` se ignora entre orígenes). El fallo queda visible
+   * en la tarjeta, nunca silenciado. */
+  async function descargar(cual: 'original' | 'mejorada') {
+    const url = cual === 'mejorada' ? foto.mejorada : foto.original;
+    if (!url || descarga.enCurso) return;
+    setDescarga({ enCurso: true, error: null });
+    try {
+      await descargarUrl(url, nombreArchivo(url, cual));
+      setDescarga({ enCurso: false, error: null });
+    } catch (e) {
+      setDescarga({ enCurso: false, error: e instanceof Error ? e.message : 'No se pudo descargar la foto.' });
     }
   }
   return (
@@ -140,43 +176,57 @@ export function TarjetaFotoMejora(props: {
             · intento {reintento.intentos}
           </span>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-7 px-2 text-xs"
-          disabled={ocupado || foto.estado === 'procesando'}
-          onClick={() => alReintentar(foto)}
-          title="Reintentar mejora"
-        >
-          <RotateCcw className="h-3.5 w-3.5" /> Reintentar
-        </Button>
-        {foto.estado === 'procesando' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => alCancelar(foto)}
-            title="Cancelar: fuera de la cola, queda pendiente"
-          >
-            <X className="h-3.5 w-3.5" /> Cancelar
-          </Button>
-        )}
-        {puedeRestaurar && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            disabled={ocupado || restaura.enCurso}
-            onClick={() => void restaurar()}
-            title="Borrar la mejorada del servidor y volver al original"
-          >
-            {restaura.enCurso ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}{' '}
-            Restaurar
-          </Button>
-        )}
+        {/* 259A-3: acciones en menú contextual de 3 puntos (mismo patrón
+          que tabla-inmuebles): Reintentar/Cancelar/Restaurar + descargas. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-auto h-7 w-7"
+                title="Acciones de la foto"
+                aria-label="Acciones de la foto"
+              >
+                <EllipsisVertical />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem
+              disabled={ocupado || foto.estado === 'procesando'}
+              onClick={() => alReintentar(foto)}
+            >
+              <RotateCcw /> Reintentar
+            </DropdownMenuItem>
+            {foto.estado === 'procesando' && (
+              <DropdownMenuItem onClick={() => alCancelar(foto)}>
+                <X /> Cancelar
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={descarga.enCurso} onClick={() => void descargar('original')}>
+              <Download /> Descargar original
+            </DropdownMenuItem>
+            {foto.mejorada && (
+              <DropdownMenuItem disabled={descarga.enCurso} onClick={() => void descargar('mejorada')}>
+                <Download /> Descargar mejorada
+              </DropdownMenuItem>
+            )}
+            {puedeRestaurar && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={ocupado || restaura.enCurso} onClick={() => void restaurar()}>
+                  {restaura.enCurso ? <Loader2 className="animate-spin" /> : <Undo2 />} Restaurar
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {foto.error && <p className="px-2 pb-2 text-[11px] text-destructive">{foto.error}</p>}
       {restaura.error && <p className="px-2 pb-2 text-[11px] text-destructive">{restaura.error}</p>}
+      {descarga.error && <p className="px-2 pb-2 text-[11px] text-destructive">{descarga.error}</p>}
       <Dialog open={ampliada !== null} onOpenChange={(abierto) => !abierto && setAmpliada(null)}>
         <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>

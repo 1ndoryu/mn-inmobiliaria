@@ -26,6 +26,8 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
+(Sin pendientes.)
+
 ## Deploy mn-inmobiliaria.com (239A-1, en curso 2026-09-23)
 
 - Plan: `Agente/planes/plan-deploy-produccion-2026-09-23.md`.

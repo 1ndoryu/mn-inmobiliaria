@@ -69,6 +69,36 @@ function BotonTema({ tema, alCambiar }: { tema: Tema; alCambiar: () => void }) {
   );
 }
 
+/* Pestaña del menú inferior móvil (259A-2): icono + etiqueta, como las
+ * apps nativas. Solo móvil (`md:hidden` en el `nav` padre); el `aside`
+ * de escritorio no cambia. */
+function BotonTab({
+  icono,
+  texto,
+  activo = false,
+  onClick,
+}: {
+  icono: ReactNode;
+  texto: string;
+  activo?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={activo ? 'page' : undefined}
+      className={cn(
+        'flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-md py-1.5 text-[10px] font-medium',
+        activo ? 'text-primary' : 'text-muted-foreground',
+      )}
+    >
+      {icono}
+      {texto}
+    </button>
+  );
+}
+
 // Layout con menú lateral en escritorio y cabecera compacta en móvil.
 // `mensajes` (169A-5) es la bandeja del chat con IA + su configuración.
 // `publicidad` es la galería de imágenes para redes (plantilla Post I).
@@ -187,41 +217,48 @@ export function Layout({
           )}
           <BotonTema tema={tema} alCambiar={ciclar} />
         </header>
-        <main className="mx-auto w-full max-w-6xl p-4 md:p-6">
-          {alCambiarVista && (
-            <div className="mb-4 flex gap-2 md:hidden">
-              <Button
-                variant={(vista ?? 'inmuebles') === 'inmuebles' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => alCambiarVista('inmuebles')}
-              >
-                <Building2 className="h-3.5 w-3.5" /> Inmuebles
-              </Button>
-              <Button
-                variant={vista === 'imagenes' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => alCambiarVista('imagenes')}
-              >
-                <ImageIcon className="h-3.5 w-3.5" /> Imágenes
-              </Button>
-              <Button
-                variant={vista === 'mensajes' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => alCambiarVista('mensajes')}
-              >
-                <MessageCircle className="h-3.5 w-3.5" /> Mensajes
-              </Button>
-              <Button
-                variant={vista === 'publicidad' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => alCambiarVista('publicidad')}
-              >
-                <Megaphone className="h-3.5 w-3.5" /> Publicidad
-              </Button>
-            </div>
-          )}
+        {/* Contenido con reserva inferior en móvil: la barra de
+          pestañas es fija y si no, tapa el final de la vista. */}
+        <main className="mx-auto w-full max-w-6xl p-4 pb-24 md:p-6 md:pb-6">
           {children}
         </main>
+        {/* Menú inferior móvil estilo app (259A-2): reemplaza la fila de
+          botones bajo la cabecera (no cabía: 4 botones + iconos en 360px
+          desbordaban). Fijo abajo, solo móvil; respeta el área segura
+          (`env(safe-area-inset-bottom)`) en iPhone con gestos. */}
+        {alCambiarVista && (
+          <nav
+            aria-label="Navegación principal"
+            className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur md:hidden"
+          >
+            <div className="grid grid-cols-4 gap-1 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+              <BotonTab
+                icono={<Building2 className="h-5 w-5" />}
+                texto="Inmuebles"
+                activo={(vista ?? 'inmuebles') === 'inmuebles'}
+                onClick={() => alCambiarVista('inmuebles')}
+              />
+              <BotonTab
+                icono={<ImageIcon className="h-5 w-5" />}
+                texto="Imágenes"
+                activo={vista === 'imagenes'}
+                onClick={() => alCambiarVista('imagenes')}
+              />
+              <BotonTab
+                icono={<MessageCircle className="h-5 w-5" />}
+                texto="Mensajes"
+                activo={vista === 'mensajes'}
+                onClick={() => alCambiarVista('mensajes')}
+              />
+              <BotonTab
+                icono={<Megaphone className="h-5 w-5" />}
+                texto="Publicidad"
+                activo={vista === 'publicidad'}
+                onClick={() => alCambiarVista('publicidad')}
+              />
+            </div>
+          </nav>
+        )}
       </div>
     </div>
   );
