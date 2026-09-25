@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
-import { ImageIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
 import type { Inmueble } from '@/domain/inmueble';
 import type { FotoMejora } from '@/domain/foto-mejora';
 import type { InfoReintento } from '@/hooks/mejora/use-cola-mejora';
+import { Button } from '@/components/ui/button';
 import { TarjetaFotoMejora } from './tarjeta-foto-mejora';
 
 /* Misma foto con distinta base (absoluta/relativa): se compara por ruta. */
@@ -21,6 +22,43 @@ interface FilaFoto {
   foto: FotoMejora;
   /** Sin entrada local (importación aún en curso): botones deshabilitados. */
   sinEntrada: boolean;
+  /** ID de fila del original en la API (null en borradores sin subir). */
+  idOriginal: string | null;
+  /** ID de fila de la mejorada en la API (null si aún no hay). */
+  idMejorada: string | null;
+}
+
+/* Grupos de inmuebles por página: 4 tarjetas de grupo caben sin scroll
+ * eterno con 11 inmuebles (3 páginas); los grupos conservan su orden. */
+const GRUPOS_POR_PAGINA = 4;
+
+function Paginador({ pagina, total, alCambiar }: { pagina: number; total: number; alCambiar: (p: number) => void }) {
+  if (total <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs"
+        disabled={pagina <= 1}
+        onClick={() => alCambiar(pagina - 1)}
+      >
+        <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+      </Button>
+      <span className="text-xs text-muted-foreground">
+        Página {pagina} de {total}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 text-xs"
+        disabled={pagina >= total}
+        onClick={() => alCambiar(pagina + 1)}
+      >
+        Siguiente <ChevronRight className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
 }
 
 /* Página lateral de imágenes: grupos compactos por inmueble, fotos en el
@@ -33,10 +71,12 @@ export function PaginaImagenes(props: {
   fotos: FotoMejora[];
   alReintentar: (foto: FotoMejora) => void;
   alCancelar: (foto: FotoMejora) => void;
+  alRestaurar: (inmuebleId: string, orden: number) => Promise<void>;
   ocupado: boolean;
   reintentos?: Record<string, InfoReintento>;
 }) {
-  const { inmuebles, fotos, alReintentar, alCancelar, ocupado, reintentos } = props;
+  const { inmuebles, fotos, alReintentar, alCancelar, alRestaurar, ocupado, reintentos } = props;
+  const [pagina, setPagina] = useState(1);
 
   const grupos = useMemo(() => {
     const grupos: { inmueble: Inmueble; filas: FilaFoto[] }[] = [];
@@ -44,7 +84,9 @@ export function PaginaImagenes(props: {
       if (inmueble.fotos.length === 0) continue;
       const entradas = fotos.filter((f) => f.inmuebleId === inmueble.id);
       const filas: FilaFoto[] = inmueble.fotos.map((original, orden) => {
-        const mejoradaServidor = inmueble.mejoradasServidor.find((m) => m.orden === orden)?.url ?? null;
+        const mejorada = inmueble.mejoradasServidor.find((m) => m.orden === orden) ?? null;
+        const mejoradaServidor = mejorada?.url ?? null;
+        const idOriginal = inmueble.idsFotos[orden] ?? null;
         const entrada =
           entradas.find((e) => e.orden === orden && mismaRuta(e.original, original)) ??
           entradas.find((e) => e.orden === orden) ??
@@ -55,6 +97,8 @@ export function PaginaImagenes(props: {
             orden,
             foto: { ...entrada, original, mejorada: mejoradaServidor ?? entrada.mejorada },
             sinEntrada: false,
+            idOriginal,
+            idMejorada: mejorada?.id ?? null,
           };
         }
         return {
@@ -74,12 +118,20 @@ export function PaginaImagenes(props: {
             updatedAt: inmueble.createdAt,
           },
           sinEntrada: true,
+          idOriginal,
+          idMejorada: mejorada?.id ?? null,
         };
       });
       grupos.push({ inmueble, filas });
     }
     return grupos.sort((a, b) => b.inmueble.createdAt.localeCompare(a.inmueble.createdAt));
   }, [inmuebles, fotos]);
+
+  const totalPaginas = Math.max(1, Math.ceil(grupos.length / GRUPOS_POR_PAGINA));
+  /* Página vigente derivada durante el render (sin efecto): si la lista
+   * encoge y la página queda fuera de rango se muestra la última válida. */
+  const paginaVigente = Math.min(pagina, totalPaginas);
+  const visibles = grupos.slice((paginaVigente - 1) * GRUPOS_POR_PAGINA, paginaVigente * GRUPOS_POR_PAGINA);
 
   if (grupos.length === 0) {
     return (
@@ -95,7 +147,8 @@ export function PaginaImagenes(props: {
 
   return (
     <div className="flex flex-col gap-6">
-      {grupos.map(({ inmueble, filas }) => (
+      <Paginador pagina={paginaVigente} total={totalPaginas} alCambiar={setPagina} />
+      {visibles.map(({ inmueble, filas }) => (
         <section key={inmueble.id} className="flex flex-col gap-3">
           <div className="flex items-baseline gap-2">
             <h2 className="text-base font-semibold">{inmueble.titulo || 'Sin título'}</h2>
@@ -108,8 +161,11 @@ export function PaginaImagenes(props: {
               <TarjetaFotoMejora
                 key={fila.key}
                 foto={fila.foto}
+                idOriginal={fila.idOriginal}
+                idServidor={fila.idMejorada}
                 alReintentar={alReintentar}
                 alCancelar={alCancelar}
+                alRestaurar={fila.idMejorada ? () => alRestaurar(inmueble.id, fila.orden) : null}
                 ocupado={ocupado || fila.sinEntrada}
                 reintento={fila.sinEntrada ? null : (reintentos?.[fila.foto.id] ?? null)}
               />
@@ -117,6 +173,7 @@ export function PaginaImagenes(props: {
           </div>
         </section>
       ))}
+      <Paginador pagina={paginaVigente} total={totalPaginas} alCambiar={setPagina} />
     </div>
   );
 }

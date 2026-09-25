@@ -16,6 +16,7 @@ interface VistaImagenesProps {
   cola: ReturnType<typeof useColaMejora>;
   historial: ReturnType<typeof useFotosMejora>['historial'];
   alLimpiarHistorial: () => void;
+  alRestaurar: (inmuebleId: string, orden: number) => Promise<void>;
 }
 
 /* Vista de imágenes del panel: modo manual/automático, diagnóstico,
@@ -28,6 +29,7 @@ export function VistaImagenes({
   cola,
   historial,
   alLimpiarHistorial,
+  alRestaurar,
 }: VistaImagenesProps) {
   const manual = config.modo === 'manual';
 
@@ -77,6 +79,7 @@ export function VistaImagenes({
         reintentos={cola.reintentos}
         alReintentar={(foto) => void cola.reintentar(foto, config.prompt)}
         alCancelar={(foto) => void cola.cancelar(foto)}
+        alRestaurar={alRestaurar}
       />
       <div className="mt-6">
         <HistorialMejoras eventos={historial} tituloDe={tituloDe} alLimpiar={alLimpiarHistorial} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, RotateCcw, X } from 'lucide-react';
+import { Loader2, RotateCcw, Undo2, X } from 'lucide-react';
 import type { FotoMejora } from '@/domain/foto-mejora';
 import type { InfoReintento } from '@/hooks/mejora/use-cola-mejora';
 import { Badge } from '@/components/ui/badge';
@@ -31,19 +31,54 @@ function variante(estado: FotoMejora['estado']): 'default' | 'secondary' | 'dest
  * reintento programado por el backend (F19).
  * F21: Cancelar saca la foto de la cola (o aborta el proceso) y la deja
  * pendiente limpia; Reintentar la mueve (los errores finales reutilizan el
- * original retenido sin re-subir). */
+ * original retenido sin re-subir).
+ * 259A-1: IDs de fila del original y la mejorada visibles + Restaurar
+ * (borra la mejorada del servidor con confirmación; la copia local queda
+ * pendiente para mejorarla de nuevo). */
 export function TarjetaFotoMejora(props: {
   foto: FotoMejora;
+  /** ID de fila del original en la API (null en borradores sin subir). */
+  idOriginal: string | null;
+  /** ID de fila de la mejorada en la API (null si aún no hay). */
+  idServidor: string | null;
   alReintentar: (foto: FotoMejora) => void;
   alCancelar: (foto: FotoMejora) => void;
+  /** Restaura el original (borra la mejorada del servidor); null = sin mejorada que restaurar. */
+  alRestaurar: (() => Promise<void>) | null;
   ocupado: boolean;
   reintento?: InfoReintento | null;
 }) {
-  const { foto, alReintentar, alCancelar, ocupado, reintento } = props;
+  const { foto, idOriginal, idServidor, alReintentar, alCancelar, alRestaurar, ocupado, reintento } = props;
   const [ampliada, setAmpliada] = useState<'original' | 'mejorada' | null>(null);
+  const [restaura, setRestaura] = useState<{ enCurso: boolean; error: string | null }>({
+    enCurso: false,
+    error: null,
+  });
   const conReintento =
     foto.estado === 'procesando' && reintento && (reintento.motivo || (reintento.enSeg ?? 0) > 0);
   const urlAmpliada = ampliada === 'mejorada' ? (foto.mejorada ?? foto.original) : foto.original;
+  const puedeRestaurar = alRestaurar !== null && idServidor !== null && foto.estado !== 'procesando';
+
+  /* Restaurar descarta la mejorada del servidor y deja el original
+   * vigente; el llamador limpia además la copia local (queda pendiente
+   * para mejorarla de nuevo). Con confirmación: es un borrado real. */
+  async function restaurar() {
+    if (!alRestaurar || restaura.enCurso) return;
+    if (
+      !window.confirm(
+        'Descartar la mejorada del servidor y volver al original? La foto quedará pendiente para mejorarla de nuevo.',
+      )
+    ) {
+      return;
+    }
+    setRestaura({ enCurso: true, error: null });
+    try {
+      await alRestaurar();
+      setRestaura({ enCurso: false, error: null });
+    } catch (e) {
+      setRestaura({ enCurso: false, error: e instanceof Error ? e.message : 'No se pudo restaurar el original.' });
+    }
+  }
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
       <div className="grid grid-cols-2 gap-px bg-border">
@@ -56,7 +91,15 @@ export function TarjetaFotoMejora(props: {
           >
             <img src={foto.original} alt="Original" className="aspect-square w-full object-cover" loading="lazy" />
           </button>
-          <p className="px-2 py-1 text-[11px] text-muted-foreground">Original</p>
+          <p className="px-2 pt-1 text-[11px] text-muted-foreground">Original</p>
+          {idOriginal && (
+            <p
+              className="px-2 pb-1 font-mono text-[10px] break-all text-muted-foreground"
+              title={`ID del original en el servidor: ${idOriginal}`}
+            >
+              ID {idOriginal}
+            </p>
+          )}
         </div>
         <div className="bg-card">
           {foto.mejorada ? (
@@ -73,7 +116,15 @@ export function TarjetaFotoMejora(props: {
               {foto.estado === 'procesando' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sin mejorar'}
             </div>
           )}
-          <p className="px-2 py-1 text-[11px] text-muted-foreground">Mejorada</p>
+          <p className="px-2 pt-1 text-[11px] text-muted-foreground">Mejorada</p>
+          {idServidor && (
+            <p
+              className="px-2 pb-1 font-mono text-[10px] break-all text-muted-foreground"
+              title={`ID de la mejorada en el servidor: ${idServidor}`}
+            >
+              ID {idServidor}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2 px-2 py-2">
@@ -110,8 +161,22 @@ export function TarjetaFotoMejora(props: {
             <X className="h-3.5 w-3.5" /> Cancelar
           </Button>
         )}
+        {puedeRestaurar && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={ocupado || restaura.enCurso}
+            onClick={() => void restaurar()}
+            title="Borrar la mejorada del servidor y volver al original"
+          >
+            {restaura.enCurso ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}{' '}
+            Restaurar
+          </Button>
+        )}
       </div>
       {foto.error && <p className="px-2 pb-2 text-[11px] text-destructive">{foto.error}</p>}
+      {restaura.error && <p className="px-2 pb-2 text-[11px] text-destructive">{restaura.error}</p>}
       <Dialog open={ampliada !== null} onOpenChange={(abierto) => !abierto && setAmpliada(null)}>
         <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>

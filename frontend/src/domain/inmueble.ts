@@ -56,6 +56,10 @@ export interface MultimediaInmueble {
    * visor y la cola de mejora no las traten como originales (antes se
    * mezclaban y aparecían duplicadas junto a estas). */
   fotos: string[];
+  /* IDs de fila (`fotos.id` en la API) de los originales, alineados por
+   * índice con `fotos`: permiten identificar cada foto en el panel
+   * (259A-1) sin adivinar por posición. Vacío en borradores aún sin subir. */
+  idsFotos: string[];
   /* Mejora IA ya guardada en el servidor (`origen=mejorada`), emparejada
    * con su original por `orden`. Vacío = aún sin mejorar. */
   mejoradasServidor: MejoraServidor[];
@@ -81,8 +85,11 @@ export interface Inmueble
   precio: number;
 }
 
-/** Mejora IA guardada en el servidor, emparejada con su original por `orden`. */
+/** Mejora IA guardada en el servidor, emparejada con su original por `orden`.
+ * `id` es la fila en la API: permite borrarla (restaurar original, 259A-1)
+ * sin re-listar para adivinarla. */
 export interface MejoraServidor {
+  id: string;
   orden: number;
   url: string;
 }
@@ -243,6 +250,7 @@ export function draftAInmueble(d: InmuebleDraft, base?: Inmueble): Inmueble {
     metrosTerreno: num(d.metrosTerreno),
     puestos: num(d.puestos),
     fotos: d.fotos,
+    idsFotos: base?.idsFotos ?? [],
     // Las mejoradas del servidor no se editan en el formulario: se conservan.
     mejoradasServidor: base?.mejoradasServidor ?? [],
     estado: d.estado,

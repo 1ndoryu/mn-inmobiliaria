@@ -25,3 +25,13 @@
 - Un E2E honesto en degradado (sin clave IA: `reply:null`, mensaje
   persistido, sin escalado espurio) vale mas que un E2E simulado; deja
   por escrito que comportamientos quedan pendientes de credenciales.
+
+## 2026-09-25 - Lectura obsoleta y edit fail-closed como detector
+- El `read` puede devolver contenido obsoleto (en 259A-1: 162 lineas con
+  `Images`/`reintento` requerido vs 122 reales con `ImageIcon`/`useMemo`).
+  El `edit` que no encuentra `oldString` es fail-closed y actua como
+  detector: ante un fallo de match, no reintentar variantes a ciegas;
+  confirmar con bytes crudos, `git status`/`git diff` y releer el archivo.
+- `useEffect` solo para clampar paginacion suma warning
+  `set-state-in-effect`: derivar la pagina vigente durante el render
+  (`Math.min(pagina, total)`) es mas simple y sin efecto.

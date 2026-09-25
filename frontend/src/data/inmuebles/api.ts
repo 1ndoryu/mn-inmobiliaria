@@ -256,6 +256,7 @@ function recetaADominio(r: RecetaPublicidad | null): RecetaRemota | null {
 
 export function remotoADominio(r: InmuebleRemoto): Inmueble {
   const ordenadas = [...r.fotos].sort((a, b) => a.orden - b.orden);
+  const originales = ordenadas.filter((f) => f.origen !== 'mejorada');
   return {
     id: r.id,
     titulo: r.titulo,
@@ -270,10 +271,11 @@ export function remotoADominio(r: InmuebleRemoto): Inmueble {
     metros: r.metros,
     metrosTerreno: r.metros_terreno,
     puestos: r.puestos ?? 0,
-    fotos: ordenadas.filter((f) => f.origen !== 'mejorada').map((f) => urlAbsoluta(f.url)),
+    fotos: originales.map((f) => urlAbsoluta(f.url)),
+    idsFotos: originales.map((f) => f.id),
     mejoradasServidor: ordenadas
       .filter((f) => f.origen === 'mejorada')
-      .map((f) => ({ orden: f.orden, url: urlAbsoluta(f.url) })),
+      .map((f) => ({ id: f.id, orden: f.orden, url: urlAbsoluta(f.url) })),
     estado: r.estado as Inmueble['estado'],
     publicado: r.publicado,
     copy: r.copy ? { corta: r.copy.corta, larga: r.copy.larga, modelo: r.copy.modelo, actualizadaEn: r.copy.actualizada_en } : null,
@@ -486,7 +488,7 @@ export async function sincronizarFotos(
   if (iguales) {
     return {
       fotos: ordenadas.map((f) => urlAbsoluta(f.url)),
-      mejoradas: mejoradas.map((m) => ({ orden: m.orden, url: urlAbsoluta(m.url) })),
+      mejoradas: mejoradas.map((m) => ({ id: m.id, orden: m.orden, url: urlAbsoluta(m.url) })),
       cambiaron: false,
     };
   }
@@ -515,15 +517,28 @@ export async function sincronizarFotos(
   for (const f of [...ordenadas, ...mejoradas]) {
     await apiFetch<unknown>(`/api/admin/fotos/${encodeURIComponent(f.id)}`, { method: 'DELETE' });
   }
-  const finales: string[] = [];
   for (let i = 0; i < nuevas.length; i++) {
     const { bytes, extension } = nuevas[i];
-    finales.push(await subirFotoBytes(inmuebleId, bytes, extension, 'original', i));
+    await subirFotoBytes(inmuebleId, bytes, extension, 'original', i);
   }
-  const subidas: MejoraServidor[] = [];
   for (const s of seguidoras.sort((a, b) => a.orden - b.orden)) {
-    const url = await subirFotoBytes(inmuebleId, s.bytes, s.extension, 'mejorada', s.orden);
-    subidas.push({ orden: s.orden, url });
+    await subirFotoBytes(inmuebleId, s.bytes, s.extension, 'mejorada', s.orden);
   }
-  return { fotos: finales, mejoradas: subidas, cambiaron: true };
+  /* [259A-1] La subida solo devuelve la URL, no el id de fila: se re-lee
+   * el inmueble para devolver fotos y mejoradas con sus ids reales (los
+   * necesita el botón Restaurar y el panel muestra los IDs). */
+  const fresco = remotoADominio(await obtenerRemoto(inmuebleId));
+  return { fotos: fresco.fotos, mejoradas: fresco.mejoradasServidor, cambiaron: true };
+}
+
+/* Restaura el original de una foto: borra su mejorada del servidor y
+ * devuelve el inmueble fresco (con `idsFotos` y `mejoradasServidor`
+ * vigentes). Solo borra, nunca re-sube: el original sigue intacto.
+ * Lanza `ErrorApi` si ya no hay mejorada en ese `orden`. */
+export async function eliminarMejorada(inmuebleId: string, orden: number): Promise<Inmueble> {
+  const actual = await obtenerRemoto(inmuebleId);
+  const objetivo = actual.fotos.find((f) => f.origen === 'mejorada' && f.orden === orden);
+  if (!objetivo) throw new ErrorApi('Esa foto ya no tiene mejorada en el servidor.', 404);
+  await apiFetch<unknown>(`/api/admin/fotos/${encodeURIComponent(objetivo.id)}`, { method: 'DELETE' });
+  return remotoADominio(await obtenerRemoto(inmuebleId));
 }

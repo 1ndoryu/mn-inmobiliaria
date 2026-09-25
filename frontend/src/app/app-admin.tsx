@@ -16,6 +16,7 @@ import { useSesion } from '../hooks/sesion/use-sesion';
 import { useTema } from '../hooks/app/use-tema';
 import { useFotosMejora } from '../hooks/mejora/use-fotos-mejora';
 import { useColaMejora } from '../hooks/mejora/use-cola-mejora';
+import { eliminarMejorada } from '../data/inmuebles/api';
 import type { EstadoInmueble, Inmueble } from '../domain/inmueble';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,6 +88,17 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
   async function eliminarConFotos(id: string) {
     await eliminar(id);
     void borrarDeInmueble(id);
+  }
+
+  /* [259A-1] Restaura el original de una foto: borra su mejorada del
+   * servidor, refresca la lista y limpia la copia local (queda pendiente
+   * para mejorarla de nuevo; en modo automático se re-encola sola). Los
+   * fallos se propagan a la tarjeta, que los muestra (nunca silenciosos). */
+  async function restaurarMejorada(inmuebleId: string, orden: number) {
+    const actualizado = await eliminarMejorada(inmuebleId, orden);
+    reponer(actualizado);
+    const entrada = fotos.find((f) => f.inmuebleId === inmuebleId && f.orden === orden);
+    if (entrada) await marcar(entrada, { mejorada: null, estado: 'pendiente', error: null, intentos: 0 });
   }
 
   /* Publicar/retirar desde la vista: refresca también el modal abierto. */
@@ -234,6 +246,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
           cola={cola}
           historial={historial}
           alLimpiarHistorial={vaciarHistorial}
+          alRestaurar={(id, orden) => restaurarMejorada(id, orden)}
         />
       )}
 
