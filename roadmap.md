@@ -268,7 +268,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 - ✅ 269A-1: documentado en `Agente/documentacion/integraciones/asistente-marketplace-mp-float-2026-09-26.md`.
 - ✅ 269A-2 (local): Riberas `50000 → 43000` aplicado en `glory_backend_inmobiliaria` (SQL directo, 1 fila).
-- 269A-2 (prod): pendiente clave admin actual (`MN_ADMIN_CLAVE` no existe en
-  este equipo; al recibirla, guardarla como variable de entorno de usuario
-  para reutilizarla siempre y aplicar PUT parcial + verify pública).
+- ✅ 269A-2 (prod): `precio 43000` + descripción `43.000 dólares` vía PUT parcial; pública devuelve `43000.0`.
+- ✅ 269A-3: clave admin prod rotada (ver `Agente/completados/tareas-2026-09-26.md`); `MN_ADMIN_CLAVE` guardada como env de usuario.
 
