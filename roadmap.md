@@ -264,3 +264,11 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   con `{orden}` para reordenar sin borrar+re-subir (menos churn y sin
   cambiar urls/ids que cachea el store local de mejora).
 
+## Asistente Marketplace mp-float + precio Riberas (269A-1+269A-2, pendiente 2026-09-26)
+
+- ✅ 269A-1: documentado en `Agente/documentacion/integraciones/asistente-marketplace-mp-float-2026-09-26.md`.
+- ✅ 269A-2 (local): Riberas `50000 → 43000` aplicado en `glory_backend_inmobiliaria` (SQL directo, 1 fila).
+- 269A-2 (prod): pendiente clave admin actual (`MN_ADMIN_CLAVE` no existe en
+  este equipo; al recibirla, guardarla como variable de entorno de usuario
+  para reutilizarla siempre y aplicar PUT parcial + verify pública).
+
