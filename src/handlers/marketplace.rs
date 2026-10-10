@@ -16,6 +16,7 @@ use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
+use crate::repositories::marketplace::registrar_auditoria;
 use crate::repositories::InmuebleRepository;
 use crate::services::marketplace::{
     archivar_hilo, aviso_fb_de_thread, borrar_borrador_hilo, borrar_hilo,
@@ -110,14 +111,12 @@ pub async fn audit(
      * Postgres; el secreto viaja solo en el parámetro dentro del servidor.
      * [08AA-18] HMAC sobre `clave_hilo()`: la misma auditoría aunque la
      * cifra inyectada (07AA-11) parpadee entre llamadas. */
-    sqlx::query(
-        "INSERT INTO mp_auditoria (hilo_hmac, ts_hora, evento) \
-         SELECT encode(sha256(($1 || $2)::bytea), 'hex'), date_trunc('hour', now()), $3",
+    registrar_auditoria(
+        &state.pool,
+        &state.jwt_secret,
+        &clave_hilo(r.thread_id.trim()),
+        evento,
     )
-    .bind(&state.jwt_secret)
-    .bind(clave_hilo(r.thread_id.trim()))
-    .bind(evento)
-    .execute(&state.pool)
     .await?;
     Ok((
         StatusCode::CREATED,

@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::models::{CreateSolicitudRequest, OPERACIONES};
+use crate::repositories::chat_tools::titulo_inmueble_publicado;
 use crate::repositories::{ClienteRepository, NuevaVisita, VisitaRepository};
 use crate::services::SolicitudService;
 use crate::services::{
@@ -370,12 +371,9 @@ pub(super) async fn agendar(
             Err(_) => return Ok(json!({"error": "fecha invalida (YYYY-MM-DD)"})),
         },
     };
-    let titulo: Option<String> =
-        sqlx::query_scalar("SELECT titulo FROM inmuebles WHERE id = $1 AND publicado")
-            .bind(id)
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| AgentError::Db(e.to_string()))?;
+    let titulo: Option<String> = titulo_inmueble_publicado(pool, id)
+        .await
+        .map_err(|e| AgentError::Db(e.to_string()))?;
     let Some(titulo) = titulo.filter(|t| !t.trim().is_empty()) else {
         return Ok(json!({"error": "inmueble no disponible"}));
     };

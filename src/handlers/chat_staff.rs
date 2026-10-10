@@ -1,11 +1,12 @@
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
+use crate::repositories::chat_staff::{ClienteResumen, SesionDeCliente, SesionResumen};
 use crate::AppState;
 use glory_agent::errors::AgentError;
 
@@ -60,28 +61,6 @@ struct FiltroSesiones {
     limit: Option<i64>,
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
-struct SesionResumen {
-    id: Uuid,
-    visitor_name: Option<String>,
-    contact: Option<String>,
-    status: String,
-    ai_enabled: bool,
-    /* [279A-2 F3] Estado propio de delegación (puede faltar en sesiones
-     * viejas: LEFT JOIN + default en el panel). */
-    estado_atencion: Option<String>,
-    modo_atencion: Option<String>,
-    /* [289A-2] Teléfono del cliente (`canal_sesiones`; el panel muestra el
-     * número en la conversación). */
-    telefono: Option<String>,
-    last_body: Option<String>,
-    last_sender: Option<String>,
-    #[sqlx(rename = "last_at")]
-    last_at: Option<chrono::DateTime<chrono::Utc>>,
-    alertas: Option<i64>,
-    updated_at: chrono::DateTime<chrono::Utc>,
-}
-
 /// Bandeja staff: sesiones con último mensaje y avisos pendientes, en UNA
 /// consulta (LATERAL + subselect; prohibido N+1 por regla 7).
 async fn listar_sesiones(
@@ -97,25 +76,11 @@ async fn listar_sesiones(
         }
     }
     let limit = f.limit.unwrap_or(50).clamp(1, 200);
-    let filas: Vec<SesionResumen> = sqlx::query_as(
-        "SELECT s.id, s.visitor_name, s.contact, s.status, s.ai_enabled, \
-         a.estado AS estado_atencion, a.modo AS modo_atencion, \
-         cs.telefono AS telefono, \
-         m.body AS last_body, m.sender AS last_sender, m.created_at AS last_at, \
-         (SELECT COUNT(*) FROM agent_outbox o WHERE o.status = 'pending' \
-          AND o.kind = 'whatsapp' AND o.payload->>'session_id' = s.id::TEXT) AS alertas, \
-          s.updated_at \
-          FROM agent_sessions s \
-          LEFT JOIN atencion_sesiones a ON a.session_id = s.id \
-          LEFT JOIN canal_sesiones cs ON cs.session_id = s.id \
-          LEFT JOIN LATERAL (SELECT body, sender, created_at FROM agent_messages \
-            WHERE session_id = s.id ORDER BY sequence_num DESC LIMIT 1) m ON true \
-          WHERE ($1::TEXT IS NULL OR s.status = $1) \
-          ORDER BY s.updated_at DESC LIMIT $2",
+    let filas: Vec<SesionResumen> = crate::repositories::chat_staff::listar_sesiones_bandeja(
+        &state.pool,
+        f.estado.clone(),
+        limit,
     )
-    .bind(f.estado.clone())
-    .bind(limit)
-    .fetch_all(&state.pool)
     .await?;
     Ok(Json(filas))
 }
@@ -139,18 +104,15 @@ async fn historial(
     Query(q): Query<HistorialQuery>,
 ) -> Result<Json<Vec<glory_agent::models::ChatMessage>>, AppError> {
     let limit = q.limit.unwrap_or(100).clamp(1, 200);
-    let mut msgs: Vec<glory_agent::models::ChatMessage> = sqlx::query_as(
-        "SELECT id, session_id, sender, body, sequence_num, input_tokens, output_tokens, created_at \
-         FROM agent_messages WHERE session_id = $1 \
-         AND ($2::BIGINT IS NULL OR sequence_num < $2) \
-         ORDER BY sequence_num DESC LIMIT $3",
-    )
-    .bind(id)
-    .bind(q.before_seq)
-    .bind(limit)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(AppError::from)?;
+    let mut msgs: Vec<glory_agent::models::ChatMessage> =
+        crate::repositories::chat_staff::mensajes_historial_paginado(
+            &state.pool,
+            id,
+            q.before_seq,
+            limit,
+        )
+        .await
+        .map_err(AppError::from)?;
     msgs.reverse();
     Ok(Json(msgs))
 }
@@ -349,21 +311,6 @@ struct FiltroClientes {
     limit: Option<i64>,
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
-struct ClienteResumen {
-    id: Uuid,
-    nombre: Option<String>,
-    telefono: String,
-    origen: String,
-    interes: Option<String>,
-    presupuesto: Option<String>,
-    zona: Option<String>,
-    notas: Option<String>,
-    sesiones: Option<i64>,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
-}
-
 /// Lista de clientes con nº de sesiones (UNA consulta, sin N+1).
 async fn listar_clientes(
     _auth: AuthUser,
@@ -372,18 +319,8 @@ async fn listar_clientes(
 ) -> Result<Json<Vec<ClienteResumen>>, AppError> {
     let limit = f.limit.unwrap_or(50).clamp(1, 200);
     let q = f.query.as_deref().map(str::trim).filter(|s| !s.is_empty());
-    let filas: Vec<ClienteResumen> = sqlx::query_as(
-        "SELECT c.id, c.nombre, c.telefono, c.origen, c.interes, c.presupuesto, c.zona, \
-          c.notas, (SELECT COUNT(*) FROM canal_sesiones cs WHERE cs.cliente_id = c.id) AS sesiones, \
-          c.created_at, c.updated_at \
-         FROM clientes c \
-         WHERE ($1::TEXT IS NULL OR c.nombre ILIKE '%' || $1 || '%' OR c.telefono ILIKE '%' || $1 || '%') \
-         ORDER BY c.updated_at DESC LIMIT $2",
-    )
-    .bind(q)
-    .bind(limit)
-    .fetch_all(&state.pool)
-    .await?;
+    let filas: Vec<ClienteResumen> =
+        crate::repositories::chat_staff::listar_clientes_resumen(&state.pool, q, limit).await?;
     Ok(Json(filas))
 }
 
@@ -472,42 +409,21 @@ async fn actualizar_cliente(
     {
         return Err(AppError::BadRequest("nada que cambiar".to_string()));
     }
-    let fila: Option<crate::models::ClienteRow> = sqlx::query_as(
-        "UPDATE clientes SET \
-          nombre = COALESCE($2, nombre), interes = COALESCE($3, interes), \
-          presupuesto = COALESCE($4, presupuesto), zona = COALESCE($5, zona), \
-          notas = COALESCE($6, notas), updated_at = NOW() \
-         WHERE id = $1 \
-         RETURNING id, nombre, telefono, origen, interes, presupuesto, zona, \
-           notas, created_at, updated_at",
-    )
-    .bind(id)
-    .bind(input.nombre.as_deref().map(str::trim))
-    .bind(input.interes.as_deref().map(str::trim))
-    .bind(input.presupuesto.as_deref().map(str::trim))
-    .bind(input.zona.as_deref().map(str::trim))
-    .bind(input.notas.as_deref().map(str::trim))
-    .fetch_optional(&state.pool)
-    .await?;
+    let fila: Option<crate::models::ClienteRow> =
+        crate::repositories::chat_staff::actualizar_cliente_campos(
+            &state.pool,
+            id,
+            input.nombre.as_deref().map(str::trim),
+            input.interes.as_deref().map(str::trim),
+            input.presupuesto.as_deref().map(str::trim),
+            input.zona.as_deref().map(str::trim),
+            input.notas.as_deref().map(str::trim),
+        )
+        .await?;
     let Some(row) = fila else {
         return Err(AppError::NotFound("cliente no existe".to_string()));
     };
     Ok(Json(crate::models::Cliente::from_row(row)))
-}
-
-#[derive(Debug, Serialize, sqlx::FromRow)]
-struct SesionDeCliente {
-    session_id: Uuid,
-    canal: Option<String>,
-    telefono: Option<String>,
-    modo: Option<String>,
-    estado_atencion: Option<String>,
-    status: Option<String>,
-    ai_enabled: Option<bool>,
-    last_body: Option<String>,
-    last_sender: Option<String>,
-    #[sqlx(rename = "last_at")]
-    last_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Sesiones de un cliente (sus hilos web/WhatsApp enlazados por `clientes`).
@@ -516,20 +432,8 @@ async fn sesiones_de_cliente(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<SesionDeCliente>>, AppError> {
-    let filas: Vec<SesionDeCliente> = sqlx::query_as(
-        "SELECT cs.session_id, cs.canal, cs.telefono, cs.modo, a.estado AS estado_atencion, \
-          s.status, s.ai_enabled, \
-          m.body AS last_body, m.sender AS last_sender, m.created_at AS last_at \
-         FROM canal_sesiones cs \
-         JOIN agent_sessions s ON s.id = cs.session_id \
-         LEFT JOIN atencion_sesiones a ON a.session_id = cs.session_id \
-         LEFT JOIN LATERAL (SELECT body, sender, created_at FROM agent_messages \
-           WHERE session_id = cs.session_id ORDER BY sequence_num DESC LIMIT 1) m ON true \
-         WHERE cs.cliente_id = $1 ORDER BY s.updated_at DESC LIMIT 100",
-    )
-    .bind(id)
-    .fetch_all(&state.pool)
-    .await?;
+    let filas: Vec<SesionDeCliente> =
+        crate::repositories::chat_staff::listar_sesiones_de_cliente(&state.pool, id).await?;
     Ok(Json(filas))
 }
 

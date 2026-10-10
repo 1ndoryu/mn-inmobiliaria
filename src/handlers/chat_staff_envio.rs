@@ -10,11 +10,12 @@
 use axum::extract::{Path, Query, State};
 use axum::http::header;
 use axum::Json;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
+use crate::repositories::chat_envio::{AuditoriaFila, UsoDia};
 use crate::AppState;
 
 use super::chat_staff::fail;
@@ -65,9 +66,7 @@ async fn resolver_destino_envio(
          * ramas exclusivas y no se pueden unir; ver prevencion sqlite). */
         let (existe, tel) = tokio::join!(
             glory_agent::persistence::get_session(&state.pool, sid),
-            sqlx::query_scalar("SELECT telefono FROM canal_sesiones WHERE session_id = $1")
-                .bind(sid)
-                .fetch_optional(&state.pool)
+            crate::repositories::chat_envio::telefono_de_sesion(&state.pool, sid)
         );
         let existe = existe.map_err(|e| fail(&e))?;
         if existe.is_none() {
@@ -82,13 +81,7 @@ async fn resolver_destino_envio(
             crate::repositories::ClienteRepository::normalizar_telefono(&dest),
         ))
     } else if let Some(cid) = input.cliente_id {
-        let cliente: Option<crate::models::ClienteRow> = sqlx::query_as(
-            "SELECT id, nombre, telefono, origen, interes, presupuesto, zona, \
-              notas, created_at, updated_at FROM clientes WHERE id = $1",
-        )
-        .bind(cid)
-        .fetch_optional(&state.pool)
-        .await?;
+        let cliente = crate::repositories::chat_envio::cliente_por_id(&state.pool, cid).await?;
         let Some(c) = cliente else {
             return Err(AppError::NotFound("cliente no existe".to_string()));
         };
@@ -195,16 +188,6 @@ pub(super) struct FiltroUso {
     dias: Option<i64>,
 }
 
-#[derive(Debug, Serialize, sqlx::FromRow)]
-pub(super) struct UsoDia {
-    dia: Option<chrono::NaiveDate>,
-    remitente: Option<String>,
-    mensajes: Option<i64>,
-    tokens_est: Option<i64>,
-    tokens_in: Option<i64>,
-    tokens_out: Option<i64>,
-}
-
 /// Uso (mensajes y tokens por día×remitente; `tokens_in/out` exactos del
 /// núcleo F0 en mensajes `ai`, estima `len/4` del trigger en el resto).
 pub(super) async fn uso_mensajes(
@@ -213,39 +196,13 @@ pub(super) async fn uso_mensajes(
     Query(f): Query<FiltroUso>,
 ) -> Result<Json<Vec<UsoDia>>, AppError> {
     let dias = f.dias.unwrap_or(7).clamp(1, 90);
-    let filas: Vec<UsoDia> = sqlx::query_as(
-        "SELECT date_trunc('day', created_at)::DATE AS dia, sender AS remitente, \
-          COUNT(*) AS mensajes, SUM(tokens_est) AS tokens_est, \
-          SUM(COALESCE(tokens_in, 0)) AS tokens_in, SUM(COALESCE(tokens_out, 0)) AS tokens_out \
-         FROM uso_mensajes \
-         WHERE created_at >= NOW() - ($1 || ' days')::INTERVAL \
-         GROUP BY 1, 2 ORDER BY 1 DESC, 2",
-    )
-    .bind(dias.to_string())
-    .fetch_all(&state.pool)
-    .await?;
+    let filas = crate::repositories::chat_envio::uso_mensajes_por_dia(&state.pool, dias).await?;
     Ok(Json(filas))
 }
 
 #[derive(Debug, Deserialize)]
 pub(super) struct Limite {
     limit: Option<i64>,
-}
-
-#[derive(Debug, Serialize, sqlx::FromRow)]
-pub(super) struct AuditoriaFila {
-    session_id: Uuid,
-    extracto: Option<String>,
-    created_at: chrono::DateTime<chrono::Utc>,
-    status: Option<String>,
-    ai_enabled: Option<bool>,
-    estado_atencion: Option<String>,
-    modo_atencion: Option<String>,
-    nombre: Option<String>,
-    telefono: Option<String>,
-    ia: Option<i64>,
-    humano: Option<i64>,
-    visitante: Option<i64>,
 }
 
 /// Auditoría: últimas tomas humanas con contexto + conteo IA/humano/visitante
@@ -256,23 +213,7 @@ pub(super) async fn auditoria(
     Query(q): Query<Limite>,
 ) -> Result<Json<Vec<AuditoriaFila>>, AppError> {
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
-    let filas: Vec<AuditoriaFila> = sqlx::query_as(
-        "SELECT m.session_id, LEFT(m.body, 200) AS extracto, m.created_at, \
-          s.status, s.ai_enabled, a.estado AS estado_atencion, a.modo AS modo_atencion, \
-          c.nombre, c.telefono, \
-          (SELECT COUNT(*) FROM agent_messages WHERE session_id = m.session_id AND sender = 'ai') AS ia, \
-          (SELECT COUNT(*) FROM agent_messages WHERE session_id = m.session_id AND sender = 'staff') AS humano, \
-          (SELECT COUNT(*) FROM agent_messages WHERE session_id = m.session_id AND sender = 'client') AS visitante \
-         FROM agent_messages m \
-         JOIN agent_sessions s ON s.id = m.session_id \
-         LEFT JOIN atencion_sesiones a ON a.session_id = m.session_id \
-         LEFT JOIN canal_sesiones cs ON cs.session_id = m.session_id \
-         LEFT JOIN clientes c ON c.id = cs.cliente_id \
-         WHERE m.sender = 'staff' ORDER BY m.created_at DESC LIMIT $1",
-    )
-    .bind(limit)
-    .fetch_all(&state.pool)
-    .await?;
+    let filas = crate::repositories::chat_envio::auditoria_tomas_humanas(&state.pool, limit).await?;
     Ok(Json(filas))
 }
 

@@ -21,6 +21,7 @@ use utoipa::ToSchema;
 
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
+use crate::repositories::marketplace::token_vigente;
 use crate::services::marketplace::{consumir_minuto, registrar_token, MpClaims};
 use crate::AppState;
 
@@ -63,12 +64,7 @@ impl FromRequestParts<AppState> for MpAuth {
         if claims.scope != SCOPE {
             return Err(AppError::Forbidden("alcance insuficiente".to_string()));
         }
-        let vigente: Option<bool> = sqlx::query_scalar(
-            "SELECT NOT revocada AND expira_en > now() FROM mp_tokens_emitidos WHERE jti = $1",
-        )
-        .bind(&claims.jti)
-        .fetch_optional(&state.pool)
-        .await?;
+        let vigente: Option<bool> = token_vigente(&state.pool, &claims.jti).await?;
         if vigente != Some(true) {
             return Err(AppError::Unauthorized);
         }

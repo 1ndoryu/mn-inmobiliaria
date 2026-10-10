@@ -7,6 +7,10 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::models::{OPERACIONES, TIPOS};
+use crate::repositories::chat_tools::{
+    claves_fotos_inmueble, ficha_inmueble, tarjetas_inmuebles, titulo_inmueble_publicado,
+    Tarjeta,
+};
 use crate::repositories::ClienteRepository;
 use crate::services::{
     clave_idempotencia, corte_cubre, debe_usar_clave, encolar_outbox_idem, Encolado,
@@ -176,29 +180,18 @@ async fn buscar(
      * `20260929000018`: minúsculas sin tildes): el visitante escribe
      * "Caroni" y la BD guarda "Caroní" (el ILIKE directo daba 0 filas y
      * la IA negaba oferta existente). */
-    let filas: Vec<Tarjeta> =
-        sqlx::query_as(
-            "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug, puestos, residencia, habitaciones \
-             FROM inmuebles \
-             WHERE publicado AND estado = 'disponible' \
-             AND ($1::TEXT IS NULL OR sencilla(titulo) LIKE '%' || sencilla($1) || '%' OR sencilla(ubicacion) LIKE '%' || sencilla($1) || '%') \
-             AND ($2::TEXT IS NULL OR tipo = $2) \
-             AND ($3::TEXT IS NULL OR operacion = $3) \
-             AND ($4::FLOAT8 IS NULL OR precio <= $4) \
-             AND ($6::BIGINT IS NULL OR habitaciones = $6) \
-             AND ($7::TEXT IS NULL OR sencilla(ubicacion) LIKE '%' || sencilla($7) || '%') \
-             ORDER BY updated_at DESC LIMIT $5",
-        )
-        .bind(texto)
-        .bind(tipo)
-        .bind(operacion)
-        .bind(precio_max)
-        .bind(limite)
-        .bind(habitaciones)
-        .bind(zona)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| AgentError::Db(e.to_string()))?;
+    let filas: Vec<Tarjeta> = tarjetas_inmuebles(
+        pool,
+        texto,
+        tipo,
+        operacion,
+        precio_max,
+        limite,
+        habitaciones,
+        zona,
+    )
+    .await
+    .map_err(|e| AgentError::Db(e.to_string()))?;
     let total = filas.len();
     /* [E-fluido F2] Tarjetas 1-propiedad-por-mensaje: el modelo tiende a soltar
      * la lista entera en un bloque (molesto de leer en WhatsApp), asi que el
@@ -391,51 +384,6 @@ async fn espejar_en_hilo(pool: &PgPool, hub: Option<&ChatHub>, session_id: Uuid,
     }
 }
 
-/// Tarjeta breve de un inmueble para `buscar_inmuebles` (struct en vez de
-/// tupla de 9: legible y evita el lint de tipos complejos). Incluye
-/// `puestos`, `residencia` y `habitaciones` para que el agente responda con
-/// esos datos exactos (Fase3-H3: sin este campo filtraba a ojo).
-#[derive(Debug, sqlx::FromRow)]
-struct Tarjeta {
-    id: Uuid,
-    titulo: String,
-    tipo: String,
-    operacion: String,
-    precio: f64,
-    ubicacion: String,
-    slug: String,
-    puestos: i32,
-    residencia: String,
-    habitaciones: i32,
-}
-
-/// Ficha completa de un inmueble para `detalle_inmueble` (struct en vez de
-/// tupla de 12: legible y evita el lint de tipos complejos). Tipos alineados
-/// con `20260915000002_inmuebles.up.sql` (NOT NULL salvo `copy_corta`).
-/* [279A-8] La IA ve cada campo rellenable: `extras` (respuestas /ask, tal cual,
- * incluidos `no_se`/`a_veces`: saber lo que falta también informa) y si el
- * precio tiene margen (`margen_negociable`, calculado en SQL). La cifra del
- * mínimo jamás sale (frontera 279A-3: la IA insinúa sin cifras). */
-#[derive(Debug, sqlx::FromRow)]
-struct Ficha {
-    titulo: String,
-    descripcion: String,
-    ubicacion: String,
-    puestos: i32,
-    residencia: String,
-    precio: f64,
-    tipo: String,
-    operacion: String,
-    habitaciones: i32,
-    banos: i32,
-    metros: f64,
-    metros_terreno: f64,
-    estado: String,
-    copy_corta: Option<String>,
-    extras: Value,
-    margen_negociable: bool,
-}
-
 async fn detalle(pool: &PgPool, args: &Value) -> Result<Value, AgentError> {
     let id: Uuid = args
         .get("id")
@@ -443,16 +391,9 @@ async fn detalle(pool: &PgPool, args: &Value) -> Result<Value, AgentError> {
         .unwrap_or_default()
         .parse()
         .map_err(|_| AgentError::BadRequest("id de inmueble invalido".to_string()))?;
-    let fila: Option<Ficha> = sqlx::query_as(
-        "SELECT titulo, descripcion, ubicacion, puestos, residencia, precio, tipo, operacion, \
-              habitaciones, banos, metros, metros_terreno, estado, copy_corta, extras, \
-              (precio_minimo IS NOT NULL AND precio_minimo > 0) AS margen_negociable \
-              FROM inmuebles WHERE id = $1 AND publicado",
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| AgentError::Db(e.to_string()))?;
+    let fila = ficha_inmueble(pool, id)
+        .await
+        .map_err(|e| AgentError::Db(e.to_string()))?;
     let Some(f) = fila else {
         return Ok(json!({"error": "inmueble no disponible"}));
     };
@@ -489,23 +430,15 @@ async fn enviar_fotos(
         .and_then(Value::as_i64)
         .unwrap_or(3)
         .clamp(1, 3);
-    let titulo: Option<String> =
-        sqlx::query_scalar("SELECT titulo FROM inmuebles WHERE id = $1 AND publicado")
-            .bind(id)
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| AgentError::Db(e.to_string()))?;
+    let titulo: Option<String> = titulo_inmueble_publicado(pool, id)
+        .await
+        .map_err(|e| AgentError::Db(e.to_string()))?;
     let Some(titulo) = titulo.filter(|t| !t.trim().is_empty()) else {
         return Ok(json!({"error": "inmueble no disponible"}));
     };
-    let claves: Vec<String> = sqlx::query_scalar(
-        "SELECT storage_key FROM fotos WHERE inmueble_id = $1 ORDER BY orden LIMIT $2",
-    )
-    .bind(id)
-    .bind(max)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AgentError::Db(e.to_string()))?;
+    let claves: Vec<String> = claves_fotos_inmueble(pool, id, max)
+        .await
+        .map_err(|e| AgentError::Db(e.to_string()))?;
     if claves.is_empty() {
         return Ok(json!({"error": "ese inmueble aún no tiene fotos"}));
     }
