@@ -2,37 +2,12 @@
 // (exactos del núcleo F0 en `ai`, estima en el resto) y últimas tomas
 // humanas con contexto. Tablas simples, sin N+1 (una consulta cada una).
 
-import { useEffect, useState } from 'react';
-import { leerAuditoria, leerUso, type AuditoriaFila, type UsoDia } from '../../data/chat/cliente-duena';
-import { ErrorApi } from '../../data/inmuebles/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-function mensajeError(e: unknown): string {
-  return e instanceof ErrorApi ? e.message : 'Fallo inesperado.';
-}
+import { useUsoAuditoria } from '@/hooks/chat/use-uso-auditoria';
 
 export function UsoAuditoria() {
-  const [uso, setUso] = useState<UsoDia[]>([]);
-  const [auditoria, setAuditoria] = useState<AuditoriaFila[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(true);
-
-  useEffect(() => {
-    let viva = true;
-    Promise.all([leerUso(7), leerAuditoria(50)])
-      .then(([u, a]) => {
-        if (!viva) return;
-        setUso(u);
-        setAuditoria(a);
-        setError(null);
-      })
-      .catch((e: unknown) => viva && setError(mensajeError(e)))
-      .finally(() => viva && setCargando(false));
-    return () => {
-      viva = false;
-    };
-  }, []);
+  const { uso, auditoria, error, cargando, recargar } = useUsoAuditoria();
 
   if (cargando) {
     return (
@@ -120,17 +95,7 @@ export function UsoAuditoria() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => {
-            setCargando(true);
-            Promise.all([leerUso(7), leerAuditoria(50)])
-              .then(([u, a]) => {
-                setUso(u);
-                setAuditoria(a);
-                setError(null);
-              })
-              .catch((e: unknown) => setError(mensajeError(e)))
-              .finally(() => setCargando(false));
-          }}
+          onClick={recargar}
         >
           Recargar
         </Button>
