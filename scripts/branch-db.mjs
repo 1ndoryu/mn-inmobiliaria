@@ -5,6 +5,7 @@
  * usa {pkg}_{branch}. Tambien crea la BD local si no existe. */
 
 import { execSync, execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -88,24 +89,29 @@ function quoteSqlIdentifier(value) {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
-/* [10AA-1] Versiones de `_sqlx_migrations` sin fichero en migrations/ (BD de
- * otro proyecto o de una rama vieja). [] si la BD aún no tiene la tabla. */
-export function versionesAjenas(dbUrl) {
+/* Ejecuta SQL contra la BD de `dbUrl` con psql (salida sin cabecera ni
+ * alineado). Las filas salen separadas por `\n` y los campos por `|`. */
+function consultaPsql(dbUrl) {
   const psqlBin = findPsql();
-  const migrationsDir = path.join(projectRoot, 'migrations');
-  if (!psqlBin || !existsSync(migrationsDir)) return [];
-
   const match = dbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
   if (!match) {
     throw new Error(`No se pudo parsear DATABASE_URL: ${dbUrl}`);
   }
   const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
-  const psql = (sql) => execFileSync(
+  return (sql) => execFileSync(
     psqlBin,
     ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName, '-t', '-A', '-c', sql],
     { env: { ...process.env, PGPASSWORD: dbPass }, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
   );
+}
 
+/* [10AA-1] Versiones de `_sqlx_migrations` sin fichero en migrations/ (BD de
+ * otro proyecto o de una rama vieja). [] si la BD aún no tiene la tabla. */
+export function versionesAjenas(dbUrl) {
+  const migrationsDir = path.join(projectRoot, 'migrations');
+  if (!findPsql() || !existsSync(migrationsDir)) return [];
+
+  const psql = consultaPsql(dbUrl);
   if (psql("SELECT to_regclass('_sqlx_migrations') IS NOT NULL").trim() !== 't') return [];
   const enBd = psql('SELECT version FROM _sqlx_migrations ORDER BY version')
     .split(/\r?\n/)
@@ -117,6 +123,48 @@ export function versionesAjenas(dbUrl) {
       .map((m) => Number(m[1])),
   );
   return enBd.filter((version) => !enFicheros.has(Number(version)));
+}
+
+/* [10AA-13] Migraciones de `migrations/` (solo `up`, las que sqlx registra)
+ * con su sha384 sobre los bytes exactos del fichero: el mismo cálculo que hace
+ * sqlx y que guarda en `_sqlx_migrations.checksum`. */
+export function migracionesEnDisco(migrationsDir) {
+  return readdirSync(migrationsDir)
+    .filter((file) => /^\d+_.*\.sql$/.test(file) && !file.endsWith('.down.sql'))
+    .map((file) => ({
+      version: Number(file.match(/^(\d+)_/)[1]),
+      nombre: file,
+      sha384: createHash('sha384').update(readFileSync(path.join(migrationsDir, file))).digest('hex'),
+    }));
+}
+
+/* [10AA-13] Compara el checksum guardado en la BD con el del fichero en disco.
+ * Una versión sin fichero no se cuenta aquí: la cubre `versionesAjenas` (10AA-1). */
+export function compararChecksums(filasBd, ficheros) {
+  const enDisco = new Map(ficheros.map((f) => [f.version, f]));
+  return filasBd.flatMap(({ version, checksum }) => {
+    const fichero = enDisco.get(version);
+    if (!fichero || fichero.sha384 === checksum) return [];
+    return [{ version, fichero: fichero.nombre, bd: checksum, disco: fichero.sha384 }];
+  });
+}
+
+/* [10AA-13] Migraciones aplicadas cuyo fichero cambió después (p. ej. CRLF por
+ * core.autocrlf, ver 10AA-12). sqlx rechaza esa BD al arrancar; aquí se corta
+ * antes de migrar o compilar. [] si la BD aún no tiene la tabla. */
+export function checksumsDivergentes(dbUrl, migrationsDir = path.join(projectRoot, 'migrations')) {
+  if (!findPsql() || !existsSync(migrationsDir)) return [];
+
+  const psql = consultaPsql(dbUrl);
+  if (psql("SELECT to_regclass('_sqlx_migrations') IS NOT NULL").trim() !== 't') return [];
+  const filasBd = psql("SELECT version, encode(checksum, 'hex') FROM _sqlx_migrations ORDER BY version")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((linea) => {
+      const [version, checksum] = linea.split('|');
+      return { version: Number(version), checksum };
+    });
+  return compararChecksums(filasBd, migracionesEnDisco(migrationsDir));
 }
 
 export function getBranchDbContext({ verbose = true, ensureExists = true } = {}) {

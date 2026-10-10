@@ -5,7 +5,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { getBranchDbContext, versionesAjenas } from './branch-db.mjs';
+import { checksumsDivergentes, getBranchDbContext, versionesAjenas } from './branch-db.mjs';
 
 function cargoCommand() {
   return process.platform === 'win32' ? 'cargo.exe' : 'cargo';
@@ -72,6 +72,16 @@ const ajenas = versionesAjenas(dbUrl);
 if (ajenas.length > 0) {
   console.error(`[db] La BD ${dbName} tiene migraciones sin fichero en migrations/: ${ajenas.join(', ')}`);
   console.error('[db] Suele ser la BD de otro proyecto. Revisa DATABASE_URL en .env; no migro ni compilo.');
+  process.exit(1);
+}
+/* [10AA-13] Un fichero de migración editado tras aplicarse hace que sqlx
+ * rechace la BD al arrancar (`was previously applied but has been modified`).
+ * Se corta antes de migrar y compilar, con las versiones afectadas. */
+const divergentes = checksumsDivergentes(dbUrl);
+if (divergentes.length > 0) {
+  console.error(`[db] Migraciones ya aplicadas en ${dbName} con fichero modificado:`);
+  for (const d of divergentes) console.error(`[db]   v${d.version} ${d.fichero}`);
+  console.error('[db] Causa habitual: EOL del checkout (ver 10AA-12 y .gitattributes). No migro ni compilo.');
   process.exit(1);
 }
 migrarBdRama(dbUrl);

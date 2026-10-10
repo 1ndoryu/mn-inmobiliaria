@@ -46,6 +46,7 @@ desktop.ini
 /scripts/*
 !/scripts/branch-db.mjs
 !/scripts/run-with-db.mjs
+!/scripts/guardia-migraciones.test.mjs
 !/scripts/dev.mjs
 !/scripts/check-roadmap.mjs
 !/scripts/self-check.ps1

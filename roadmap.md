@@ -26,8 +26,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
-- **10AA-13 — Guardia de checksums de migraciones (ABIERTA, prevención de 10AA-12):** sqlx solo detecta un checksum distinto al arrancar el backend. Añadir una comparación del sha384 de `migrations/*.sql` con `_sqlx_migrations` de la BD de la rama, en `check:back` o script aparte; falla si difieren y pasa en BD nueva. Criterio: falla con una migración alterada a propósito y pasa en limpio. Contexto: `Agente/completados/tareas-2026-10-10.md` (10AA-12).
-
 - **10AA-10 — Deuda de calidad del análisis Sentinel (ABIERTA, 462 avisos, 2026-10-10):**
   análisis `estado: conHallazgos`. Fases por orden de coste:
   - F1 `handler-accede-bd-rs` (128): mover acceso a BD de handlers a repositorios.
