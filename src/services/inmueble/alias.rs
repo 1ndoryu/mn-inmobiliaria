@@ -1,5 +1,5 @@
 //! [09AA-24] Normalización de `alias_titulos` en el servicio, en paralelo a
-//! `inmueble_vinculo` (F7): el `create`/`update` solo llaman a estos
+//! `inmueble::vinculo` (F7): el `create`/`update` solo llaman a estos
 //! preparadores para no engordar `services/inmueble.rs` sobre el tope de
 //! 500 líneas (regla `limite-lineas` de Sentinel).
 

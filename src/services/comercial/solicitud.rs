@@ -12,7 +12,7 @@ use crate::models::{
 };
 use crate::repositories::{NuevaSolicitud, SolicitudRepository};
 
-use super::inmueble::InmuebleService;
+use crate::services::inmueble::InmuebleService;
 
 /* [169A-2] Lógica de solicitudes: el alta entra siempre en `pendiente`;
  * la foto pública reutiliza `guardar_archivo` (misma validación que el

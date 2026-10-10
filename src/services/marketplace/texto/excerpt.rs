@@ -1,4 +1,4 @@
-use super::super::marketplace_cabecera::es_cola_de_cabecera;
+use super::super::cabecera::es_cola_de_cabecera;
 use super::ruido::{
     cuerpo_sin_marca, despegar_url_wa, es_eco_propio_sin_marca, es_ruido_excerpt,
     sin_cierres_propios, RESPUESTAS_RAPIDAS_FB, RUIDO_EXCERPT_EXACTO, RUIDO_EXCERPT_PREFIJOS,

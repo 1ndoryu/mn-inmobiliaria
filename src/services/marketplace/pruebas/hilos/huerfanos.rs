@@ -2,7 +2,7 @@
 //! [10AA-4] Filtro de huérfanos en `resumen_chats`: solo hilos sin ficha
 //! conocida, paginados por cursor, sin archivados.
 
-use super::*;
+use super::super::*;
 
 /* [10AA-4] Avisos numéricos que ninguna ficha tiene: son huérfanos sin depender
  * de la BD de inmuebles, y un aviso de dígitos no cae a título. Uno se archiva

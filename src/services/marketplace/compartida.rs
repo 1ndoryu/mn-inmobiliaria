@@ -10,7 +10,7 @@
 //! `mensaje_clave`; así una corrección o regeneración de un hilo llega al
 //! resto del inmueble. Módulo aparte para no engordar `marketplace.rs`.
 
-use super::marketplace::{clave_hilo, sha_hex, Coste, FotoHilo};
+use super::{clave_hilo, sha_hex, Coste, FotoHilo};
 use crate::errors::AppError;
 
 /// Marcador del nombre del comprador dentro de la respuesta compartida.
@@ -362,12 +362,12 @@ mod tests {
             mensaje_clave: &mensaje,
         };
         let firma_a = clave_azar();
-        let foto = super::super::marketplace::FotoHilo {
+        let foto = super::super::FotoHilo {
             thread_id: "Ana|Casa",
             excerpt: "",
             excerpt_crudo: "",
         };
-        super::super::marketplace::guardar_cache(
+        super::super::guardar_cache(
             &pool, &firma_a, &precio, &catalogo, "Hola {{nombre}}.", &foto, Coste::default(),
         )
         .await
@@ -404,10 +404,10 @@ mod tests {
             .execute(&pool)
             .await
             .expect("limpiar compartida");
-        super::super::marketplace::borrar_cache(&pool, &firma_a, &precio, &catalogo)
+        super::super::borrar_cache(&pool, &firma_a, &precio, &catalogo)
             .await
             .expect("limpiar hilo");
-        super::super::marketplace::borrar_cache(&pool, &firma_b, &precio, &catalogo)
+        super::super::borrar_cache(&pool, &firma_b, &precio, &catalogo)
             .await
             .expect("limpiar hilo b");
     }

@@ -13,14 +13,20 @@ use crate::errors::AppError;
 use crate::models::{url_publica_de_foto, InmuebleRow};
 use crate::repositories::InmuebleRepository;
 
-/* [08AA-7] Singleflight vive en su dominio (`marketplace_vuelo`); se
+pub(crate) mod burbujas;
+pub(crate) mod cabecera;
+pub(crate) mod compartida;
+pub(crate) mod texto;
+pub(crate) mod vuelo;
+
+/* [08AA-7] Singleflight vive en su dominio (`marketplace/vuelo.rs`); se
  * re-exporta para no mover sus usos externos (`lib.rs`, handlers, sombra). */
-pub use super::marketplace_vuelo::{Generado, Singleflight};
+pub use self::vuelo::{Generado, Singleflight};
 
 /* [09AA-20] Burbujas estructuradas F0: tipos+validador+firma-v2 viven en su
- * dominio (`marketplace_burbujas`); se re-exporta para no mover sus usos
+ * dominio (`marketplace/burbujas.rs`); se re-exporta para no mover sus usos
  * externos (handlers, utoipa, tests). */
-pub use super::marketplace_burbujas::{
+pub use self::burbujas::{
     estructuradas_apagadas, llave_esperada, texto_para_prompt, validar_conversacion,
     validar_idempotency_key, BurbujaIn, BurbujaUtil, ConversacionEstructurada,
     ConversacionValidada, ErrorEstructurado, Lado, LadoUtil, CODIGO_ESQUEMA, CODIGO_IDEMPOTENCIA,
@@ -29,23 +35,23 @@ pub use super::marketplace_burbujas::{
     MAX_POR_BURBUJA, MAX_TOTAL_CARACTERES, VERSION_ESTRUCTURADA,
 };
 /* [09AA-30 F2] Caché compartida por inmueble vive en su dominio
- * (`marketplace_compartida`); se re-exporta para los handlers. */
-pub use super::marketplace_compartida::{
+ * (`marketplace/compartida.rs`); se re-exporta para los handlers. */
+pub use self::compartida::{
     buscar_compartida, corregir_compartida, enlazar_compartida, mensaje_clave_de,
     ocurrencias_nombre, plantilla_de_nombre, purgar_compartida, rellenar_nombre,
     vincular_hilo_compartido, vinculo_compartido, ClaveCompartida, MARCADOR_NOMBRE,
 };
 /* [08AA-8] Texto puro (schema, excerpt, precio) vive en su dominio
- * (`marketplace_texto`); se re-exporta para no mover sus usos externos
+ * (`marketplace/texto.rs`); se re-exporta para no mover sus usos externos
  * (handlers, utoipa, sombra, tests). */
-pub use super::marketplace_texto::{
+pub use self::texto::{
     normalizar_excerpt, normalizar_excerpt_con_hilo, precio_del_aviso, precio_publico,
     validar_borrador, BorradorRequest, ExcerptIn, ExtrasIn, Largo, Tono,
 };
 /* Solo tests (`super::es_hex64` en `pruebas`): fuera de `cfg(test)` sería
  * import sin uso y rompería `clippy -D warnings` (mismo patrón que `ia.rs`). */
 #[cfg(test)]
-use super::marketplace_texto::es_hex64;
+use self::texto::es_hex64;
 
 /// Versión del strip aceptada (`strip_vN` del plan).
 /// [08AA-25] v2 suma `operacion` al allowlist: sin ella la IA presentaba
@@ -420,11 +426,11 @@ pub fn strip_ficha_para_prompt(ficha: &InmuebleRow, strip: &str) -> Result<Promp
 }
 
 /* [08AA-8] `precio_publico`, schema M3 (`BorradorRequest`…),
- * `validar_borrador` y `normalizar_excerpt` viven en `marketplace_texto.rs`
+ * `validar_borrador` y `normalizar_excerpt` viven en `marketplace/texto.rs`
  * (re-export arriba para usos externos e internos). */
 
 /* [08AA-8] `normalizar_excerpt*` vive en
- * `marketplace_texto.rs` (re-export arriba). */
+ * `marketplace/texto.rs` (re-export arriba). */
 
 /// [07AA-10] Nombre del cliente desde el hilo (`alejandro|casa en venta...`
 /// → `Alejandro`): el borrador lo saluda por su nombre. `sin-hilo` o sin
@@ -450,7 +456,7 @@ pub fn nombre_de_thread(thread_id: &str) -> Option<String> {
     )
 }
 
-/* [08AA-8] `precio_del_aviso` vive en `marketplace_texto.rs`
+/* [08AA-8] `precio_del_aviso` vive en `marketplace/texto.rs`
  * (re-export arriba). */
 
 /// [07AA-8] Título del aviso desde el `thread_id` del puente

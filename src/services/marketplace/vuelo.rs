@@ -13,7 +13,7 @@
  * si el líder cae degrada a fallback igual que antes (fail-open).
  * Se re-exporta desde `marketplace.rs` para no mover sus 4 usos externos. */
 
-use super::marketplace::{asegurar_contacto, Coste, FALLBACK_BORRADOR};
+use super::{asegurar_contacto, Coste, FALLBACK_BORRADOR};
 
 /// Generación compartible en vuelo: texto + fuente (`ia`, nunca `reserva` —
 /// el fallback no entra al vuelo: cada miss reintenta la IA) + coste de la

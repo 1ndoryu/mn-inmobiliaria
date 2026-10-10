@@ -1,4 +1,4 @@
-use super::super::marketplace::{CONTACTO_TEL, CONTACTO_WA, CTA_FIJO};
+use super::super::{CONTACTO_TEL, CONTACTO_WA, CTA_FIJO};
 use super::excerpt::{es_etiqueta, sin_tilde_min};
 
 /* [08AA-29] Ruido por CONTENIDO (no por prefijo): el aviso de

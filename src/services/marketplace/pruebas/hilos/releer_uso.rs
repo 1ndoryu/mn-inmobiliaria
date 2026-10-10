@@ -1,7 +1,7 @@
 #![cfg(test)]
 //! Releer, combinar foto del hilo y agregado de uso.
 
-use super::*;
+use super::super::*;
 
 /* [08AA-31] La foto fusiona sin perder al cliente: el snapshot nuevo
  * solo trae lo propio (`Tú:`) y la foto vieja aporta la pregunta;

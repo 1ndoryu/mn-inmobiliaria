@@ -303,7 +303,7 @@ fn firmar(utiles: &[BurbujaUtil]) -> String {
 }
 
 /// `sha256` local: duplicado de 6 líneas a propósito para no crear ciclo
-/// `marketplace_burbujas → marketplace` (`marketplace.rs` importa este
+/// `marketplace/burbujas.rs → marketplace` (`marketplace.rs` importa este
 /// módulo; si este importara `sha_hex` de vuelta, clippy llora).
 fn sha_hex(bytes: &[u8]) -> String {
     let mut h = Sha256::new();
@@ -349,7 +349,7 @@ pub fn llave_esperada(hint: &str, firma_v2: &str) -> String {
 
 #[cfg(test)]
 mod pruebas {
-    use super::super::marketplace_texto::{validar_borrador, BorradorRequest};
+    use super::super::texto::{validar_borrador, BorradorRequest};
     use super::*;
 
     const HINT: &str = "hilo-edgarluis-a1b2c3d4";

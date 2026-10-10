@@ -29,7 +29,7 @@ pub fn slugify(titulo: &str) -> String {
 }
 
 /* [09AA-24-split] Tests del slug en su dominio (precedente 09AA-21-split:
- * los del vínculo viven en `inmueble_vinculo::pruebas_marketplace_id`). */
+ * los del vínculo viven en `inmueble::vinculo::pruebas_marketplace_id`). */
 #[cfg(test)]
 mod pruebas_slug {
     use super::*;

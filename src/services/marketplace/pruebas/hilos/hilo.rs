@@ -1,7 +1,7 @@
 #![cfg(test)]
 //! Normalización del hilo, clave y aviso de Facebook.
 
-use super::*;
+use super::super::*;
 
 #[test]
 fn nombre_de_thread_saluda_por_nombre() {

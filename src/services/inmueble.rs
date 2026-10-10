@@ -11,9 +11,9 @@ use crate::models::{
 };
 use crate::repositories::InmuebleRepository;
 
-use super::inmueble_alias;
-use super::inmueble_slug;
-use super::inmueble_vinculo;
+pub(crate) mod alias;
+pub(crate) mod slug;
+pub(crate) mod vinculo;
 
 /* [159A-1] Lógica del catálogo: normalización de enums, slug único con
  * reintento ante carrera (UNIQUE 23505) y ensamblado fila+fotos sin N+1.
@@ -39,10 +39,10 @@ impl InmuebleService {
         }
     }
 
-    /* [09AA-21] Lógica en `inmueble_vinculo::normalizar_marketplace_id`; se
+    /* [09AA-21] Lógica en `vinculo::normalizar_marketplace_id`; se
      * conserva el delegador porque `handlers/marketplace.rs` lo usa. */
     pub fn normalizar_marketplace_id(valor: Option<&str>) -> Result<Option<String>, AppError> {
-        inmueble_vinculo::normalizar_marketplace_id(valor)
+        vinculo::normalizar_marketplace_id(valor)
     }
 
     async fn con_fotos(pool: &PgPool, rows: Vec<InmuebleRow>) -> Result<Vec<Inmueble>, AppError> {
@@ -65,12 +65,12 @@ impl InmuebleService {
         let tipo = Self::normalizar(&req.tipo, TIPOS, "tipo")?;
         let operacion = Self::normalizar(&req.operacion, OPERACIONES, "operacion")?;
         let estado = Self::normalizar(&req.estado, ESTADOS, "estado")?;
-        /* [09AA-21] Vínculo en `inmueble_vinculo::preparar_para_crear`. */
+        /* [09AA-21] Vínculo en `vinculo::preparar_para_crear`. */
         let marketplace_id =
-            inmueble_vinculo::preparar_para_crear(pool, req.marketplace_id.as_deref()).await?;
-        /* [09AA-24] Alias en `inmueble_alias::preparar_para_crear`. */
-        let alias_titulos = inmueble_alias::preparar_para_crear(req.alias_titulos)?;
-        let base_slug = inmueble_slug::slugify(&req.titulo);
+            vinculo::preparar_para_crear(pool, req.marketplace_id.as_deref()).await?;
+        /* [09AA-24] Alias en `alias::preparar_para_crear`. */
+        let alias_titulos = alias::preparar_para_crear(req.alias_titulos)?;
+        let base_slug = slug::slugify(&req.titulo);
 
         let mut intento = 0;
         loop {
@@ -104,8 +104,8 @@ impl InmuebleService {
             };
             match InmuebleRepository::create(pool, &nuevo).await {
                 Ok(row) => return Ok(Inmueble::from_row(row, Vec::new())),
-                Err(e) if inmueble_vinculo::es_conflicto(&e) => {
-                    return Err(inmueble_vinculo::error_duplicado());
+                Err(e) if vinculo::es_conflicto(&e) => {
+                    return Err(vinculo::error_duplicado());
                 }
                 Err(e) if InmuebleRepository::es_conflicto_slug(&e) && intento < 3 => {
                     intento += 1;
@@ -192,11 +192,11 @@ impl InmuebleService {
             .as_deref()
             .map(|v| Self::normalizar(v, ESTADOS, "estado"))
             .transpose()?;
-        /* [09AA-21] Tri-estado en `inmueble_vinculo::preparar_para_update`. */
+        /* [09AA-21] Tri-estado en `vinculo::preparar_para_update`. */
         let marketplace_id =
-            inmueble_vinculo::preparar_para_update(pool, id, req.marketplace_id.as_ref()).await?;
-        /* [09AA-24] Alias en `inmueble_alias::preparar_para_update`. */
-        let alias_titulos = inmueble_alias::preparar_para_update(req.alias_titulos)?;
+            vinculo::preparar_para_update(pool, id, req.marketplace_id.as_ref()).await?;
+        /* [09AA-24] Alias en `alias::preparar_para_update`. */
+        let alias_titulos = alias::preparar_para_update(req.alias_titulos)?;
         /* El formato de la receta no admite normalización con defecto (vacío
          * no es válido): allowlist directa. Los índices los cubre `range`
          * del validador en el modelo. [229A-2] */
@@ -211,7 +211,7 @@ impl InmuebleService {
 
         /* [08AA-3] B5: los 18 campos viajan en `ActualizacionInmueble`
          * (presta los `&str` de `req` + normalizados; `receta` se clona).
-         * [09AA-21] El vínculo presta vía `inmueble_vinculo::prestar_para_update`. */
+         * [09AA-21] El vínculo presta vía `vinculo::prestar_para_update`. */
         let cambios = ActualizacionInmueble {
             titulo: req.titulo.as_deref(),
             descripcion: req.descripcion.as_deref(),
@@ -231,13 +231,13 @@ impl InmuebleService {
             copy_modelo: req.copy.as_ref().map(|c| c.modelo.as_str()),
             copy_actualizada_en: req.copy.as_ref().map(|c| c.actualizada_en),
             receta: req.receta.clone().map(sqlx::types::Json),
-            marketplace_id: inmueble_vinculo::prestar_para_update(marketplace_id.as_ref()),
+            marketplace_id: vinculo::prestar_para_update(marketplace_id.as_ref()),
             alias_titulos,
         };
         let fila = InmuebleRepository::update(pool, id, &cambios).await;
         let row = match fila {
-            Err(e) if inmueble_vinculo::es_conflicto(&e) => {
-                return Err(inmueble_vinculo::error_duplicado());
+            Err(e) if vinculo::es_conflicto(&e) => {
+                return Err(vinculo::error_duplicado());
             }
             resto => resto?,
         }
@@ -912,4 +912,4 @@ mod pruebas_borrado_foto {
     }
 }
 
-/* [09AA-21-split] Tests del vínculo en `inmueble_vinculo::pruebas_marketplace_id`. */
+/* [09AA-21-split] Tests del vínculo en `vinculo::pruebas_marketplace_id`. */

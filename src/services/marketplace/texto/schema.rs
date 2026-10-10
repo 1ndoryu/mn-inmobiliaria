@@ -70,7 +70,7 @@ pub struct BorradorRequest {
      * plano legacy (sigue válido); `Some` = el handler valida, firma v2 y
      * renderiza a `excerpt.texto` antes de seguir el flujo normal. */
     #[serde(default)]
-    pub conversacion: Option<super::super::marketplace_burbujas::ConversacionEstructurada>,
+    pub conversacion: Option<super::super::burbujas::ConversacionEstructurada>,
     /* [10AA-17] Regenerar del float: salta la caché (salvo corrección de la
      * dueña) y pisa la fila con el texto nuevo. Ausente = flujo normal. */
     #[serde(default)]
@@ -97,10 +97,10 @@ pub fn validar_borrador(r: &BorradorRequest) -> Vec<String> {
     /* [09AA-20] F0: convive `firma-v1` (texto plano) con `firma-v2`
      * (burbujas estructuradas, que además requiere `conversacion`). */
     if r.firma_version != "firma-v1"
-        && r.firma_version != super::super::marketplace_burbujas::FIRMA_VERSION_V2
+        && r.firma_version != super::super::burbujas::FIRMA_VERSION_V2
     {
         errores.push("firma_version debe ser firma-v1 o firma-v2".to_string());
-    } else if r.firma_version == super::super::marketplace_burbujas::FIRMA_VERSION_V2
+    } else if r.firma_version == super::super::burbujas::FIRMA_VERSION_V2
         && r.conversacion.is_none()
     {
         errores.push("firma-v2 requiere conversacion".to_string());

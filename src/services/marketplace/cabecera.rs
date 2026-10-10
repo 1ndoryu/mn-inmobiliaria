@@ -7,9 +7,9 @@
 //! icabarú, puerto ordaz.`: el crudo abría con `erto Ordaz.` y el panel lo
 //! mostraba como mensaje del Cliente). `es_cola_truncada` solo ve colas sin
 //! espacios; aquí se descartan las que son sufijo propio de la cabecera.
-//! Módulo aparte para no engordar `marketplace_texto.rs` (09AA-18).
+//! Módulo aparte para no engordar `marketplace/texto.rs` (09AA-18).
 
-use super::marketplace_texto::sin_tilde_min;
+use super::texto::sin_tilde_min;
 
 /// Por debajo de este largo un sufijo coincide por azar (`la`, `ar.`).
 const MIN_COLA: usize = 4;

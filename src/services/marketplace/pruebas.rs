@@ -11,9 +11,7 @@ mod corregir;
 mod ficha_prompt;
 mod forma_salida;
 mod formato_config;
-mod hilo;
-mod huerfanos;
-mod releer_uso;
+mod hilos;
 mod titulo;
 
 fn ficha() -> InmuebleRow {
