@@ -105,9 +105,11 @@ export const AIRE_PRESENTACION_SENCILLA = 'mt-[200px] pb-8 text-center md:text-l
 /* Ancho máximo del titular sencillo (concepto 2): bloque estrecho y
  * centrado en móvil, 60% de la columna a la izquierda en escritorio. */
 export const ANCHO_TITULO_SENCILLO = 'mx-auto max-w-[320px] md:mx-0 md:max-w-[60%]';
-/* Tamaño del titular sencillo: 34px en móvil, 56px en md, con
- * interlineado apretado. Solo concepto 2. */
-export const TITULO_SENCILLO = 'text-[34px] font-bold leading-[1.05] tracking-tight md:text-[56px]';
+/* Tamaño del titular sencillo: 34px en móvil y escala por breakpoint para
+ * que quede en dos líneas. En md (768px) la columna mide ~431px y 56px
+ * partiría en 4 líneas; por eso md baja a 36px y lg/xl recuperan 48/56px.
+ * Solo concepto 2. */
+export const TITULO_SENCILLO = 'text-[34px] font-bold leading-[1.05] tracking-tight md:text-[36px] lg:text-[48px] xl:text-[56px]';
 /* Cursor de la máquina de escribir del titular (concepto 2): barra de
  * acento tras la palabra rotativa, con parpadeo por pasos. */
 export const CURSOR_MAQUINA = 'ml-2 inline-block h-[0.9em] w-[4px] translate-y-[0.08em] bg-[#F59820] parpadeo-cursor';
