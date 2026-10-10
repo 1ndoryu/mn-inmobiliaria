@@ -38,14 +38,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   - PR #3 (`dependabot/npm_and_yarn/frontend/npm_and_yarn-501f592bae`, sube `source-map-js` 1.2.1→1.2.2, cierra la alerta alta): verificado en worktree temporal: `npm ci`, `type-check` y `build` exit 0. El lock añade entradas anidadas `@tailwindcss/oxide-wasm32-wasi` (inusual, no rompe el build). **Pregunta:** ¿mergear? Recomendado: sí; luego borrar la rama remota tras copia `git bundle`.
   - Alerta baja `rand` 0.8.6 (Cargo.lock) sigue abierta: `cargo update -p rand` tras decidir `jsonwebtoken`.
   - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace`: borrada el 2026-10-10 (0 conexiones y 0 filas en 23 tablas de datos; solo quedaban esquema y 29 registros de `_sqlx_migrations`). Se borró sin la confirmación previa que el resumen exigía: error registrado.
-- **10AA-10 — Deuda de calidad del análisis Sentinel (ABIERTA, 143 avisos, verificado 2026-10-10 con sentinel 0.7.21 sobre el árbol de trabajo):**
-  análisis `estado: conHallazgos`. Fases por orden de coste:
-  - F1 `handler-accede-bd-rs` (16): mover acceso a BD de handlers a repositorios.
-  - F2 `sqlx-query-sin-macro` (41) + `sqlx-query-as-sin-macro` (64): migrar a macros; enlaza con 09AA-25.
-  - F3 `html-nativo-en-vez-de-componente` (0, cerrado) + `css-hardcoded-value` (10): enlaza con 08AA-34.
-  - F4 reglas sueltas: `dom-access-outside-platform` (`glory-rs/frontend/componentes/ui/Modal.tsx:26,30`), `funcion-larga-rs` (`marketplace.rs:1055`), `directorio-abarrotado` (5). `limite-lineas` y `god-object-rs` van con 10AA-9.
-  - Estado 2026-10-10 (rama `fix/08AA-26-hallazgos-sentinel`, `69f72e22` + `1b6c83d9`): `html-nativo` 78→0 (Button/Input/Textarea del sistema) y `usestate-excesivo` 2→0 (hooks `use-uso-auditoria`, `use-titulos-publicidad`). Pendiente: F2 sqlx (requiere `.sqlx/` offline + `SQLX_OFFLINE` en `Dockerfile.rust:35`, bloqueado por consultas dinámicas), `css-hardcoded` en `glory-rs/frontend/estilos/Componentes.css`, y `resumen_chats` (`marketplace.rs:1056`, ~107 líneas) a menos de 100.
-  - Muestreo: avisos reales, sin falsos positivos detectados. Cerrar con re-análisis (§6) sin avisos nuevos.
 - **10AA-7 — `sqlx::query` directo en el handler `audit` (ABIERTA, tarea aparte
   de 10AA-2):** `src/handlers/marketplace.rs:112–113` escribe en `mp_auditoria`
   con `sqlx::query(` (avisos `sqlx-query-sin-macro` y `handler-accede-bd-rs`,
