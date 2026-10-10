@@ -1,0 +1,9 @@
+# sqlx calcula el checksum de cada migración sobre los bytes exactos del fichero.
+# Sin esto, core.autocrlf=true convierte LF→CRLF al hacer checkout en Windows y
+# sqlx rechaza la BD con "migration ... was previously applied but has been modified".
+# Las migraciones 1–15 se aplicaron con CRLF en disco; de la 16 en adelante, con LF.
+# La regla más específica va después: gana la última que coincida.
+migrations/*.sql -text
+migrations/20260325000000_*.sql text eol=crlf
+migrations/2026091[5-8]*.sql text eol=crlf
+migrations/2026092[2-7]*.sql text eol=crlf
