@@ -34,6 +34,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   - F2 `sqlx-query-sin-macro` (157) + `sqlx-query-as-sin-macro` (74): migrar a macros; enlaza con 09AA-25.
   - F3 `html-nativo-en-vez-de-componente` (78) + `css-hardcoded-value` (10): enlaza con 08AA-34.
   - F4 reglas sueltas: `dom-access-outside-platform` (`glory-rs/frontend/componentes/ui/Modal.tsx:26,30`), `todo-prosa-sin-marcador` (`src/services/marketplace.rs:142,1054`), `usestate-excesivo` (2), `componente-sin-hook-glory` (1), `funcion-larga-rs` (`marketplace.rs:1055`), `directorio-abarrotado` (5). `limite-lineas` y `god-object-rs` van con 10AA-9.
+  - Estado 2026-10-10 (rama `fix/08AA-26-hallazgos-sentinel`, `69f72e22` + `1b6c83d9`): `html-nativo` 78→0 (Button/Input/Textarea del sistema) y `usestate-excesivo` 2→0 (hooks `use-uso-auditoria`, `use-titulos-publicidad`). Pendiente: F2 sqlx (requiere `.sqlx/` offline + `SQLX_OFFLINE` en `Dockerfile.rust:35`, bloqueado por consultas dinámicas), `css-hardcoded` en `glory-rs/frontend/estilos/Componentes.css`, y `resumen_chats` (`marketplace.rs:1056`, ~107 líneas) a menos de 100.
   - Muestreo: avisos reales, sin falsos positivos detectados. Cerrar con re-análisis (§6) sin avisos nuevos.
 - **10AA-7 — `sqlx::query` directo en el handler `audit` (ABIERTA, tarea aparte
   de 10AA-2):** `src/handlers/marketplace.rs:112–113` escribe en `mp_auditoria`
