@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const AQUI = dirname(fileURLToPath(import.meta.url));
-export const ENV_DEFECTO = join(AQUI, '.env.prod.local');
+export const ENV_DEFECTO = join(AQUI, '..', '.env.prod.local');
 
 export function leerEnv(ruta, requeridas) {
   if (!existsSync(ruta)) {

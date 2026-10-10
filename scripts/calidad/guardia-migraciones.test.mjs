@@ -1,6 +1,6 @@
 /* [10AA-13] Tests de la guardia de checksums de migraciones. Sin BD: la
  * comparación con `_sqlx_migrations` se prueba con filas en memoria.
- * Ejecutar: node --test scripts/guardia-migraciones.test.mjs */
+ * Ejecutar: node --test scripts/calidad/guardia-migraciones.test.mjs */
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { compararChecksums, migracionesEnDisco } from './branch-db.mjs';
+import { compararChecksums, migracionesEnDisco } from '../branch-db.mjs';
 
 const sha384 = (texto) => createHash('sha384').update(texto).digest('hex');
 

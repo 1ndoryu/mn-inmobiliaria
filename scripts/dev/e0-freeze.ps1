@@ -7,7 +7,7 @@ AES-256-GCM (PBKDF2-SHA256 200k). El claro NUNCA toca disco
 Clave aleatoria generada aqui y guardada en Credential Manager de Windows
 (cmdkey /generic:mp-privado-freeze); recuperacion posterior: Panel de
 control → Cuentas de usuario → Administrador de credenciales → genéricas.
-Uso: pwsh -NoProfile -File scripts/e0-freeze.ps1 -ForkDir <dir> -Destino <dir>
+Uso: pwsh -NoProfile -File scripts/dev/e0-freeze.ps1 -ForkDir <dir> -Destino <dir>
 #>
 param(
   [Parameter(Mandatory = $true)][string]$ForkDir,

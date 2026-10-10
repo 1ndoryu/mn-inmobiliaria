@@ -2,7 +2,7 @@
 # [08AA-27] Pela metadatos (EXIF/GPS) de una foto antes de publicarla.
 # Aplica la orientación EXIF físicamente (la imagen se sigue viendo igual)
 # y guarda limpia, sin ningún metadato. Uso:
-#   python scripts/pelar-exif.py entrada.jpg salida.jpg
+#   python scripts/datos/pelar-exif.py entrada.jpg salida.jpg
 # Imprime JSON por stdout: {"gps": true|false, "ancho": N, "alto": N}.
 # Exit 0 ok | 1 error (mensaje por stderr).
 import json

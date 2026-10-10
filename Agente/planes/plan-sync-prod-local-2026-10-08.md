@@ -3,7 +3,7 @@
 > Estado: EJECUTADO 2026-10-08 (espejo OK 13/259, re-run exit 0).
 > Origen: pedido de ella 2026-10-08 ("sincroniza los inmuebles de prod con
 > los locales; si se puede automatizar, hazlo, que no falle ni rompa nada").
-> Hallazgo: `scripts/sync-pull.mjs` quedó planeado en Fase 5 del plan deploy
+> Hallazgo: `scripts/dev/sync-pull.mjs` quedó planeado en Fase 5 del plan deploy
 > (solo lectura contra prod, destructivo en local con `--si`) pero nunca se
 > creó (glob vacío 2026-10-08). Este plan lo construye y lo usa.
 
@@ -45,7 +45,7 @@ repetible (`npm run sync:pull`), idempotente y que no falle a medias.
 4. Criterio de salida: números anotados en la completada; si prod no responde,
    se aborta aquí sin tocar nada.
 
-### F1 — One-shot ahora: `scripts/sync-pull.mjs` (Node, sin deps nuevas)
+### F1 — One-shot ahora: `scripts/dev/sync-pull.mjs` (Node, sin deps nuevas)
 
 1. Login prod (`POST /api/auth/login`, JWT en memoria) → lista admin +
    públicas → upsert en local por `slug` (inmueble nuevo se crea, existente

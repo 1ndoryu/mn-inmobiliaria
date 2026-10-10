@@ -1,8 +1,8 @@
 // [08AA-27] CLI único para publicar/gestionar inmuebles (local + prod).
 // Uso:
-//   node scripts/inmueble.mjs estado --slug <slug>
-//   node scripts/inmueble.mjs publicar --fotos <carpeta> --datos '{"titulo":...}' [--borrador] [--solo-local|--solo-prod] [--sobrescribir]
-//   node scripts/inmueble.mjs verificar [--slug <slug>] [--sin-bytes] [--par N]
+//   node scripts/datos/inmueble.mjsestado --slug <slug>
+//   node scripts/datos/inmueble.mjspublicar --fotos <carpeta> --datos '{"titulo":...}' [--borrador] [--solo-local|--solo-prod] [--sobrescribir]
+//   node scripts/datos/inmueble.mjsverificar [--slug <slug>] [--sin-bytes] [--par N]
 // --datos acepta JSON inline o @ruta.json. --dry-run muestra sin escribir.
 // Exit: 0 ok | 1 verificar con diferencias | 2 preflight/auth | 3 error de sync | 4 verificación fallida.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { api, leerEnv, login, magia, nucleo, ENV_DEFECTO, AQUI } from './lib-api.mjs';
+import { api, leerEnv, login, magia, nucleo, ENV_DEFECTO, AQUI } from '../dev/lib-api.mjs';
 
 const REQUERIDAS = ['PROD_BASE', 'PROD_EMAIL', 'PROD_PASSWORD', 'LOCAL_EMAIL', 'LOCAL_PASSWORD'];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -74,7 +74,7 @@ function prepararFotos(carpeta) {
     }
     const limpia = join(tmp, `${listas.length}.${ext}`);
     try {
-      const salida = execFileSync('python', [join(AQUI, 'pelar-exif.py'), ruta, limpia], { encoding: 'utf8' });
+      const salida = execFileSync('python', [join(AQUI, '..', 'datos', 'pelar-exif.py'), ruta, limpia], { encoding: 'utf8' });
       const info = JSON.parse(salida.trim().split('\n').pop());
       if (info.gps) console.log(`aviso ${f}: traía GPS, pelado antes de subir`);
     } catch (e) {
@@ -263,7 +263,7 @@ async function asegurarToken(o, mejoraBase) {
     return;
   }
   console.log(`Token no listo (${s?.detalle ?? 'sin servidor de mejora'}); renuevo solo…`);
-  const renovar = join(AQUI, '..', 'frontend', 'scripts', 'renovar-cookies.mjs');
+  const renovar = join(AQUI, '..', '..', 'frontend', 'scripts', 'renovar-cookies.mjs');
   const correr = () => spawnSync('node', [renovar], { encoding: 'utf8' });
   let r = correr();
   if (r.status === 2) {
@@ -557,7 +557,7 @@ async function main() {
   if (cmd === 'mejorar') return cmdMejorar(o);
   if (cmd === 'push') return cmdPush(o);
   if (cmd === 'verificar') return cmdVerificar(o);
-  console.log('Uso: node scripts/inmueble.mjs <estado|publicar|mejorar|push|verificar> [opciones]');
+  console.log('Uso: node scripts/datos/inmueble.mjs<estado|publicar|mejorar|push|verificar> [opciones]');
   console.log('  estado --slug <slug> | publicar --fotos <carpeta> --datos \'{...}\'|@f.json [--borrador] [--solo-local|--solo-prod] [--sobrescribir] [--dry-run]');
   console.log('  mejorar --slug <slug> [--limite N] [--repetir]  (solo local)');
   console.log('  push --slug <slug> [--dry-run] [--sobrescribir]  (local → prod)');

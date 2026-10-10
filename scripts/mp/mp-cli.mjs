@@ -3,7 +3,7 @@
  * atado a máquina -> borrador -> audit emision. Fuga 0 por construcción:
  * solo imprime el borrador y contadores; jamás excerpt, credenciales,
  * tokens ni el id de máquina (viaja solo su hash hex64).
- * Uso: MN_EMAIL=a@a.com MN_PASS=x node scripts/mp-cli.mjs --texto "..." */
+ * Uso: MN_EMAIL=a@a.com MN_PASS=x node scripts/mp/mp-cli.mjs --texto "..." */
 
 import { createHash } from 'node:crypto';
 import { hostname } from 'node:os';
@@ -36,7 +36,7 @@ async function postJson(ruta, body, headers = {}) {
 
 const texto = arg('texto');
 if (texto === '' || EMAIL === '' || PASS === '') {
-  console.error('Uso: MN_EMAIL=e MN_PASS=p node scripts/mp-cli.mjs --texto "..." [--tono amable]');
+  console.error('Uso: MN_EMAIL=e MN_PASS=p node scripts/mp/mp-cli.mjs --texto "..." [--tono amable]');
   process.exit(2);
 }
 const tono = arg('tono') === '' ? 'amable' : arg('tono');

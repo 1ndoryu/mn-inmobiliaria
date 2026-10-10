@@ -3,7 +3,7 @@
  * Reemplaza: rachas de 7+ digitos (con o sin separadores) → [TEL]; wa.me → [WA];
  * emails → [EMAIL]; perfiles de FB (profile.php?id=, /@usuario) → [PERFIL];
  * nombres dados en --nombres "a,b,c" → [NOMBRE]. Precios como $43.000 se conservan.
- * Uso: node scripts/anonimizar.mjs [--nombres "Janeth,..."] [--salida out.txt] [fichero...] */
+ * Uso: node scripts/datos/anonimizar.mjs [--nombres "Janeth,..."] [--salida out.txt] [fichero...] */
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);

@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$projectRoot = Split-Path -Parent $PSScriptRoot
+$projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 function Write-ChecklistSection {
     param(
@@ -85,7 +85,7 @@ try {
             Invoke-Validation -Label 'npm run check:front' -Action { npm run check:front }
         }
 
-        if (Test-Path (Join-Path $projectRoot 'scripts\check-roadmap.mjs')) {
+        if (Test-Path (Join-Path $projectRoot 'scripts\calidad\check-roadmap.mjs')) {
             Write-Host '[self-check] Ejecutando npm run roadmap...'
             npm run roadmap
             $roadmapExitCode = $LASTEXITCODE

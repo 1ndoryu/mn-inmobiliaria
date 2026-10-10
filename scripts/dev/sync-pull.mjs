@@ -1,6 +1,6 @@
 // [08AA-2] Trae el snapshot prod→local (inmuebles + fotos) y lo deja espejo.
 // Solo LEE prod (login + GETs, como un navegador). Todo lo que escribe es LOCAL.
-// Uso: node scripts/sync-pull.mjs [--dry-run] [--env RUTA] [--slug <slug>]
+// Uso: node scripts/dev/sync-pull.mjs [--dry-run] [--env RUTA] [--slug <slug>]
 //   --dry-run: compara y muestra qué haría, sin escribir nada en local.
 //   --env: ruta del fichero de credenciales (defecto: scripts/.env.prod.local).
 //   --slug: acota a un solo slug (pull quirúrgico; la verificación final

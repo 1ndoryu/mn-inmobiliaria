@@ -1,5 +1,5 @@
 // [159A-2] Importa el rescate del admin local a la API Rust.
-// Uso: node scripts/importar-rescate.mjs [--api URL] [--email E] [--password P]
+// Uso: node scripts/datos/importar-rescate.mjs [--api URL] [--email E] [--password P]
 //      [--rescate RUTA] [--dry-run]
 // Importados con publicado=false (el owner los revisa y publica).
 // Idempotente a medias: si el email ya existe hace login; los inmuebles se
@@ -17,7 +17,7 @@ const args = Object.fromEntries(
 const API = args.api ?? 'http://127.0.0.1:3110'; // [03AA-1] local en 3110.
 const EMAIL = args.email ?? 'import@example.com';
 const PASSWORD = args.password ?? 'import-secreto-123';
-const RESCATE = args.rescate ?? join(RAIZ, '..', '..', 'INMOBILIARIA', 'rescates', 'inmobiliaria-rescate-20260915-1205.json');
+const RESCATE = args.rescate ?? join(RAIZ, '..', '..', '..', 'INMOBILIARIA', 'rescates', 'inmobiliaria-rescate-20260915-1205.json');
 const DRY = args['dry-run'] === 'true' || args['dry-run'] === '';
 
 const resumen = { inmuebles: 0, originales: 0, mejoradas: 0, omitidas: 0 };

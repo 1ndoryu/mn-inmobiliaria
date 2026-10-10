@@ -1,5 +1,5 @@
 # Bateria IA F1-F10 (Fase 3 v2): turnos sinteticos via `wa_b` en paralelo.
-# Uso: .\scripts\bateria-ia.ps1 [-Solo F1,F4] [-Base 18149575561]
+# Uso: .\scripts\dev\bateria-ia.ps1 [-Solo F1,F4] [-Base 18149575561]
 # Cada escenario usa UN remitente virgen (un hilo por numero: evita el
 # re-claveo H1 y aisla estados). Los jobs corren en paralelo y cada turno
 # espera con polling al outbox (motivo='ia') en vez de sleeps fijos: la v1

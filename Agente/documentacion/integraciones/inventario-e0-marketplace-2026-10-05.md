@@ -40,7 +40,7 @@ Nada más del proyecto los importa salvo `index.ts` y `tipos.ts`.
 ## Freeze (E0.2, detalle técnico)
 
 - Desviación registrada: el plan pedía `7z a -p -mhe=on`, pero no hay 7-Zip,
-  openssl ni age en la máquina. Sustituto equivalente: `scripts/e0-freeze.ps1`
+  openssl ni age en la máquina. Sustituto equivalente: `scripts/dev/e0-freeze.ps1`
   (ZIP en memoria → AES-256-GCM con PBKDF2-SHA256 200k; el claro nunca toca disco,
   ni siquiera `C:\tmp`; `cipher /w` no aplica porque no hubo temporal).
 - Contenedor `.mpfreeze` (magia `MPF1` + sal16 + nonce12 + cifrado + tag16);

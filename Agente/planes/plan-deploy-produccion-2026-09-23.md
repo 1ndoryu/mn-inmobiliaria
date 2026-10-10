@@ -173,7 +173,7 @@ recetas y fotos). Cada entorno tiene un único escritor:
   queda en local y nunca sube solo. El `pull` lo puede pisar sin aviso.
 
 ### Flujos
-1. **Pull prod→local (script `scripts/sync-pull.mjs`, solo lectura contra prod):** login
+1. **Pull prod→local (script `scripts/dev/sync-pull.mjs`, solo lectura contra prod):** login
    JWT admin prod → lista admin + públicas → vuelca a la DB local y descarga `/uploads/*`
    al `UPLOAD_DIR` local. Sirve para traer a local un inmueble nuevo de prod y mejorarlo.
    Flag de confirmación; nunca escribe en prod.
@@ -212,7 +212,7 @@ El script `scripts/mejora-prod.mjs` (solo Node, sin dependencias nuevas) hace to
    `ADMIN_PASSWORD`); nunca se imprimen, nunca van a git. Logs en `logs/`, temporales en
    `C:\tmp` que se borran solos.
 
-`scripts/sync-pull.mjs` (espejo prod→local vía APIs, destructivo en local con `--si`):
+`scripts/dev/sync-pull.mjs` (espejo prod→local vía APIs, destructivo en local con `--si`):
 solo para traer snapshot a local cuando se quiera probar/dev; la mejora-prod NO lo necesita
 (descarga ella misma el original de prod). Los UUID pueden diferir entre entornos: todo se
 resuelve por `slug` + `orden`, nunca por id hardcodeado.

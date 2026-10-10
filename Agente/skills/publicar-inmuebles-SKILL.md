@@ -19,11 +19,11 @@ Límites: título/ubicación/residencia ≤500, descripción ≤20000, numérico
 ## 1. Atajos (CLI único)
 
 ```
-node scripts/inmueble.mjs estado --slug <slug>            # reimprime local+prod
-node scripts/inmueble.mjs publicar --fotos <carpeta> --datos <json> [--solo-local|--solo-prod] [--borrador] [--sobrescribir] [--dry-run]
-node scripts/inmueble.mjs mejorar --slug <slug> [--limite N] [--repetir]   # solo local
-node scripts/inmueble.mjs push --slug <slug> [--dry-run] [--sobrescribir]  # local → prod
-node scripts/inmueble.mjs verificar [--slug <slug>] [--sin-bytes] [--par N]  # prod↔local, solo lectura (08AA-35 F1)
+node scripts/datos/inmueble.mjs estado --slug <slug>            # reimprime local+prod
+node scripts/datos/inmueble.mjs publicar --fotos <carpeta> --datos <json> [--solo-local|--solo-prod] [--borrador] [--sobrescribir] [--dry-run]
+node scripts/datos/inmueble.mjs mejorar --slug <slug> [--limite N] [--repetir]   # solo local
+node scripts/datos/inmueble.mjs push --slug <slug> [--dry-run] [--sobrescribir]  # local → prod
+node scripts/datos/inmueble.mjs verificar [--slug <slug>] [--sin-bytes] [--par N]  # prod↔local, solo lectura (08AA-35 F1)
 ```
 
 Sin CLI a mano (fallback): los endpoints de §2 con `scripts/.env.prod.local`
@@ -42,7 +42,7 @@ lleva `Authorization: Bearer`. 401 = login de nuevo.
   bytes crudos `application/octet-stream` (magia JPEG/PNG/WebP, tope 10 MiB/413).
 - `DELETE /api/admin/fotos/:id` → 204.
 - `GET/PUT /api/admin/inmuebles/:id/ficha` (ruta `ask.rs`; en prod vieja puede
-  dar 404 → se conserva la local y se anota, como `sync-pull.mjs`).
+  dar 404 → se conserva la local y se anota, como `scripts/dev/sync-pull.mjs`).
 - Público: `GET /api/public/inmuebles`, `GET /api/public/inmuebles/:slug`.
 
 ## 3. Orden de operaciones (publicar)
@@ -50,7 +50,7 @@ lleva `Authorization: Bearer`. 401 = login de nuevo.
 1. Preflight fotos: carpeta existe, magia por BYTES (no extensión), ≤10 MiB,
    HEIC → convertir o pedir reemplazo. Pelar EXIF (GPS) antes de subir.
 2. `POST /inmuebles` con el núcleo (mismos campos que `nucleo()` en
-   `sync-pull.mjs:85-92` + `publicado` NO va aquí) en LOCAL.
+   `scripts/dev/sync-pull.mjs:85-92` + `publicado` NO va aquí) en LOCAL.
 3. Subir originales con `orden` 0..N (`origen=original`).
 4. `PATCH publicacion {publicado:true}` en local. Verificar: GET admin (conteo
    fotos) + GET público por slug.
@@ -123,7 +123,7 @@ login + GETs: cero escrituras. Testigo 2026-10-08: 13/259 vs 13/255 con el
 único frente en `mejorada` de `casa-en-venta-en-altos-del-caron`;
 2026-10-09 convergencia total por pull prod→local: 13/259 = 13/259 exit 0.
 
-Pull quirúrgico (08AA-35 F2, permanente): `sync-pull.mjs --slug <slug>`
+Pull quirúrgico (08AA-35 F2, permanente): `scripts/dev/sync-pull.mjs --slug <slug>`
 reemplaza núcleo + ficha + publicado + TODAS las fotos del slug con bytes
 de prod (siempre dry-run primero). Solo escribe en local, jamás en prod.
 Gotchas fijados en código: el parser tomaba la siguiente flag como valor

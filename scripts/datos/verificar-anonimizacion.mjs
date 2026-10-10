@@ -3,7 +3,7 @@
  * PII residual. Reglas: 7+ dígitos (ignorando separadores) → falla; wa.me,
  * emails, perfiles FB (profile.php?id=, /@usuario) → fallan; cada nombre de
  * --nombres "a,b,c" presente → falla. Fotos en E1 van por HMAC, no por texto.
- * Uso: node scripts/verificar-anonimizacion.mjs [--nombres "a,b"] fichero... (o stdin) */
+ * Uso: node scripts/datos/verificar-anonimizacion.mjs [--nombres "a,b"] fichero... (o stdin) */
 import { readFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);

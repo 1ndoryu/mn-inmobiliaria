@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* [085A-2] Compatibilidad para ramas que aun invocan scripts/dev.mjs.
+/* [085A-2] Compatibilidad para ramas que aun invocan scripts/dev.mjs (shim ahora en scripts/dev/dev.mjs).
  * La logica real vive en glory-rs/scripts/dev.mjs para que el launcher sea compartido. */
 
 import { spawn } from 'node:child_process';
@@ -7,7 +7,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(scriptDir, '..');
+const projectRoot = resolve(scriptDir, '..', '..');
 const sharedLauncher = resolve(projectRoot, 'glory-rs', 'scripts', 'dev.mjs');
 
 const child = spawn(process.execPath, [sharedLauncher, ...process.argv.slice(2)], {

@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "node glory-rs/scripts/dev.mjs",
     "check": "npm run check:back && npm run check:front",
-    "self-check": "powershell -ExecutionPolicy Bypass -File scripts/self-check.ps1",
-    "check:back": "node --test scripts/guardia-migraciones.test.mjs && node scripts/run-with-db.mjs check && node scripts/run-with-db.mjs clippy",
+    "self-check": "powershell -ExecutionPolicy Bypass -File scripts/calidad/self-check.ps1",
+    "check:back": "node --test scripts/calidad/guardia-migraciones.test.mjs && node scripts/run-with-db.mjs check && node scripts/run-with-db.mjs clippy",
     "check:front": "npm --prefix frontend run type-check",
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt --check",
@@ -15,8 +15,8 @@
     "dev:gateway": "npm --prefix gateway start",
     "codegen": "npm --prefix frontend run codegen",
     "test": "node scripts/run-with-db.mjs test",
-    "roadmap": "node scripts/check-roadmap.mjs",
-    "roadmap:watch": "node scripts/check-roadmap.mjs --watch",
-    "sync:pull": "node scripts/sync-pull.mjs"
+    "roadmap": "node scripts/calidad/check-roadmap.mjs",
+    "roadmap:watch": "node scripts/calidad/check-roadmap.mjs --watch",
+    "sync:pull": "node scripts/dev/sync-pull.mjs"
   }
 }
