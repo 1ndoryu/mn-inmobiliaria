@@ -1110,26 +1110,7 @@ pub async fn resumen_chats(
     }
     /* [10AA-4] Con `solo_huerfanos` el total cuenta solo los huérfanos: el
      * vínculo se resuelve en memoria igual que en la lista. */
-    let total: i64 = if solo_huerfanos {
-        let hilos: Vec<String> = sqlx::query_scalar(
-            "SELECT DISTINCT thread_id FROM mp_respuestas_cache \
-             WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
-        )
-        .fetch_all(pool)
-        .await?;
-        let sin_ficha = hilos
-            .iter()
-            .filter(|h| titulo_vinculado_del_hilo(h, &candidatos, &vinculos).is_none())
-            .count();
-        i64::try_from(sin_ficha).unwrap_or(i64::MAX)
-    } else {
-        sqlx::query_scalar(
-            "SELECT COUNT(DISTINCT thread_id)::BIGINT FROM mp_respuestas_cache \
-             WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
-        )
-        .fetch_one(pool)
-        .await?
-    };
+    let total = total_chats(pool, solo_huerfanos, &candidatos, &vinculos).await?;
     /* [09AA-28] Portadas de los inmuebles vinculados en una sola query
      * (únicos); si falla, el panel sigue sin miniaturas (jamás se bloquea). */
     let mut ids_vinculados: Vec<uuid::Uuid> = salida
@@ -1171,6 +1152,36 @@ pub async fn resumen_chats(
         total,
         hay_mas,
     })
+}
+
+/// Total de chats con borradores (sin archivados). Con `solo_huerfanos` cuenta
+/// solo los hilos sin ficha conocida, con el mismo vínculo que la lista.
+async fn total_chats(
+    pool: &sqlx::PgPool,
+    solo_huerfanos: bool,
+    candidatos: &[(uuid::Uuid, String, Vec<String>)],
+    vinculos: &VinculosAviso,
+) -> Result<i64, AppError> {
+    if solo_huerfanos {
+        let hilos: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT thread_id FROM mp_respuestas_cache \
+             WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
+        )
+        .fetch_all(pool)
+        .await?;
+        let sin_ficha = hilos
+            .iter()
+            .filter(|h| titulo_vinculado_del_hilo(h, candidatos, vinculos).is_none())
+            .count();
+        return Ok(i64::try_from(sin_ficha).unwrap_or(i64::MAX));
+    }
+    let total = sqlx::query_scalar(
+        "SELECT COUNT(DISTINCT thread_id)::BIGINT FROM mp_respuestas_cache \
+         WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(total)
 }
 
 /// [10AA-4] Hilos por lote al filtrar huérfanos: cuántos hilos se leen de la
