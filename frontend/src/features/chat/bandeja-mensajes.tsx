@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useBandejaChat } from '../../hooks/chat/use-bandeja-chat';
 import type { EstadoSesionChat } from '../../data/chat/cliente-admin';
 import { HiloMensajes } from './hilo-mensajes';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -53,7 +53,7 @@ export function BandejaMensajes() {
             )}
             {b.sesiones.map((s) => (
               <li key={s.id}>
-                <Button variant="ghost"
+                <ButtonPlano
                   type="button"
                   onClick={() => b.seleccionar(s.id)}
                   className={cn(
@@ -82,7 +82,7 @@ export function BandejaMensajes() {
                   {/* [289A-2] Número del cliente: identifica la conversación de WhatsApp. */}
                   {s.telefono && <span className="mt-0.5 block text-xs font-medium text-muted-foreground">{s.telefono}</span>}
                   {s.last_body && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{s.last_body}</span>}
-                </Button>
+                </ButtonPlano>
               </li>
             ))}
           </ul>

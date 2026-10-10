@@ -1,7 +1,7 @@
 import { ImagePlus, Loader2, Sparkles, X } from 'lucide-react';
 import { ETIQUETAS_TIPO } from '@/domain/inmueble';
 import type { FichaIA } from '@/data/ia/ia';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -115,14 +115,14 @@ export function ModalIA(props: Props) {
                   {fotos.map((f) => (
                     <div key={f.slice(-32)} className="group relative aspect-square overflow-hidden rounded-md border">
                       <img src={f} alt="Foto para la IA" className="h-full w-full object-cover" />
-                      <Button variant="ghost"
+                      <ButtonPlano
                         type="button"
                         aria-label="Quitar foto"
                         onClick={() => quitarFoto(f)}
                         className="absolute right-1 top-1 rounded bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
                       >
                         <X className="h-3 w-3" />
-                      </Button>
+                      </ButtonPlano>
                     </div>
                   ))}
                 </div>

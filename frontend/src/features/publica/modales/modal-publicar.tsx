@@ -11,9 +11,9 @@ import {
   CLASE_TEXTO,
   CLASE_TINTA,
 } from '../disenno';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { TextareaPlano } from '@/components/ui/textarea';
+import { ButtonPlano } from '@/components/ui/button';
+import { InputPlano } from '@/components/ui/input';
 
 /* [169A-2] Formulario "Publicar mi inmueble": cuadrado, tinta, sin sombras,
  * Söhne 400 sin negritas. Cierra con overlay o Escape (sin X); el borrador
@@ -96,7 +96,7 @@ export function ModalPublicar({ modal }: { modal: ReturnType<typeof useModalPubl
             </div>
             <label className={`flex flex-col gap-1 text-sm font-normal ${CLASE_TINTA}`}>
               Descripción
-              <Textarea
+              <TextareaPlano
                 value={borrador.descripcion}
                 onChange={(e) => actualizar('descripcion', e.target.value)}
                 rows={4}
@@ -115,7 +115,7 @@ export function ModalPublicar({ modal }: { modal: ReturnType<typeof useModalPubl
                 {envio.error}
               </p>
             )}
-            <Button variant="ghost"
+            <ButtonPlano
               type="submit"
               disabled={ocupada}
               className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO} disabled:cursor-wait disabled:opacity-60`}
@@ -125,7 +125,7 @@ export function ModalPublicar({ modal }: { modal: ReturnType<typeof useModalPubl
                 : envio.fase === 'subiendo'
                   ? 'Subiendo fotos…'
                   : 'Enviar solicitud'}
-            </Button>
+            </ButtonPlano>
           </form>
         )}
       </DialogContent>
@@ -139,13 +139,13 @@ function Exito({ alCerrar }: { alCerrar: () => void }) {
       <p className={`text-sm leading-relaxed font-normal ${CLASE_TINTA}`}>
         Solicitud enviada. La revisaremos y te contactaremos en breve.
       </p>
-      <Button variant="ghost"
+      <ButtonPlano
         type="button"
         onClick={alCerrar}
         className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO}`}
       >
         Cerrar
-      </Button>
+      </ButtonPlano>
     </div>
   );
 }
@@ -166,7 +166,7 @@ function Campo({
   return (
     <label className={`flex flex-col gap-1 text-sm font-normal ${CLASE_TINTA}`}>
       {etiqueta}
-      <Input
+      <InputPlano
         type={tipo}
         value={valor}
         onChange={(e) => alCambiar(e.target.value)}
@@ -189,7 +189,7 @@ function Operacion({
       Operación
       <span className="flex gap-2">
         {(['venta', 'alquiler'] as const).map((o) => (
-          <Button variant="ghost"
+          <ButtonPlano
             key={o}
             type="button"
             onClick={() => alElegir(o)}
@@ -198,7 +198,7 @@ function Operacion({
             }`}
           >
             {o === 'venta' ? 'Venta' : 'Alquiler'}
-          </Button>
+          </ButtonPlano>
         ))}
       </span>
     </span>
@@ -224,14 +224,14 @@ function Fotos({
           {claves.map((c) => (
             <span key={c} className={`relative border ${CLASE_BORDE} ${CLASE_RELLENO_SUAVE}`}>
               <img src={urlFotoSolicitud(`/uploads/${c}`)} alt="" className="h-16 w-16 rounded-none object-cover" />
-              <Button variant="ghost"
+              <ButtonPlano
                 type="button"
                 aria-label="Quitar foto"
                 onClick={() => alQuitar(c)}
                 className="absolute top-0 right-0 cursor-pointer rounded-none bg-black/60 p-0.5"
               >
                 <X className="h-3 w-3 text-white" />
-              </Button>
+              </ButtonPlano>
             </span>
           ))}
         </span>

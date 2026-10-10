@@ -1,6 +1,6 @@
 import { CLASE_TINTA } from '../publica/disenno';
 import type { EstadoInmueble, Operacion } from '@/domain/inmueble';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -31,15 +31,14 @@ export function BotonVendida({ inmuebleId, titulo, operacion, deshabilitado, alM
 
   return (
     <>
-      <Button
+      <ButtonPlano
         type="button"
-        variant="link"
         disabled={deshabilitado}
         onClick={abrir}
-        className={`h-auto p-0 cursor-pointer text-sm ${CLASE_TINTA} underline disabled:cursor-wait disabled:opacity-60`}
+        className={`cursor-pointer text-sm ${CLASE_TINTA} underline disabled:cursor-wait disabled:opacity-60`}
       >
         Esta propiedad se vendió
-      </Button>
+      </ButtonPlano>
       <Dialog
         open={abierto}
         onOpenChange={(o) => {

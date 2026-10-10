@@ -10,7 +10,7 @@ import {
   type RecetaPublicidad,
 } from '@/domain/plantilla-publicidad';
 import { fotosVisiblesDe, type Inmueble } from '@/domain/inmueble';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -138,7 +138,7 @@ export function ModalEditorPublicidad({ inmueble, receta, alGuardar, alCerrar, a
                   <p className="text-xs font-medium">{etiqueta}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {candidatas.map((url, idx) => (
-                      <Button variant="ghost"
+                      <ButtonPlano
                         key={url}
                         type="button"
                         onClick={() => elegir(clave, idx)}
@@ -148,7 +148,7 @@ export function ModalEditorPublicidad({ inmueble, receta, alGuardar, alCerrar, a
                         title={`${etiqueta} · foto ${idx + 1}`}
                       >
                         <img src={url} alt="" className="h-full w-full object-cover" />
-                      </Button>
+                      </ButtonPlano>
                     ))}
                   </div>
                 </div>

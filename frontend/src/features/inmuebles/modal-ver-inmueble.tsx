@@ -8,7 +8,7 @@ import {
 } from '@/domain/inmueble';
 import type { FotoMejora } from '@/domain/foto-mejora';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -105,7 +105,7 @@ export function ModalVerInmueble({ inmueble, fotosMejora, alCambiarAbierto, onEd
                 {inmueble.fotos.length > 1 && (
                   <div className="grid grid-cols-6 gap-2">
                     {inmueble.fotos.map((f, i) => (
-                      <Button variant="ghost"
+                      <ButtonPlano
                         key={f.slice(-32) + i}
                         type="button"
                         onClick={() => setIndice(i)}
@@ -131,7 +131,7 @@ export function ModalVerInmueble({ inmueble, fotosMejora, alCambiarAbierto, onEd
                             <Sparkles className="h-3 w-3" />
                           </span>
                         )}
-                      </Button>
+                      </ButtonPlano>
                     ))}
                   </div>
                 )}

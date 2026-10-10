@@ -10,7 +10,7 @@ import { HilosHuerfanos } from './hilos-huerfanos';
 import { LogsMarketplace } from './logs-marketplace';
 import { VinculoInmueble } from './vinculo-inmueble';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -182,7 +182,7 @@ export function ChatsMarketplace() {
                   seleccion?.hilo === c.thread_id ? 'border-primary' : ''
                 }`}
               >
-                <Button variant="ghost"
+                <ButtonPlano
                   type="button"
                   onClick={() => void elegir(c.thread_id)}
                   className="min-w-0 flex-1 px-3 py-2 text-left text-xs"
@@ -200,7 +200,7 @@ export function ChatsMarketplace() {
                     {c.borradores} borrador{c.borradores === 1 ? '' : 'es'} · {c.usos} uso{c.usos === 1 ? '' : 's'} ·{' '}
                     {fechaCorta(c.ultimo)}
                   </span>
-                </Button>
+                </ButtonPlano>
                 {/* [09AA-30] Tres puntos por conversación, dentro de la caja de la fila:
                  * archivar, borrar borrador o borrar el chat entero. */}
                 <DropdownMenu>

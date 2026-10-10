@@ -1,5 +1,5 @@
 import { ImagePlus, Star, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 /* Galería del formulario de inmueble: miniaturas con quitar una a una,
@@ -46,7 +46,7 @@ export function FotosFormulario({
                   <Star className="h-3 w-3" /> Principal
                 </Badge>
               ) : (
-                <Button variant="ghost"
+                <ButtonPlano
                   type="button"
                   title="Elegir como principal"
                   aria-label={`Elegir foto ${idx + 1} como principal`}
@@ -54,16 +54,16 @@ export function FotosFormulario({
                   className="absolute top-1 left-1 rounded-full bg-black/70 p-1 text-white hover:bg-black"
                 >
                   <Star className="h-3.5 w-3.5" />
-                </Button>
+                </ButtonPlano>
               )}
-              <Button variant="ghost"
+              <ButtonPlano
                 type="button"
                 title="Quitar foto"
                 onClick={() => alQuitar(idx)}
                 className="absolute top-1 right-1 rounded-full bg-black/70 p-1 text-white hover:bg-black"
               >
                 <X className="h-3.5 w-3.5" />
-              </Button>
+              </ButtonPlano>
             </div>
           ))}
         </div>

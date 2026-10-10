@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { ETIQUETAS_TIPO, TIPOS, type InmueblePublico, type TipoInmueble } from '../../../domain/inmueble';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_REPOSO, CLASE_TEXTO } from '../disenno';
-import { Button } from '@/components/ui/button'
+import { ButtonPlano } from '@/components/ui/button'
 
 const ICONOS_TIPO: Record<TipoInmueble, LucideIcon> = {
   apartamento: Building2,
@@ -35,7 +35,7 @@ function BotonFiltro({
   cargando?: boolean;
 }) {
   return (
-    <Button variant="ghost"
+    <ButtonPlano
       type="button"
       onClick={alElegir}
       aria-pressed={activo}
@@ -48,7 +48,7 @@ function BotonFiltro({
         * el `min-w` con `text-center` separaba el valor). `tabular-nums`
         * iguala el ancho de los dígitos para que el 0→N no mueva nada. */}
       {etiqueta} ({cargando ? '–' : total})
-    </Button>
+    </ButtonPlano>
   );
 }
 

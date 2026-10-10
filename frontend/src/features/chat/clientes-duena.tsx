@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { useClientes } from '../../hooks/chat/use-clientes';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -77,7 +77,7 @@ export function ClientesDuena() {
             )}
             {c.clientes.map((k) => (
               <li key={k.id}>
-                <Button variant="ghost"
+                <ButtonPlano
                   type="button"
                   onClick={() => {
                     c.elegir(k.id);
@@ -103,7 +103,7 @@ export function ClientesDuena() {
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {[k.interes, k.presupuesto, k.zona].filter(Boolean).join(' · ') || k.telefono}
                   </span>
-                </Button>
+                </ButtonPlano>
               </li>
             ))}
           </ul>

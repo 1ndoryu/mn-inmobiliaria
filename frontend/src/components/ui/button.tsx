@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
@@ -54,4 +55,10 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+/* Sin las clases base de `Button` (h-8, rounded-lg, text-sm, font-medium...):
+ * conserva el aspecto del `<button>` nativo original de la app (10AA-14). */
+function ButtonPlano(props: ComponentProps<"button">) {
+  return <button {...props} />
+}
+
+export { Button, ButtonPlano, buttonVariants }

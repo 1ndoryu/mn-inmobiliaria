@@ -14,4 +14,10 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   )
 }
 
-export { Textarea }
+/* Sin las clases base de `Textarea` (min-h-16, rounded-lg, text-base...):
+ * conserva el aspecto del `<textarea>` nativo original de la app (10AA-14). */
+function TextareaPlano(props: React.ComponentProps<"textarea">) {
+  return <textarea {...props} />
+}
+
+export { Textarea, TextareaPlano }

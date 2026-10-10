@@ -11,7 +11,7 @@ import {
 import { fotosVisiblesDe, type Inmueble } from '@/domain/inmueble';
 import { exportarPublicidad, renderizarPublicidad } from '@/platform/canvas-publicidad';
 import { usePublicidades } from '@/hooks/publicidad/use-publicidades';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -112,14 +112,14 @@ function TarjetaPublicidad({
 }) {
   return (
     <article className="overflow-hidden rounded-lg border bg-card">
-      <Button variant="ghost"
+      <ButtonPlano
         type="button"
         onClick={alAmpliar}
         title="Ver completa"
         className="block w-full cursor-zoom-in"
       >
         <VistaPrevia inmueble={inmueble} comp={comp} />
-      </Button>
+      </ButtonPlano>
       <div className="space-y-2 p-3">
         <div>
           <p className="truncate text-sm font-medium">{lineaTitulo1De(inmueble)}</p>

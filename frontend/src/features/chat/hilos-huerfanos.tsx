@@ -9,7 +9,7 @@ import { useVincularHilo } from '@/hooks/chat/use-vincular-hilo';
 import type { ChatResumen } from '../../data/chat/marketplace-chats';
 import type { DetalleChat } from './use-chats-marketplace';
 import { VincularHilo } from './vincular-hilo';
-import { Button } from '@/components/ui/button';
+import { ButtonPlano } from '@/components/ui/button';
 
 /* El hilo es `nombre|aviso`: si el aviso son dígitos (o URL) se sugiere
  * como ID; si es un título aproximado no hay nada que sugerir. */
@@ -64,7 +64,7 @@ export function HilosHuerfanos({
             <ul className="space-y-1">
               {huerfanos.map((h) => (
                 <li key={h.thread_id}>
-                  <Button variant="ghost"
+                  <ButtonPlano
                     type="button"
                     onClick={() => elegir(h.thread_id)}
                     className={`w-full rounded-md border px-3 py-2 text-left text-xs hover:bg-muted ${hiloElegido === h.thread_id ? 'border-primary' : ''}`}
@@ -73,7 +73,7 @@ export function HilosHuerfanos({
                     <span className="text-muted-foreground">
                       {h.borradores} borradores · {h.usos} usos
                     </span>
-                  </Button>
+                  </ButtonPlano>
                 </li>
               ))}
             </ul>

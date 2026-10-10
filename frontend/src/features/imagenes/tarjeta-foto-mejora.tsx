@@ -2,7 +2,7 @@ import { Download, EllipsisVertical, Loader2, RotateCcw, Undo2, X } from 'lucide
 import type { FotoMejora } from '@/domain/foto-mejora';
 import type { InfoReintento } from '@/hooks/mejora/use-cola-mejora';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 /* [08AA-32] Ampliación, restauración y descarga viven en useTarjetaFotoMejora. */
 import { useTarjetaFotoMejora } from '@/hooks/imagenes/use-tarjeta-foto-mejora';
 import {
@@ -76,14 +76,14 @@ export function TarjetaFotoMejora(props: {
     <div className="overflow-hidden rounded-lg border bg-card">
       <div className="grid grid-cols-2 gap-px bg-border">
         <div className="bg-card">
-          <Button variant="ghost"
+          <ButtonPlano
             type="button"
             onClick={() => setAmpliada('original')}
             title="Ver original completa"
             className="block w-full cursor-zoom-in"
           >
             <img src={foto.original} alt="Original" className="aspect-square w-full object-cover" loading="lazy" />
-          </Button>
+          </ButtonPlano>
           <p className="px-2 pt-1 text-[11px] text-muted-foreground">Original</p>
           {idOriginal && (
             <p
@@ -96,14 +96,14 @@ export function TarjetaFotoMejora(props: {
         </div>
         <div className="bg-card">
           {foto.mejorada ? (
-            <Button variant="ghost"
+            <ButtonPlano
               type="button"
               onClick={() => setAmpliada('mejorada')}
               title="Ver mejorada completa"
               className="block w-full cursor-zoom-in"
             >
               <img src={foto.mejorada} alt="Mejorada" className="aspect-square w-full object-cover" loading="lazy" />
-            </Button>
+            </ButtonPlano>
           ) : (
             <div className="flex aspect-square w-full items-center justify-center bg-muted text-xs text-muted-foreground">
               {foto.estado === 'procesando' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sin mejorar'}

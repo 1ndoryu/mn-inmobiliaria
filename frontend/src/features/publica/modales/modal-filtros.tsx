@@ -3,8 +3,8 @@ import { ETIQUETAS_TIPO, TIPOS, type TipoInmueble } from '../../../domain/inmueb
 import type { useFiltrosAvanzados } from '../../../hooks/publica/use-filtros-avanzados';
 import type { FiltrosAvanzados } from '../busqueda';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_FONDO, CLASE_TEXTO, CLASE_TINTA, SOLO_MOVIL_TABLETA } from '../disenno';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { ButtonPlano } from '@/components/ui/button';
+import { InputPlano } from '@/components/ui/input';
 
 /* Modal "Filtros avanzados": mismo concepto que el modal publicar (cuadrado,
  * tinta, sin sombras, Söhne 400 sin negritas; cierra con overlay o Escape,
@@ -81,7 +81,7 @@ export function ModalFiltros({
             placeholder="3"
           />
           <span className="flex gap-2">
-            <Button variant="ghost"
+            <ButtonPlano
               type="button"
               onClick={() => {
                 modal.aplicar();
@@ -90,14 +90,14 @@ export function ModalFiltros({
               className={`flex-1 cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO}`}
             >
               Aplicar
-            </Button>
-            <Button variant="ghost"
+            </ButtonPlano>
+            <ButtonPlano
               type="button"
               onClick={modal.limpiar}
               className={`flex-1 cursor-pointer rounded-none border ${CLASE_BORDE} bg-transparent px-4 py-2 ${CLASE_TEXTO}`}
             >
               Limpiar
-            </Button>
+            </ButtonPlano>
           </span>
         </div>
       </DialogContent>
@@ -121,7 +121,7 @@ function Campo({
   return (
     <label className={`flex flex-col gap-1 text-sm font-normal ${CLASE_TINTA} ${ancho}`}>
       {etiqueta}
-      <Input
+      <InputPlano
         type="text"
         value={valor}
         onChange={(e) => alCambiar(e.target.value)}
@@ -170,7 +170,7 @@ function OperacionFiltro({
       Operación
       <span className="flex gap-2">
         {(['todas', 'venta', 'alquiler'] as const).map((o) => (
-          <Button variant="ghost"
+          <ButtonPlano
             key={o}
             type="button"
             onClick={() => alElegir(o)}
@@ -179,7 +179,7 @@ function OperacionFiltro({
             }`}
           >
             {o === 'todas' ? 'Todas' : o === 'venta' ? 'Venta' : 'Alquiler'}
-          </Button>
+          </ButtonPlano>
         ))}
       </span>
     </span>

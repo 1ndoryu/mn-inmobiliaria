@@ -1,7 +1,7 @@
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { CLASE_ACENTO, CLASE_ACTIVO, CLASE_BORDE, CLASE_TEXTO } from '../disenno';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { InputPlano } from '@/components/ui/input';
+import { ButtonPlano } from '@/components/ui/button';
 
 /* Buscador pegado sobre los filtros: el borde vive en la caja,
  * el input va sin bordes. En escritorio la caja no lleva borde inferior
@@ -22,7 +22,7 @@ export function BuscadorPublica({
   return (
     <div className={`flex w-full items-center gap-2 border lg:border-b-0 ${CLASE_BORDE} px-4 py-3`}>
       <Search className="h-4 w-4 shrink-0" aria-hidden />
-      <Input
+      <InputPlano
         type="search"
         placeholder="Buscar por título o ubicación…"
         aria-label="Buscar inmuebles"
@@ -30,7 +30,7 @@ export function BuscadorPublica({
         onChange={(e) => alCambiar(e.target.value)}
         className={`min-w-0 flex-1 border-0 bg-transparent p-0 ${CLASE_TEXTO} outline-none placeholder:text-black/40`}
       />
-      <Button variant="ghost"
+      <ButtonPlano
         type="button"
         aria-label="Filtros avanzados"
         aria-pressed={filtrosActivos}
@@ -40,7 +40,7 @@ export function BuscadorPublica({
         }`}
       >
         <SlidersHorizontal className={`h-4 w-4 ${filtrosActivos ? CLASE_TEXTO : CLASE_ACENTO}`} />
-      </Button>
+      </ButtonPlano>
     </div>
   );
 }

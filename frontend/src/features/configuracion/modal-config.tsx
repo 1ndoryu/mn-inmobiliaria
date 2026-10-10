@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bot, Hand, ImageIcon, Loader2, Megaphone, Monitor, Moon, Settings2, Sun, WandSparkles } from 'lucide-react';
 import type { Tema } from '@/app/tema';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -173,7 +173,7 @@ export function ModalConfig({
                 const activo = formMejora.modo === m.valor;
                 const Icono = m.valor === 'manual' ? Hand : WandSparkles;
                 return (
-                  <Button variant="ghost"
+                  <ButtonPlano
                     key={m.valor}
                     type="button"
                     onClick={() => setFormMejora({ ...formMejora, modo: m.valor })}
@@ -192,7 +192,7 @@ export function ModalConfig({
                       )}
                     </span>
                     <span className="text-xs font-normal text-muted-foreground">{m.descripcion}</span>
-                  </Button>
+                  </ButtonPlano>
                 );
               })}
             </div>

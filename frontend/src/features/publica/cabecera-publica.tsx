@@ -14,7 +14,7 @@ import {
   SOLO_ESCRITORIO_FLEX,
   SOLO_MOVIL,
 } from './disenno';
-import { Button } from '@/components/ui/button';
+import { ButtonPlano } from '@/components/ui/button';
 
 /* Cabecera en cuadro con bordes, apenas separada de los filtros.
  * Fija al viewport con 16px de aire al borde: se mantiene visible al
@@ -54,7 +54,7 @@ export function CabeceraPublica({
         <p className={`m-0 ${SOLO_ESCRITORIO_BLOQUE} ${CLASE_TEXTO}`}>MN Inmobiliaria</p>
       </div>
       <div className={`shrink-0 gap-2 ${SOLO_ESCRITORIO_FLEX}`}>
-        <Button variant="ghost"
+        <ButtonPlano
           type="button"
           aria-label="Enviar mensaje"
           onClick={alPedirChat}
@@ -62,8 +62,8 @@ export function CabeceraPublica({
         >
           <MessageCircle className="h-4 w-4" />
           Mensaje
-        </Button>
-        <Button variant="ghost"
+        </ButtonPlano>
+        <ButtonPlano
           type="button"
           aria-label="Publicar mi inmueble"
           onClick={alPedirPublicar}
@@ -71,8 +71,8 @@ export function CabeceraPublica({
         >
           <Plus className="h-4 w-4" />
           Publicar mi inmueble
-        </Button>
-        <Button variant="ghost"
+        </ButtonPlano>
+        <ButtonPlano
           type="button"
           aria-label="Entrar al panel"
           title="Entrar al panel"
@@ -80,9 +80,9 @@ export function CabeceraPublica({
           className={`flex cursor-pointer items-center rounded-none border ${CLASE_BORDE} ${CLASE_REPOSO} px-3 py-2 ${CLASE_TEXTO}`}
         >
           <UserRound className="h-4 w-4" />
-        </Button>
+        </ButtonPlano>
       </div>
-      <Button variant="ghost"
+      <ButtonPlano
         type="button"
         aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
         aria-expanded={menuAbierto}
@@ -91,33 +91,33 @@ export function CabeceraPublica({
         className={`flex cursor-pointer items-center rounded-none border ${CLASE_BORDE} ${CLASE_REPOSO} px-3 py-2 ${CLASE_TEXTO} ${SOLO_MOVIL}`}
       >
         {menuAbierto ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-      </Button>
+      </ButtonPlano>
       {menuAbierto && (
         <nav id="menu-movil" aria-label="Menú" className={PANEL_MENU_MOVIL}>
-          <Button variant="ghost"
+          <ButtonPlano
             type="button"
             onClick={() => elegir(alPedirChat)}
             className={`${OPCION_MENU_MOVIL} ${CLASE_TEXTO}`}
           >
             <MessageCircle className="h-4 w-4" />
             Mensaje
-          </Button>
-          <Button variant="ghost"
+          </ButtonPlano>
+          <ButtonPlano
             type="button"
             onClick={() => elegir(alPedirPublicar)}
             className={`${OPCION_MENU_MOVIL} ${CLASE_TEXTO}`}
           >
             <Plus className="h-4 w-4" />
             Publicar mi inmueble
-          </Button>
-          <Button variant="ghost"
+          </ButtonPlano>
+          <ButtonPlano
             type="button"
             onClick={() => elegir(alPedirEntrar)}
             className={`${OPCION_MENU_MOVIL} ${CLASE_TEXTO}`}
           >
             <UserRound className="h-4 w-4" />
             Entrar al panel
-          </Button>
+          </ButtonPlano>
         </nav>
       )}
     </header>

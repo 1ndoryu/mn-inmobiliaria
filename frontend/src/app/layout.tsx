@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Building2, CalendarClock, ChevronsLeft, ChevronsRight, ImageIcon, Megaphone, MessageCircle, Monitor, Moon, Settings2, Sun, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import { useTema } from '@/hooks/app/use-tema';
 import { useAside } from '@/hooks/app/use-aside';
 import type { Tema } from '@/app/tema';
@@ -23,7 +23,7 @@ function ItemNav({
   onClick?: () => void;
 }) {
   return (
-    <Button variant="ghost"
+    <ButtonPlano
       type="button"
       disabled={pronto || !onClick}
       onClick={onClick}
@@ -43,7 +43,7 @@ function ItemNav({
           Pronto
         </Badge>
       )}
-    </Button>
+    </ButtonPlano>
   );
 }
 
@@ -84,7 +84,7 @@ function BotonTab({
   onClick: () => void;
 }) {
   return (
-    <Button variant="ghost"
+    <ButtonPlano
       type="button"
       onClick={onClick}
       aria-current={activo ? 'page' : undefined}
@@ -95,7 +95,7 @@ function BotonTab({
     >
       {icono}
       {texto}
-    </Button>
+    </ButtonPlano>
   );
 }
 

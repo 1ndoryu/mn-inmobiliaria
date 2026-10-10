@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Hand, Loader2, Settings2, WandSparkles } from 'lucide-react';
 import type { ConfigMejora, ModoMejora } from '@/domain/foto-mejora';
 import { leerSalud } from '@/data/mejora/cliente-mejora';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -102,7 +102,7 @@ export function ModalConfigMejora(props: {
               const activo = form.modo === m.valor;
               const Icono = m.valor === 'manual' ? Hand : WandSparkles;
               return (
-                <Button variant="ghost"
+                <ButtonPlano
                   key={m.valor}
                   type="button"
                   onClick={() => setForm({ ...form, modo: m.valor })}
@@ -121,7 +121,7 @@ export function ModalConfigMejora(props: {
                     )}
                   </span>
                   <span className="text-xs font-normal text-muted-foreground">{m.descripcion}</span>
-                </Button>
+                </ButtonPlano>
               );
             })}
           </div>

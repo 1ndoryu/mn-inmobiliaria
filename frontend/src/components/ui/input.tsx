@@ -16,4 +16,10 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   )
 }
 
-export { Input }
+/* Sin las clases base de `Input` (h-8, rounded-lg, text-base...): conserva el
+ * aspecto del `<input>` nativo original de la app (10AA-14). */
+function InputPlano(props: React.ComponentProps<"input">) {
+  return <input {...props} />
+}
+
+export { Input, InputPlano }
