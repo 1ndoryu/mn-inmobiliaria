@@ -65,10 +65,5 @@
   },
   "directoryExceptions": [],
   "rules": {},
-  "portableBoundaries": {
-    "dom": [],
-    "window": [],
-    "services": [],
-    "loggerModules": []
-  }
+  "portableBoundaries": {}
 }
