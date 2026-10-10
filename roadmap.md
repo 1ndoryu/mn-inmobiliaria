@@ -26,6 +26,11 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
+- **Decisiones de la usuaria: ramas y BD sueltas (2026-10-10, cierre de 10AA-13):**
+  - `fix/08AA-26-hallazgos-sentinel` (local, `3c1d46b3`, ya contenida en `main`): su worktree `C:/tmp/mn-wt/hallazgos-sentinel` tiene 29 ficheros modificados sin commitear (frontend). No se borra para no perder ese trabajo. **Pregunta:** ¿commitear esos cambios (tras revisarlos) o descartarlos? Recomendado: revisar el diff y decidir; hasta entonces no tocar la worktree.
+  - `origin/dependabot/cargo/cargo-09e84698d7` (PR #2): sin checks reportados. **Pregunta:** ¿mergear si pasan los checks, o cerrar y borrar la rama? Recomendado: mergear si pasan; si no, cerrar y borrar.
+  - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace` (rama ya borrada, vacía). **Pregunta:** ¿borrarla? Recomendado: sí.
+  - 3 vulnerabilidades de Dependabot en `main` (1 alta, 1 moderada, 1 baja): sin revisar.
 - **10AA-10 — Deuda de calidad del análisis Sentinel (ABIERTA, 462 avisos, 2026-10-10):**
   análisis `estado: conHallazgos`. Fases por orden de coste:
   - F1 `handler-accede-bd-rs` (128): mover acceso a BD de handlers a repositorios.
