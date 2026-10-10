@@ -2,6 +2,8 @@
  * por allowlist, validación del schema M3 v1, matriz negativa versionada,
  * claims del JWT mp y cubo de tasa por minuto. Verificable sin BD. */
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -25,6 +27,13 @@ pub use super::marketplace_burbujas::{
     CODIGO_PAYLOAD_GIGANTE, CODIGO_REINTENTO_FOREGROUND, CODIGO_VERSION_DESCONOCIDA,
     ENV_KILL_SWITCH, FIRMA_VERSION_V2, MAX_BURBUJAS, MAX_HINT_CARACTERES, MAX_IDEMPOTENCY_CHARS,
     MAX_POR_BURBUJA, MAX_TOTAL_CARACTERES, VERSION_ESTRUCTURADA,
+};
+/* [09AA-30 F2] Caché compartida por inmueble vive en su dominio
+ * (`marketplace_compartida`); se re-exporta para los handlers. */
+pub use super::marketplace_compartida::{
+    buscar_compartida, corregir_compartida, enlazar_compartida, mensaje_clave_de,
+    ocurrencias_nombre, plantilla_de_nombre, purgar_compartida, rellenar_nombre,
+    vincular_hilo_compartido, vinculo_compartido, ClaveCompartida, MARCADOR_NOMBRE,
 };
 /* [08AA-8] Texto puro (schema, excerpt, precio) vive en su dominio
  * (`marketplace_texto`); se re-exporta para no mover sus usos externos
@@ -50,7 +59,7 @@ pub const FALLBACK_BORRADOR: &str = "Lo reviso y te escribo el precio por aquí"
 /// la IA no lo inventa, el prompt lo exige literal y `asegurar_contacto`
 /// lo agrega si falta. [08AA-14] Sin matriz negativa por decisión de ella
 /// 2026-10-08: el texto (propio o de la IA) pasa tal cual.
-pub const CONTACTO_TEL: &str = "0424 9208855";
+pub const CONTACTO_TEL: &str = "04249208855";
 pub const CONTACTO_WA: &str = "https://wa.me/584249208855";
 
 /// [07AA-8] Garantía determinista del formato: si el texto generado no trae
@@ -62,7 +71,7 @@ pub fn asegurar_contacto(texto: &str) -> String {
     use std::fmt::Write as _;
     let mut t = texto.trim_end().to_string();
     if !t.contains(CONTACTO_TEL) {
-        let _ = write!(t, "\nCualquier cosa escríbeme al {CONTACTO_TEL}.");
+        let _ = write!(t, "\nCualquier cosa escríbeme al {CONTACTO_TEL}");
     }
     if !t.contains(CONTACTO_WA) {
         t.push('\n');
@@ -124,7 +133,7 @@ pub fn imponer_forma_borrador(ia: &str) -> String {
         out.push(m);
     }
     out.push(format!(
-        "{CTA_FIJO} Cualquier cosa escríbeme al {CONTACTO_TEL}."
+        "{CTA_FIJO} Cualquier cosa escríbeme al {CONTACTO_TEL}"
     ));
     out.push(CONTACTO_WA.to_string());
     formatear_parrafos(&out.join("\n\n"))
@@ -283,7 +292,7 @@ fn partir_frases(t: &str) -> Vec<String> {
 /// Mínimo servible cuando la IA devolvió basura: fallback + contacto + wa.
 fn borrador_minimo() -> String {
     formatear_parrafos(&format!(
-        "{FALLBACK_BORRADOR}\nCualquier cosa escríbeme al {CONTACTO_TEL}.\n{CONTACTO_WA}"
+        "{FALLBACK_BORRADOR}\nCualquier cosa escríbeme al {CONTACTO_TEL}\n{CONTACTO_WA}"
     ))
 }
 
@@ -655,11 +664,19 @@ pub fn mejor_puntaje_con_alias(fb: &str, titulo: &str, alias: &[String]) -> (boo
 /// caída = `None` (nunca se cita un precio dudoso; quien llama decide si
 /// lo registra: el borrador jamás se bloquea por esto).
 /// [09AA-24] Cada ficha puntúa con su título + alias (`mejor_puntaje_con_alias`).
+/// [09AA-29] `solo_sin_vinculo` (fallback de un ID exacto sin dueño) excluye
+/// las fichas ya vinculadas ANTES de puntuar: así no hay falso negativo si la
+/// mejor coincidencia es de otro aviso.
 pub async fn ficha_por_titulo(
     pool: &sqlx::PgPool,
     titulo_fb: &str,
+    solo_sin_vinculo: bool,
 ) -> Result<Option<InmuebleRow>, AppError> {
-    let candidatos = InmuebleRepository::titulos_alias_publicados(pool).await?;
+    let candidatos = if solo_sin_vinculo {
+        InmuebleRepository::titulos_alias_publicados_sin_vinculo(pool).await?
+    } else {
+        InmuebleRepository::titulos_alias_publicados(pool).await?
+    };
     let mut mejor: Option<(uuid::Uuid, usize, usize)> = None;
     let mut empate = false;
     for (id, titulo, alias) in &candidatos {
@@ -801,6 +818,9 @@ pub async fn borrar_todo_cache(pool: &sqlx::PgPool) -> Result<u64, AppError> {
     let r = sqlx::query("DELETE FROM mp_respuestas_cache")
         .execute(pool)
         .await?;
+    if r.rows_affected() > 0 {
+        VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
+    }
     Ok(r.rows_affected())
 }
 
@@ -818,6 +838,94 @@ pub async fn borrar_hilo_no_corregidas(
         .bind(thread_clave)
         .execute(pool)
         .await?;
+    if r.rows_affected() > 0 {
+        VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
+    }
+    Ok(r.rows_affected())
+}
+
+/// Archiva un hilo: solo lo oculta de `resumen_chats`. Su caché, sus
+/// correcciones y la compartida quedan intactas.
+pub async fn archivar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<(), AppError> {
+    sqlx::query(
+        "INSERT INTO mp_chats_archivados (thread_id) VALUES ($1) \
+         ON CONFLICT (thread_id) DO NOTHING",
+    )
+    .bind(thread_clave)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Borra la conversación entera (incluidas sus correcciones) y quita su marca
+/// de archivado. No toca `mp_respuestas_inmueble`: la compartida es del
+/// inmueble y sigue sirviendo a otros hilos.
+pub async fn borrar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<u64, AppError> {
+    let mut tx = pool.begin().await?;
+    let r = sqlx::query("DELETE FROM mp_respuestas_cache WHERE thread_id = $1")
+        .bind(thread_clave)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("DELETE FROM mp_chats_archivados WHERE thread_id = $1")
+        .bind(thread_clave)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    if r.rows_affected() > 0 {
+        VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
+    }
+    Ok(r.rows_affected())
+}
+
+/// [09AA-31] Veces que un borrado de caché ha quitado filas (`borrar_borrador_hilo`,
+/// `borrar_hilo`, `borrar_hilo_no_corregidas`, `borrar_todo_cache`). El float de lab
+/// lo lee en cada barrido (`GET .../borradores/version`) y, si cambia, vacía su
+/// caché en memoria: un borrador borrado no debe seguir sirviéndose desde ahí.
+/// Proceso-local: un reinicio lo pone a 0, y el float lo trata como cambio.
+static VERSION_BORRADORES_BORRADOS: AtomicU64 = AtomicU64::new(0);
+
+pub fn version_borradores_borrados() -> u64 {
+    VERSION_BORRADORES_BORRADOS.load(Ordering::SeqCst)
+}
+
+/// Borra solo los borradores no corregidos del hilo. De la compartida borra
+/// la fila de cada mensaje que el hilo tenía, siempre que no sea corregida y
+/// ningún otro hilo (ni una corrección propia) la siga enlazando.
+pub async fn borrar_borrador_hilo(
+    pool: &sqlx::PgPool,
+    thread_clave: &str,
+) -> Result<u64, AppError> {
+    let mut tx = pool.begin().await?;
+    // Las claves se leen antes de borrar: después ya no hay filas que enlazar.
+    let claves: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT DISTINCT catalog_hash, precio_hash, mensaje_clave FROM mp_respuestas_cache \
+         WHERE thread_id = $1 AND NOT corregida AND mensaje_clave IS NOT NULL",
+    )
+    .bind(thread_clave)
+    .fetch_all(&mut *tx)
+    .await?;
+    let r = sqlx::query("DELETE FROM mp_respuestas_cache WHERE thread_id = $1 AND NOT corregida")
+        .bind(thread_clave)
+        .execute(&mut *tx)
+        .await?;
+    for (catalogo, precio, mensaje) in &claves {
+        sqlx::query(
+            "DELETE FROM mp_respuestas_inmueble ci WHERE ci.catalog_hash = $1 \
+             AND ci.precio_hash = $2 AND ci.mensaje_clave = $3 AND NOT ci.corregida \
+             AND NOT EXISTS (SELECT 1 FROM mp_respuestas_cache c \
+             WHERE c.catalog_hash = ci.catalog_hash AND c.precio_hash = ci.precio_hash \
+             AND c.mensaje_clave = ci.mensaje_clave)",
+        )
+        .bind(catalogo.as_str())
+        .bind(precio.as_str())
+        .bind(mensaje.as_str())
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    if r.rows_affected() > 0 {
+        VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
+    }
     Ok(r.rows_affected())
 }
 
@@ -914,20 +1022,44 @@ pub struct ChatFila {
     pub usos: i64,
     pub corregida: bool,
     pub valida_hasta: String,
+    /// [09AA-30] `ia` = texto generado; `releer` = solo foto; `None` = fila
+    /// anterior a la migración 09AA-30 (origen desconocido).
+    pub origen: Option<String>,
+    pub coste: Coste,
 }
 
-/// Chats con borradores, ordenados por el más reciente. Una sola consulta
-/// para el agregado + dos para el vínculo (títulos e IDs publicados, una
-/// vez, sin N+1): cada hilo resuelve en memoria si su aviso es conocido.
+/// [09AA-31] Una página del panel: `hay_mas` indica si queda otra tras
+/// `chats`; `total` cuenta todos los hilos con borradores (sin archivados),
+/// o solo los huérfanos cuando se pide `solo_huerfanos` (10AA-4).
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct PaginaResumen {
+    pub chats: Vec<ChatResumen>,
+    pub total: i64,
+    pub hay_mas: bool,
+}
+
+/// [09AA-31] Cursor keyset: la página siguiente empieza tras el hilo
+/// `(ultimo, thread_id)` de la anterior (orden: más reciente primero).
+#[derive(Debug, Clone)]
+pub struct CursorChats {
+    pub ultimo: chrono::DateTime<chrono::Utc>,
+    pub thread_id: String,
+}
+
+/// Chats con borradores, ordenados por el más reciente, de `limite` en
+/// `limite` (keyset, sin OFFSET). Una consulta para el total y dos para el
+/// vínculo (títulos e IDs publicados, una vez, sin N+1): cada hilo resuelve en
+/// memoria si su aviso es conocido.
+/// [10AA-4] `solo_huerfanos`: solo hilos sin ficha conocida. El vínculo no vive
+/// en SQL, así que se recorre por lotes hasta reunir `limite + 1` huérfanos.
 /// Si las auxiliares fallan, todo queda `false` (el panel jamás se bloquea).
-pub async fn resumen_chats(pool: &sqlx::PgPool) -> Result<Vec<ChatResumen>, AppError> {
-    let filas: Vec<(String, i64, i64, i64, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
-        "SELECT thread_id, COUNT(*)::BIGINT, COALESCE(SUM(usos), 0)::BIGINT, \
-         SUM(CASE WHEN corregida THEN 1 ELSE 0 END)::BIGINT, MAX(valida_hasta) \
-         FROM mp_respuestas_cache GROUP BY thread_id ORDER BY MAX(valida_hasta) DESC",
-    )
-    .fetch_all(pool)
-    .await?;
+pub async fn resumen_chats(
+    pool: &sqlx::PgPool,
+    limite: i64,
+    antes: Option<&CursorChats>,
+    solo_huerfanos: bool,
+) -> Result<PaginaResumen, AppError> {
+    let tope = usize::try_from(limite).unwrap_or(usize::MAX);
     let candidatos: Vec<(uuid::Uuid, String, Vec<String>)> =
         match InmuebleRepository::titulos_alias_publicados(pool).await {
             Ok(c) => c,
@@ -946,14 +1078,64 @@ pub async fn resumen_chats(pool: &sqlx::PgPool) -> Result<Vec<ChatResumen>, AppE
             std::collections::HashMap::new()
         }
     };
-    let vinculados: Vec<Option<(uuid::Uuid, String)>> = filas
-        .iter()
-        .map(|(thread_id, ..)| titulo_vinculado_del_hilo(thread_id, &candidatos, &vinculos))
-        .collect();
+    /* Sin filtro: una consulta de `limite + 1` filas; la sobrante prueba que hay
+     * otra página. Con filtro: lotes hasta llenar la página o agotar la BD. */
+    let mut salida: Vec<(FilaChat, Option<(uuid::Uuid, String)>)> = Vec::new();
+    let mut hay_mas = false;
+    let mut tras: Option<(chrono::DateTime<chrono::Utc>, String)> =
+        antes.map(|c| (c.ultimo, c.thread_id.clone()));
+    'lotes: loop {
+        let lote = if solo_huerfanos {
+            LOTE_HUERFANOS
+        } else {
+            limite.saturating_add(1)
+        };
+        let leidas = filas_chats_tras(pool, lote, tras.as_ref()).await?;
+        let agotado = i64::try_from(leidas.len()).unwrap_or(i64::MAX) < lote;
+        for fila in leidas {
+            tras = Some((fila.4, fila.0.clone()));
+            let vinculado = titulo_vinculado_del_hilo(&fila.0, &candidatos, &vinculos);
+            if solo_huerfanos && vinculado.is_some() {
+                continue;
+            }
+            if salida.len() == tope {
+                hay_mas = true;
+                break 'lotes;
+            }
+            salida.push((fila, vinculado));
+        }
+        if agotado {
+            break;
+        }
+    }
+    /* [10AA-4] Con `solo_huerfanos` el total cuenta solo los huérfanos: el
+     * vínculo se resuelve en memoria igual que en la lista. */
+    let total: i64 = if solo_huerfanos {
+        let hilos: Vec<String> = sqlx::query_scalar(
+            "SELECT DISTINCT thread_id FROM mp_respuestas_cache \
+             WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
+        )
+        .fetch_all(pool)
+        .await?;
+        let sin_ficha = hilos
+            .iter()
+            .filter(|h| titulo_vinculado_del_hilo(h, &candidatos, &vinculos).is_none())
+            .count();
+        i64::try_from(sin_ficha).unwrap_or(i64::MAX)
+    } else {
+        sqlx::query_scalar(
+            "SELECT COUNT(DISTINCT thread_id)::BIGINT FROM mp_respuestas_cache \
+             WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
+        )
+        .fetch_one(pool)
+        .await?
+    };
     /* [09AA-28] Portadas de los inmuebles vinculados en una sola query
      * (únicos); si falla, el panel sigue sin miniaturas (jamás se bloquea). */
-    let mut ids_vinculados: Vec<uuid::Uuid> =
-        vinculados.iter().flatten().map(|(id, _)| *id).collect();
+    let mut ids_vinculados: Vec<uuid::Uuid> = salida
+        .iter()
+        .filter_map(|(_, vinculado)| vinculado.as_ref().map(|(id, _)| *id))
+        .collect();
     ids_vinculados.sort_unstable();
     ids_vinculados.dedup();
     let portadas = match InmuebleRepository::portadas_por_inmuebles(pool, &ids_vinculados).await {
@@ -963,9 +1145,8 @@ pub async fn resumen_chats(pool: &sqlx::PgPool) -> Result<Vec<ChatResumen>, AppE
             std::collections::HashMap::new()
         }
     };
-    Ok(filas
+    let chats = salida
         .into_iter()
-        .zip(vinculados)
         .map(
             |((thread_id, borradores, usos, corregidas, ultimo), vinculado)| {
                 let inmueble_foto = vinculado
@@ -984,7 +1165,49 @@ pub async fn resumen_chats(pool: &sqlx::PgPool) -> Result<Vec<ChatResumen>, AppE
                 }
             },
         )
-        .collect())
+        .collect();
+    Ok(PaginaResumen {
+        chats,
+        total,
+        hay_mas,
+    })
+}
+
+/// [10AA-4] Hilos por lote al filtrar huérfanos: cuántos hilos se leen de la
+/// caché por vuelta antes de volver a mirar el vínculo en memoria.
+const LOTE_HUERFANOS: i64 = 100;
+
+/// [10AA-4] Fila agregada por hilo: (thread_id, borradores, usos, corregidas,
+/// último `valida_hasta`).
+type FilaChat = (String, i64, i64, i64, chrono::DateTime<chrono::Utc>);
+
+/// [10AA-4] Hasta `lote` hilos tras el cursor `(ultimo, thread_id)`, en el mismo
+/// orden que el panel. Excluye los archivados, igual que `total`.
+async fn filas_chats_tras(
+    pool: &sqlx::PgPool,
+    lote: i64,
+    tras: Option<&(chrono::DateTime<chrono::Utc>, String)>,
+) -> Result<Vec<FilaChat>, AppError> {
+    let (ultimo, hilo) = match tras {
+        Some((u, h)) => (Some(*u), Some(h.as_str())),
+        None => (None, None),
+    };
+    let filas: Vec<FilaChat> = sqlx::query_as(
+        "SELECT thread_id, COUNT(*)::BIGINT, COALESCE(SUM(usos), 0)::BIGINT, \
+         SUM(CASE WHEN corregida THEN 1 ELSE 0 END)::BIGINT, MAX(valida_hasta) \
+         FROM mp_respuestas_cache \
+         WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados) \
+         GROUP BY thread_id \
+         HAVING $1::TIMESTAMPTZ IS NULL OR (MAX(valida_hasta), thread_id) < ($1, $2) \
+         ORDER BY MAX(valida_hasta) DESC, thread_id DESC \
+         LIMIT $3",
+    )
+    .bind(ultimo)
+    .bind(hilo)
+    .bind(lote)
+    .fetch_all(pool)
+    .await?;
+    Ok(filas)
 }
 
 /* [09AA-21] ¿El aviso del hilo empareja con una ficha? Rama exacta primero:
@@ -997,7 +1220,15 @@ pub async fn resumen_chats(pool: &sqlx::PgPool) -> Result<Vec<ChatResumen>, AppE
  * [09AA-24] Las ramas por título puntúan título + alias: el hilo puede
  * nombrar cualquiera de los nombres del inmueble, pero el badge muestra
  * siempre el título canónico.
- * [09AA-28] Devuelve (id, título): el id resuelve la portada del panel. */
+ * [09AA-28] Devuelve (id, título): el id resuelve la portada del panel.
+ * [09AA-29] La rama por título compara contra TODOS los candidatos, no solo
+ * contra las fichas sin vínculo: el filtro `solo_sin_vinculo` de
+ * `ficha_por_titulo` existe para el fallback de un ID de aviso sin dueño (no
+ * puede citar la ficha de OTRO aviso). Aquí el texto tras `|` es un título
+ * (no un ID numérico), así que el hilo ya lo nombra y la ficha vinculada a su
+ * propio aviso sí debe verse. Pendiente de decisión: la rama de dígitos NO cae
+ * al título, a diferencia del borrador (F2); el badge puede decir «Sin ficha»
+ * donde el borrador cita precio. */
 fn titulo_vinculado_del_hilo(
     thread_id: &str,
     candidatos: &[(uuid::Uuid, String, Vec<String>)],
@@ -1042,8 +1273,20 @@ fn titulo_vinculado_del_hilo(
 /// Filas de un chat (tope 200, recientes primero).
 /// [08AA-18] Busca con `clave_hilo()` (ver `hilo_previo`).
 pub async fn detalle_chat(pool: &sqlx::PgPool, thread: &str) -> Result<Vec<ChatFila>, AppError> {
-    let filas: Vec<(String, String, i64, bool, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
-        "SELECT excerpt_texto, respuesta, usos::BIGINT, corregida, valida_hasta \
+    type FilaBd = (
+        String,
+        String,
+        i64,
+        bool,
+        chrono::DateTime<chrono::Utc>,
+        Option<String>,
+        Option<i64>,
+        Option<i64>,
+        Option<i64>,
+    );
+    let filas: Vec<FilaBd> = sqlx::query_as(
+        "SELECT excerpt_texto, respuesta, usos::BIGINT, corregida, valida_hasta, \
+         origen, tokens_entrada, tokens_salida, ms_generacion \
          FROM mp_respuestas_cache WHERE thread_id = $1 \
          ORDER BY valida_hasta DESC LIMIT 200",
     )
@@ -1053,42 +1296,22 @@ pub async fn detalle_chat(pool: &sqlx::PgPool, thread: &str) -> Result<Vec<ChatF
     Ok(filas
         .into_iter()
         .map(
-            |(excerpt_texto, respuesta, usos, corregida, valida_hasta)| ChatFila {
-                excerpt_texto,
-                respuesta,
-                usos,
-                corregida,
-                valida_hasta: valida_hasta.to_rfc3339(),
+            |(excerpt_texto, respuesta, usos, corregida, valida_hasta, origen, te, ts, ms)| {
+                ChatFila {
+                    excerpt_texto,
+                    respuesta,
+                    usos,
+                    corregida,
+                    valida_hasta: valida_hasta.to_rfc3339(),
+                    origen,
+                    coste: Coste {
+                        tokens_entrada: te,
+                        tokens_salida: ts,
+                        ms,
+                    },
+                }
             },
         )
-        .collect())
-}
-
-/// [09AA-3] Candidata a regeneración masiva: hilos con borrador real.
-/// Salta correcciones de la dueña (`corregida`: su texto manda) y filas
-/// solo-foto (`respuesta=''`: sin borrador que refrescar). Una fila por
-/// clave de caché (un hilo puede traer varias: cada una se regenera).
-#[derive(Debug, Clone)]
-pub struct FilaRegen {
-    pub thread_id: String,
-    pub firma: String,
-    pub excerpt_texto: String,
-}
-
-pub async fn filas_para_regenerar(pool: &sqlx::PgPool) -> Result<Vec<FilaRegen>, AppError> {
-    let filas: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT thread_id, firma, excerpt_texto FROM mp_respuestas_cache \
-         WHERE respuesta <> '' AND NOT corregida ORDER BY valida_hasta DESC",
-    )
-    .fetch_all(pool)
-    .await?;
-    Ok(filas
-        .into_iter()
-        .map(|(thread_id, firma, excerpt_texto)| FilaRegen {
-            thread_id,
-            firma,
-            excerpt_texto,
-        })
         .collect())
 }
 
@@ -1177,6 +1400,16 @@ pub struct FotoHilo<'a> {
     pub excerpt_crudo: &'a str,
 }
 
+/// [09AA-30] Coste de una generación IA: tokens del `usage` (`None` si el
+/// relay no los trajo) y tiempo de la llamada en ms. Viaja con la fila para
+/// que el admin muestre lo que costó el texto guardado; un hit no lo repite.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, ToSchema)]
+pub struct Coste {
+    pub tokens_entrada: Option<i64>,
+    pub tokens_salida: Option<i64>,
+    pub ms: Option<i64>,
+}
+
 /// Guarda una generación fresca; si la dueña ya corrigió esa clave, su texto
 /// gana (`DO NOTHING`: la corrección humana no se pisa en silencio).
 /// [07AA-7] Anota `thread_id` + `excerpt_texto` para el panel por chat.
@@ -1194,10 +1427,11 @@ pub async fn guardar_cache(
     catalog_hash: &str,
     respuesta: &str,
     foto: &FotoHilo<'_>,
+    coste: Coste,
 ) -> Result<(), AppError> {
     sqlx::query(
-        "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
+        "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen, tokens_entrada, tokens_salida, ms_generacion) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'ia', $8, $9, $10) ON CONFLICT DO NOTHING",
     )
     .bind(firma)
     .bind(precio_hash)
@@ -1206,6 +1440,9 @@ pub async fn guardar_cache(
     .bind(clave_hilo(foto.thread_id))
     .bind(foto.excerpt)
     .bind(foto.excerpt_crudo)
+    .bind(coste.tokens_entrada)
+    .bind(coste.tokens_salida)
+    .bind(coste.ms)
     .execute(pool)
     .await?;
     Ok(())
@@ -1223,14 +1460,17 @@ pub async fn reemplazar_cache(
     catalog_hash: &str,
     respuesta: &str,
     foto: &FotoHilo<'_>,
+    coste: Coste,
 ) -> Result<(), AppError> {
     sqlx::query(
-        "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7) \
+        "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen, tokens_entrada, tokens_salida, ms_generacion) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'ia', $8, $9, $10) \
          ON CONFLICT (firma, precio_hash, catalog_hash) DO UPDATE SET \
          respuesta = EXCLUDED.respuesta, valida_hasta = now() + INTERVAL '90 days', \
          corregida = FALSE, usos = 0, thread_id = EXCLUDED.thread_id, \
-         excerpt_texto = EXCLUDED.excerpt_texto, excerpt_crudo = EXCLUDED.excerpt_crudo",
+         excerpt_texto = EXCLUDED.excerpt_texto, excerpt_crudo = EXCLUDED.excerpt_crudo, \
+         origen = EXCLUDED.origen, tokens_entrada = EXCLUDED.tokens_entrada, \
+         tokens_salida = EXCLUDED.tokens_salida, ms_generacion = EXCLUDED.ms_generacion",
     )
     .bind(firma)
     .bind(precio_hash)
@@ -1239,6 +1479,9 @@ pub async fn reemplazar_cache(
     .bind(clave_hilo(foto.thread_id))
     .bind(foto.excerpt)
     .bind(foto.excerpt_crudo)
+    .bind(coste.tokens_entrada)
+    .bind(coste.tokens_salida)
+    .bind(coste.ms)
     .execute(pool)
     .await?;
     Ok(())
@@ -1312,8 +1555,8 @@ pub async fn releer_foto(
     }
     let firma = sha_hex(&format!("releer-sin-borrador|{hilo}"));
     sqlx::query(
-        "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo) \
-         VALUES ($1, 'releer', 'releer', '', $2, $3, $4) \
+        "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen) \
+         VALUES ($1, 'releer', 'releer', '', $2, $3, $4, 'releer') \
          ON CONFLICT (firma, precio_hash, catalog_hash) DO UPDATE SET \
          excerpt_texto = EXCLUDED.excerpt_texto, excerpt_crudo = EXCLUDED.excerpt_crudo",
     )
@@ -1382,7 +1625,7 @@ pub async fn purgar_cache(pool: &sqlx::PgPool) -> Result<u64, sqlx::Error> {
     let r = sqlx::query("DELETE FROM mp_respuestas_cache WHERE valida_hasta <= now()")
         .execute(pool)
         .await?;
-    Ok(r.rows_affected())
+    Ok(r.rows_affected() + purgar_compartida(pool).await?)
 }
 
 /// Programa la purga diaria en `pg_cron` (07:00 UTC = 03:00 Caracas, sin horario
@@ -1408,1243 +1651,4 @@ pub async fn programar_purga_diaria(pool: &sqlx::PgPool) -> Result<(), sqlx::Err
 }
 
 #[cfg(test)]
-mod pruebas {
-    use super::*;
-
-    fn ficha() -> InmuebleRow {
-        InmuebleRow {
-            id: Uuid::new_v4(),
-            titulo: "Casa en Riberas".to_string(),
-            descripcion: "Bonita casa".to_string(),
-            ubicacion: "Puerto Ordaz".to_string(),
-            puestos: 1,
-            residencia: "Riberas del Caroní".to_string(),
-            precio: 43000.0,
-            tipo: "casa".to_string(),
-            operacion: "venta".to_string(),
-            habitaciones: 3,
-            banos: 2,
-            metros: 180.0,
-            metros_terreno: 300.0,
-            estado: "disponible".to_string(),
-            publicado: true,
-            slug: "casa-riberas".to_string(),
-            copy_corta: None,
-            copy_larga: None,
-            copy_modelo: None,
-            copy_actualizada_en: None,
-            receta: None,
-            extras: sqlx::types::Json(serde_json::json!({})),
-            /* El mínimo privado jamás viaja al prompt: el test de claves lo
-             * amarra junto al slug y al estado interno. */
-            precio_minimo: Some(40000.0),
-            marketplace_id: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            alias_titulos: Vec::new(),
-        }
-    }
-
-    /* El strip deja pasar exactamente los 7 campos del allowlist: ni el
-     * slug, ni el estado interno, ni la receta viajan al prompt.
-     * (`serde_json::Map` ordena claves: se compara ordenado.)
-     * [08AA-25] `operacion` viaja (v2): sin ella la IA vendía alquileres. */
-    #[test]
-    fn strip_solo_allowlist_siete_campos() {
-        let s = strip_ficha_para_prompt(&ficha(), STRIP_VERSION).unwrap();
-        let v = serde_json::to_value(&s).unwrap();
-        let mut claves: Vec<&str> = v.as_object().unwrap().keys().map(String::as_str).collect();
-        claves.sort_unstable();
-        assert_eq!(
-            claves,
-            vec![
-                "descripcion_corta",
-                "habitaciones",
-                "m2",
-                "operacion",
-                "precio_publico",
-                "titulo",
-                "zona"
-            ]
-        );
-        assert_eq!(s.precio_publico, "$43.000");
-        assert_eq!(s.operacion, "venta");
-        assert_eq!(s.zona, "Puerto Ordaz, Riberas del Caroní");
-    }
-
-    #[test]
-    fn strip_version_desconocida_se_rechaza() {
-        assert!(strip_ficha_para_prompt(&ficha(), "v9").is_err());
-    }
-
-    #[test]
-    fn precio_agrupa_miles_sin_casts() {
-        assert_eq!(precio_publico(43000.0), "$43.000");
-        assert_eq!(precio_publico(1_250_000.0), "$1.250.000");
-        assert_eq!(precio_publico(900.0), "$900");
-    }
-
-    fn pedido() -> BorradorRequest {
-        serde_json::from_value(serde_json::json!({
-            "threadId": "hilo-sintetico-001",
-            "firma": "ab".repeat(32),
-            "firma_version": "firma-v1",
-            "lang": "es",
-            "excerpt": {
-                "remitente_hash": "cd".repeat(32),
-                "texto": "Hola, ¿sigue disponible?",
-                "hora": "2026-10-05T18:00:00-04:00",
-                "leido": true
-            },
-            "avisoId": null
-        }))
-        .unwrap()
-    }
-
-    #[test]
-    fn schema_valido_pasa_y_cada_campo_malo_falla() {
-        assert!(validar_borrador(&pedido()).is_empty());
-        let mut malo = pedido();
-        malo.thread_id.clear();
-        assert!(!validar_borrador(&malo).is_empty());
-        let mut malo = pedido();
-        malo.firma = "xyz".to_string();
-        assert!(!validar_borrador(&malo).is_empty());
-        let mut malo = pedido();
-        malo.firma_version = "otra".to_string();
-        assert!(!validar_borrador(&malo).is_empty());
-        let mut malo = pedido();
-        malo.lang = "esp".to_string();
-        assert!(!validar_borrador(&malo).is_empty());
-        let mut malo = pedido();
-        malo.excerpt.hora = "2026-10-05T18:00:00Z".to_string();
-        assert!(!validar_borrador(&malo).is_empty());
-        let mut malo = pedido();
-        malo.aviso_id = Some(String::new());
-        assert!(!validar_borrador(&malo).is_empty());
-    }
-
-    #[test]
-    fn nombre_de_thread_saluda_por_nombre() {
-        assert_eq!(
-            nombre_de_thread("alejandro|casa en venta en riberas"),
-            Some("Alejandro".to_string())
-        );
-        assert_eq!(
-            nombre_de_thread("jean carlos|apto amoblado"),
-            Some("Jean Carlos".to_string())
-        );
-        assert_eq!(nombre_de_thread("sin-hilo"), None);
-        assert_eq!(nombre_de_thread("solo-sin-barra"), None);
-        assert_eq!(nombre_de_thread("|aviso sin nombre"), None);
-    }
-
-    #[test]
-    fn normalizar_excerpt_quita_ruido_y_duplicados_conservando_roles() {
-        /* Literales del HTML real de ella (hilo Riberas del Caroní,
-         * `Agente/documentacion/usuario/conversacion-html-facebook.md`):
-         * cada mensaje sale dos veces (visible + aria-label) y FB inyecta
-         * inicio de chat, tip de seguridad y chrome. */
-        let crudo = "Casa en venta en Riberas del Caroní, Puerto Ordaz\n\
-            Jorge inició este chat.\n\
-            Cliente: Hola. ¿Sigue estando disponible?\n\
-            Cliente: Hola. ¿Sigue estando disponible?\n\
-            Cliente: Si te vas a reunir con alguien en persona, cuéntales a familiares y amigos adónde vas.\n\
-            Dueña: Sí, sigue disponible en $43.000 negociable.\n\
-            View buyer\n\
-            Sí. ¿Te interesa?\n\
-            Cliente: Precio..??";
-        assert_eq!(
-            normalizar_excerpt(crudo),
-            "Casa en venta en Riberas del Caroní, Puerto Ordaz\n\
-            Cliente: Hola. ¿Sigue estando disponible?\n\
-            Dueña: Sí, sigue disponible en $43.000 negociable.\n\
-            Cliente: Precio..??"
-        );
-    }
-
-    #[test]
-    fn normalizar_excerpt_conserva_rapida_si_la_escribe_el_cliente() {
-        let crudo = "Cliente: Sí. ¿Te interesa?\nDueña: Sí, dime qué buscas.";
-        assert_eq!(normalizar_excerpt(crudo), crudo);
-    }
-
-    #[test]
-    fn normalizar_excerpt_vacio_si_todo_es_ruido() {
-        assert!(normalizar_excerpt("View buyer\nMore options\nAa").is_empty());
-        assert!(normalizar_excerpt("   \n  ").is_empty());
-    }
-
-    #[test]
-    fn normalizar_hilo_kerley_deja_solo_la_pregunta() {
-        /* [08AA-16] Testigo exacto en BD
-         * (`kerley|VEF0 apartamento residencias rio aro plaza puerto
-         * ordaz`): el visor repite cabeceras (eco del título recortado,
-         * `Mensajes`, `Kerley · Apartamento ...`, `Kerley` suelto) e
-         * inyecta la instrucción + las dos sugeridas ES. Solo la
-         * pregunta del cliente sobrevive. */
-        let hilo = "kerley|VEF0 apartamento residencias rio aro plaza puerto ordaz";
-        let crudo = "amento Residencias Rio Aro Plaza Puerto Ordaz\n\
-            Mensajes\n\
-            Kerley · Apartamento Residencias Rio Aro Plaza Puerto Ordaz\n\
-            Kerley\n\
-            ¿Sigue disponible?\n\
-            Toca una respuesta para enviársela al comprador.\n\
-            Lo estoy mirando. Te avisaré.\n\
-            Lo siento, no está disponible.";
-        assert_eq!(normalizar_excerpt_hilo(hilo, crudo), "¿Sigue disponible?");
-    }
-
-    #[test]
-    fn normalizar_hilo_edickson_pela_chrome_nuevo() {
-        /* [09AA-16] Testigo exacto en BD (`edickson|VEF0 casa en venta en
-         * riberas del caroní, puerto ordaz`, `length(excerpt_texto)=137`):
-         * chrome nuevo del visor — eco del título con cabeza cortada
-         * (`n · Casa...`), `Se unió a Facebook en 2010`, cola huérfana
-         * `del comprador` y etiqueta `Comprador`. Solo la pregunta del
-         * cliente sobrevive. */
-        let hilo = "edickson|VEF0 casa en venta en riberas del caroní, puerto ordaz";
-        let crudo = "n · Casa en venta en Riberas del Caroní, Puerto Ordaz\n\
-            Se unió a Facebook en 2010\n\
-            del comprador\n\
-            Comprador\n\
-            Hola. ¿Sigue estando disponible?";
-        assert_eq!(
-            normalizar_excerpt_hilo(hilo, crudo),
-            "Hola. ¿Sigue estando disponible?"
-        );
-    }
-
-    #[test]
-    fn normalizar_hilo_edgarluis_pela_eco_propio_y_despega_url() {
-        /* [09AA-17] Testigo exacto en BD (`edgarluis|VEF0 casa en venta en
-         * urbanización villa icabarú, puerto ordaz`,
-         * `length(excerpt_texto)=353`): la burbuja de las 12:59am trae
-         * `por Edgarluis:` + tip + NUESTRO borrador sin marca (el pelado
-         * de la atribución lo dejaba como Cliente: CTA + teléfono + wa
-         * con `wa.me` pegado por el aria `...855wa.mewa.me`), y el eco
-         * `por Tú:` repite el borrador completo. Sobreviven el fragmento
-         * de corte (`nión.`, irrecuperable) y el saludo propio etiquetado;
-         * los cierres caen en ambas copias (son boilerplate que
-         * `imponer_forma` re-agrega). */
-        let hilo = "edgarluis|VEF0 casa en venta en urbanización villa icabarú, puerto ordaz";
-        let crudo = "nión. Ver más consejos de seguridadPresionar Enter, Mensaje enviado 12:59 am por Edgarluis: Si te vas a reunir con alguien en persona, cuéntales a familiares y amigos adónde vas. Usa la función de compartir la ubicación en tiempo real directamente con un amigo o familiar durante la reunión.Hola, Edgarluis, buenas noches, la Casa en Villa Icabarú está disponible en $90.000 negociable.\n\nCuéntame qué estás buscando y con gusto te ayudo.\n\nCualquier cosa escríbeme al 0424 9208855.\n\nhttps://wa.me/584249208855wa.mewa.meEnviado hace 3 hPresionar Enter, Mensaje enviado 1:10 am por Tú: Hola, Edgarluis, buenas noches, la Casa en Villa Icabarú está disponible en $90.000 negociable.\n\nCuéntame qué estás buscando y con gusto te ayudo.\n\nCualquier cosa escríbeme al 0424 9208855.\n\nhttps://wa.me/584249208855Meta podría usar tecnología para revisar los mensajes de Marketplace con el fin de detectar y reducir las estafas y el fraude.Presionar Enter, Mensaje enviado 1:10 am por Tú: Meta podría usar tecnología para revisar los mensajes de Marketplace con el fin de detectar y reducir las estafas y el fraude.Escribir mensajeEscribe en Edgarluis · Casa en venta en Urbanización Villa Icabarú, Puerto Ordaz.Aa";
-        assert_eq!(
-            normalizar_excerpt_hilo(hilo, crudo),
-            "nión.\nTú: Hola, Edgarluis, buenas noches, la Casa en Villa Icabarú está disponible en $90.000 negociable."
-        );
-    }
-
-    #[test]
-    fn normalizar_hilo_tina_limpia_cola_y_marcas() {
-        /* [08AA-16] Testigo exacto en BD (`tina|VEF0 casa en venta en
-         * riberas del caroní, puerto ordaz`): el float cortó a mitad de
-         * palabra (`ponible?`), el visor mete hora (`2:43 am`) y marca
-         * de enviado. El resto (aunque sea mensaje propio sin marca)
-         * se conserva como contexto. */
-        let hilo = "tina|VEF0 casa en venta en riberas del caroní, puerto ordaz";
-        let crudo = "ponible?\n\
-            2:43 am\n\
-            Hola, disponible.\n\
-            $43.000 negociable\n\
-            04249208855\n\
-            Enviado";
-        assert_eq!(
-            normalizar_excerpt_hilo(hilo, crudo),
-            "Hola, disponible.\n$43.000 negociable\n04249208855"
-        );
-    }
-
-    #[test]
-    fn normalizar_hilo_conserva_mensaje_corto_con_mayuscula() {
-        /* La cola truncada no se come saludos completos: empiezan en
-         * mayúscula aunque vayan en primera línea y sin espacios. */
-        let hilo = "tina|VEF0 casa en venta en riberas del caroní, puerto ordaz";
-        assert_eq!(normalizar_excerpt_hilo(hilo, "Hola"), "Hola");
-        assert_eq!(normalizar_excerpt_hilo(hilo, "Sí"), "Sí");
-    }
-
-    #[test]
-    fn normalizar_hilo_tina_cargando_devuelve_vacio() {
-        /* [08AA-17] Reporte de ella 2026-10-08 (panel, hilo Tina): el
-         * hilo aún cargaba (`Cargando...`) y el visor repetía cabeceras
-         * (`Tina · Casa ...`, `Marketplace`, `VEF0 - Casa ...` con guion,
-         * `Escribe en Tina · ...`) sin ningún mensaje real: es
-         * ruido → vacío (el handler conserva el original en ese caso). */
-        let hilo = "tina|VEF0 casa en venta en riberas del caroní, puerto ordaz";
-        let crudo = "Tina · Casa en venta en Riberas del Caroní, Puerto Ordaz\n\
-            Marketplace\n\
-            VEF0 - Casa en venta en Riberas del Caroní, Puerto Ordaz\n\
-            View buyer\n\
-            More options\n\
-            Mensajes\n\
-            Cargando...\n\
-            Escribir mensaje\n\
-            Escribe en Tina · Casa en venta en Riberas del Caroní, Puerto Ordaz\n\
-            Aa";
-        assert!(normalizar_excerpt_hilo(hilo, crudo).is_empty());
-    }
-
-    #[test]
-    fn normalizar_hilo_wilmery_pegado_deja_solo_la_pregunta() {
-        /* [08AA-8] Testigo exacto en BD
-         * (`wilmery|apartamento amoblado 3 hab. en vista hermosa, puerto
-         * ordaz.`, `length(excerpt_texto)=554`): el puente aplana el DOM a
-         * una sola línea pegada (`OrdazDetalles`, `WilmeryHola.`,
-         * `disponible?Presionar`, `mensajeEscribe`) y el filtro por líneas
-         * no tocaba nada. Solo la pregunta del cliente sobrevive (la
-         * duplicada se colapsa). */
-        let hilo = "wilmery|apartamento amoblado 3 hab. en vista hermosa, puerto ordaz.";
-        let crudo = "También es miembro de CASAS y APARTAMENTOS en Puerto OrdazDetalles del compradorPresionar Enter, Mensaje enviado: 3:18 pm por: WilmeryHola. ¿Sigue estando disponible?Presionar Enter, Mensaje enviado 3:18 pm por Wilmery: Hola. ¿Sigue estando disponible?Envía una respuesta rápidaToca una respuesta para enviársela al comprador.Sí. ¿Te interesa?Lo estoy mirando. Te avisaré.Lo siento, no está disponible.Presionar Enter, Mensaje enviado: 3:18 pm por: WilmeryEscribir mensajeEscribe en Wilmery · Apartamento amoblado 3 hab. en Vista Hermosa, Puerto Ordaz.Aa";
-        assert_eq!(
-            normalizar_excerpt_hilo(hilo, crudo),
-            "Hola. ¿Sigue estando disponible?"
-        );
-    }
-
-    #[test]
-    fn normalizar_hilo_cristo_dia_y_truncado_deja_solo_preguntas() {
-        /* [08AA-24] Crudo exacto del hilo cristo (`excerpt_crudo` 1200,
-         * con saltos): día de semana ante la hora (`lunes 22:48 por
-         * Cristo:`), duplicado con dos puntos (`lunes 22:48 por:
-         * Cristo`), inicio truncado por el `slice(-1200)` del float
-         * (`sionar Enter,`) y marca `3:53 pm` separando mensajes. Solo
-         * las 2 preguntas sobreviven. */
-        let hilo = "cristo|VEF0 alquiler townhouse 2 niveles en arivana, puerto ordaz.";
-        let crudo = "sionar Enter, Mensaje enviado lunes 22:48 por Cristo: Hola. ¿Sigue estando disponible?\nEnvía una respuesta rápida\nToca una respuesta para enviársela al comprador.\nSí. ¿Te interesa?\nLo estoy mirando. Te avisaré.\nLo siento, no está disponible.\nPresionar Enter, Mensaje enviado: lunes 22:48 por: Cristo\nSi te vas a reunir con alguien en persona, cuéntales a familiares y amigos adónde vas. Usa la función de compartir la ubicación en tiempo real directamente con un amigo o familiar durante la reunión. Ver más consejos de seguridad\nPresionar Enter, Mensaje enviado lunes 22:48 por Cristo: Si te vas a reunir con alguien en persona, cuéntales a familiares y amigos adónde vas. Usa la función de compartir la ubicación en tiempo real directamente con un amigo o familiar durante la reunión.\n3:53 pm\nCristo\n¿Sigue disponible?\nPresionar Enter, Mensaje enviado 3:53 pm por Cristo: ¿Sigue disponible?\nEnvía una respuesta rápida\nToca una respuesta para enviársela al comprador.\nSí. ¿Te interesa?\nLo estoy mirando. Te avisaré.\nLo siento, no está disponible.\nPresionar Enter, Mensaje enviado: 3:53 pm por: Cristo\nEscribir mensaje\nEscribe en Cristo · Alquiler Townhouse 2 niveles en Arivana, Puerto Ordaz.\n\n\n\n\nAa";
-        assert_eq!(
-            normalizar_excerpt_hilo(hilo, crudo),
-            "Hola. ¿Sigue estando disponible?\n¿Sigue disponible?"
-        );
-    }
-
-    #[test]
-    fn normalizar_hilo_yusmelis_etiqueta_lado_propio_y_pela_chrome() {
-        /* [08AA-29] Crudo exacto del hilo yusmelis (`excerpt_crudo` 1200
-         * en BD): el aviso de seguridad de Meta llega como texto suelto
-         * (`fin de detectar...`) y como eco propio, la burbuja propia se
-         * duplica en su eco (`por Tú:`), y el chrome trae `wa.me`,
-         * `En medio de la conversación` y `Enviado hace 1 min`. Lo de
-         * ella se etiqueta (`Tú:`) para separarlo del cliente, el eco
-         * repetido no duplica y el ruido no sobrevive. */
-        let hilo = "yusmelis|VEF0 casa en venta en urbanización villa icabarú, puerto ordaz";
-        let crudo = "fin de detectar y reducir las estafas y el fraude.\n\
-            Presionar Enter, Mensaje enviado 5:28 pm por Tú: Meta podría usar tecnología para revisar los mensajes y así garantizar la seguridad de todas las personas.\n\
-            Yusmelis\n\
-            Buenas tardes Mayerlin, gracias por la información y no ofrece algún plan de financiamiento para el pago de la casa?\n\
-            Presionar Enter, Mensaje enviado 5:28 pm por Yusmelis: Buenas tardes Mayerlin, gracias por la información y no ofrece algún plan de financiamiento para el pago de la casa?\n\
-            Estoy interesada en una casa en puerto Ordaz que esté en una zona céntrica sí tienes otras opciones que no superen los 60 mil $ me podrías informar por favor\n\
-            Mensajes\n\
-            Hola, por favor,\n\
-            dejame un numero\n\
-            para guardarte y pasarte\n\
-            la información.\n\
-            Presionar Enter, Mensaje enviado 5:51 pm por Tú: Hola, por favor, dejame un numero para guardarte y pasarte la información.\n\
-            Escribir mensaje\n\
-            Escribe en Yusmelis · Casa en venta en Urbanización Villa Icabarú, Puerto Ordaz.\n\
-            wa.me\n\
-            En medio de la conversación\n\
-            Enviado hace 1 min\n\
-            Aa\n\
-            Presionar Enter, Mensaje enviado 5:51 pm por Tú: Hola, por favor, dejame un numero para guardarte y pasarte la información.";
-        assert_eq!(
-            normalizar_excerpt_hilo(hilo, crudo),
-            "Buenas tardes Mayerlin, gracias por la información y no ofrece algún plan de financiamiento para el pago de la casa?\n\
-            Estoy interesada en una casa en puerto Ordaz que esté en una zona céntrica sí tienes otras opciones que no superen los 60 mil $ me podrías informar por favor\n\
-            Tú: Hola, por favor, dejame un numero para guardarte y pasarte la información."
-        );
-    }
-
-    #[test]
-    fn clave_hilo_deshace_precio_inyectado_y_respeta_lo_demas() {
-        /* [08AA-18] El puente (07AA-11) manda `tina|$43.000 vef0...` pero
-         * la cifra parpadea entre llamadas: la BD solo ve la forma
-         * canónica para que guardar y buscar emparejen siempre. */
-        assert_eq!(
-            clave_hilo("tina|$43.000 vef0 casa en venta"),
-            "tina|vef0 casa en venta"
-        );
-        assert_eq!(
-            clave_hilo("tina|US$ 43.000 vef0 casa en venta"),
-            "tina|vef0 casa en venta"
-        );
-        assert_eq!(clave_hilo("  tina|$43.000 vef0 casa  "), "tina|vef0 casa");
-        assert_eq!(
-            clave_hilo("tina|vef0 casa en venta"),
-            "tina|vef0 casa en venta"
-        );
-        assert_eq!(clave_hilo("sin-hilo"), "sin-hilo");
-        assert_eq!(clave_hilo(""), "");
-        /* Sin dígitos no es cifra; sin resto no hay aviso; `$` en otro
-         * sitio no es inyección: queda intacto. */
-        assert_eq!(clave_hilo("ana|$negociable casa"), "ana|$negociable casa");
-        assert_eq!(clave_hilo("ana|$50"), "ana|$50");
-        assert_eq!(clave_hilo("ana|casa $50 mil"), "ana|casa $50 mil");
-    }
-
-    #[test]
-    fn precio_del_aviso_extrae_moneda_antes_o_despues() {
-        assert_eq!(
-            precio_del_aviso("town house en venta en las peonías 125.000$"),
-            Some("125.000$".to_string())
-        );
-        assert_eq!(
-            precio_del_aviso("Casa $95.000 en Riberas"),
-            Some("$ 95.000".to_string())
-        );
-        assert_eq!(
-            precio_del_aviso("APTO USD 120.000"),
-            Some("usd 120.000".to_string())
-        );
-        assert_eq!(precio_del_aviso("casa en venta, 3 habitaciones"), None);
-        assert_eq!(precio_del_aviso("piso 2, año 2024"), None);
-    }
-
-    #[test]
-    fn asegurar_contacto_agrega_lo_que_falta_y_respeta_lo_presente() {
-        let sin_nada = asegurar_contacto("Casa en Riberas.\nSí, aceptamos visita.");
-        assert!(sin_nada.contains(CONTACTO_TEL));
-        assert!(sin_nada.ends_with(CONTACTO_WA));
-        let completo = asegurar_contacto(&format!(
-            "Casa.\nCualquier cosa escríbeme al {CONTACTO_TEL}.\n{CONTACTO_WA}"
-        ));
-        assert_eq!(completo.matches(CONTACTO_TEL).count(), 1);
-        assert_eq!(completo.matches(CONTACTO_WA).count(), 1);
-    }
-
-    #[test]
-    fn aviso_fb_sale_del_hilo() {
-        assert_eq!(
-            aviso_fb_de_thread("javier|casa en venta en riberas del caroní, p..."),
-            Some("casa en venta en riberas del caroní, p...".to_string())
-        );
-        assert_eq!(aviso_fb_de_thread("sin-hilo"), None);
-        assert_eq!(aviso_fb_de_thread("solo|"), None);
-    }
-
-    #[test]
-    fn titulo_normaliza_tildes_caja_y_ruido() {
-        assert_eq!(
-            normalizar_titulo("VEF0 Casa en venta en Riberas del Caroní, Puerto Ordaz"),
-            "vef0 casa en venta en riberas del caroni puerto ordaz"
-        );
-        assert_eq!(normalizar_titulo("  "), "");
-    }
-
-    #[test]
-    fn puntaje_titulo_directo_con_prefijo_de_precio() {
-        /* Caso andreina 08AA-10: el título trae `VEF0` (precio 0 en
-         * Facebook) y aun así empareja con la ficha del catálogo. */
-        let (directo, _, _) = puntaje_titulo(
-            "VEF0 casa en venta en riberas del caroní, puerto ordaz",
-            "Casa en venta en Riberas del Caroní",
-        );
-        assert!(directo);
-    }
-
-    #[test]
-    fn puntaje_titulo_no_confunde_avisos_genericos() {
-        /* Mismo negocio, distinta zona: sin palabra distintiva no hay
-         * emparejamiento (un precio ajeno es peor que el dodge). */
-        let (directo, solape, distintivo) = puntaje_titulo(
-            "casa en venta en arivana",
-            "Casa en venta en Riberas del Caroní",
-        );
-        assert!(!directo);
-        assert!(solape < 3 || distintivo < 1);
-        /* Título suelto de 1 palabra jamás es directo. */
-        assert!(!puntaje_titulo("apto precioso apTO", "apto").0);
-    }
-
-    /* [09AA-21] `aviso_conocido` del panel: ID exacto vinculado, título que
-     * empareja, huérfano que no empareja, y empate entre dos fichas que no
-     * reclama a ninguna (mismo criterio que `ficha_por_titulo`).
-     * [09AA-23] Los vínculos ahora son mapa ID→título y se verifica además
-     * que el título devuelto es el de la ficha emparejada.
-     * [09AA-24] Candidatos y vínculos viajan con alias: el hilo puede nombrar
-     * cualquiera de los nombres, pero el vinculado es siempre el canónico.
-     * Testigo Río Aro: el hilo salazar nombra el alias y empareja Caroní.
-     * [09AA-28] El vínculo trae también el id (resuelve la portada): ambas
-     * ramas (ID exacto y título) deben devolver el id de la ficha, no solo
-     * el título. */
-    #[test]
-    fn aviso_conocido_id_titulo_huerfano_y_empate() {
-        use std::collections::HashMap;
-        type Candidatos = Vec<(Uuid, String, Vec<String>)>;
-        let conocido = |hilo: &str, candidatos: &Candidatos, vinculos: &VinculosAviso| {
-            titulo_vinculado_del_hilo(hilo, candidatos, vinculos).is_some()
-        };
-        let id = Uuid::new_v4();
-        let titulo_riberas = "Casa en venta en Riberas del Caroní".to_string();
-        let candidatos: Candidatos = vec![(id, titulo_riberas.clone(), Vec::new())];
-        let vinculos: VinculosAviso = [(
-            "123456789012345".to_string(),
-            (id, titulo_riberas.clone(), Vec::new()),
-        )]
-        .into_iter()
-        .collect();
-        assert_eq!(
-            titulo_vinculado_del_hilo("tina|123456789012345", &candidatos, &vinculos),
-            Some((id, titulo_riberas.clone()))
-        );
-        assert!(conocido("tina|123456789012345", &candidatos, &vinculos));
-        assert!(!conocido("tina|999999999999999", &candidatos, &vinculos));
-        assert_eq!(
-            titulo_vinculado_del_hilo(
-                "tina|VEF0 casa en venta en riberas del caroní, puerto ordaz",
-                &candidatos,
-                &vinculos
-            ),
-            Some((id, titulo_riberas.clone()))
-        );
-        assert!(!conocido(
-            "tina|casa en venta en arivana",
-            &candidatos,
-            &vinculos
-        ));
-        assert!(!conocido("sin-separador", &candidatos, &vinculos));
-        let empatados: Candidatos = vec![
-            (
-                Uuid::new_v4(),
-                "Casa en venta en Riberas del Caroní Norte".to_string(),
-                Vec::new(),
-            ),
-            (
-                Uuid::new_v4(),
-                "Casa en venta en Riberas del Caroní Sur".to_string(),
-                Vec::new(),
-            ),
-        ];
-        assert!(!conocido(
-            "tina|casa en venta en riberas del caroní",
-            &empatados,
-            &HashMap::new()
-        ));
-        /* Testigo Río Aro [09AA-24]: la ficha Caroní Plaza declara el alias y
-         * el hilo salazar —que nombra el alias— empareja con el canónico. */
-        let titulo_caroni = "Apartamento en Caroní Plaza".to_string();
-        let id_caroni = Uuid::new_v4();
-        let candidatos_alias: Candidatos = vec![(
-            id_caroni,
-            titulo_caroni.clone(),
-            vec!["Apartamento en Río Aro Plaza".to_string()],
-        )];
-        assert_eq!(
-            titulo_vinculado_del_hilo(
-                "salazar|VEF0 apartamento residencias rio aro plaza puerto ordaz",
-                &candidatos_alias,
-                &HashMap::new()
-            ),
-            Some((id_caroni, titulo_caroni.clone()))
-        );
-        /* Sin el alias declarado, el mismo hilo sigue huérfano (calibrado). */
-        let candidatos_sin_alias: Candidatos = vec![(Uuid::new_v4(), titulo_caroni, Vec::new())];
-        assert_eq!(
-            titulo_vinculado_del_hilo(
-                "salazar|VEF0 apartamento residencias rio aro plaza puerto ordaz",
-                &candidatos_sin_alias,
-                &vinculos
-            ),
-            None
-        );
-    }
-
-    /* [09AA-24] El alias puntúa igual que el canónico: el mejor de los
-     * nombres gana. El alias Río Aro no es substring del hilo (el hilo trae
-     * "residencias" donde el alias trae "en"), así que empareja por solape
-     * con distintivas — el mismo camino que ya usa `titulo_vinculado`. */
-    #[test]
-    fn puntaje_alias_igual_que_canonico_y_mejor_gana() {
-        let alias = vec!["Apartamento en Río Aro Plaza".to_string()];
-        let (directo, solape, distintivo) = mejor_puntaje_con_alias(
-            "VEF0 apartamento residencias rio aro plaza puerto ordaz",
-            "Apartamento en Caroní Plaza",
-            &alias,
-        );
-        assert!(!directo, "el alias no es substring del hilo");
-        assert!(
-            solape >= 3 && distintivo >= 1,
-            "el alias empareja por solape con distintivas aunque el canónico no"
-        );
-        let (directo_canonico, _, _) = mejor_puntaje_con_alias(
-            "apartamento en caroní plaza",
-            "Apartamento en Caroní Plaza",
-            &alias,
-        );
-        assert!(directo_canonico);
-        let (directo_ninguno, solape, distintivo) = mejor_puntaje_con_alias(
-            "casa en venta en arivana",
-            "Apartamento en Caroní Plaza",
-            &alias,
-        );
-        assert!(!directo_ninguno);
-        assert!(solape < 3 || distintivo < 1);
-    }
-
-    #[test]
-    fn formatear_parrafos_une_saltos_sueltos_y_separa_bloques() {
-        let entrado = "Hola, Andreina, buenas noches.\nTe escribo por la casa.\nSí, sigue disponible.\nCuéntame qué estás buscando y con gusto te ayudo, cualquier cosa escríbeme al 0424 9208855 https://wa.me/584249208855";
-        let salido = formatear_parrafos(entrado);
-        assert_eq!(
-            salido,
-            "Hola, Andreina, buenas noches. Te escribo por la casa. Sí, sigue disponible. Cuéntame qué estás buscando y con gusto te ayudo, cualquier cosa escríbeme al 0424 9208855\n\nhttps://wa.me/584249208855"
-        );
-    }
-
-    #[test]
-    fn formatear_parrafos_respeta_lista_y_no_duplica() {
-        let entrado = "Tiene:\n1. Piscina\n2. Planta eléctrica\n\nhttps://wa.me/584249208855";
-        let salido = formatear_parrafos(entrado);
-        assert!(salido.contains("Tiene:\n\n1. Piscina\n\n2. Planta eléctrica"));
-        assert_eq!(salido.matches(CONTACTO_WA).count(), 1);
-    }
-
-    #[test]
-    fn sub_exento_lee_env() {
-        std::env::set_var("MP_SIN_LIMITE_SUB", "ella,otro");
-        assert!(sub_exento("ella"));
-        assert!(!sub_exento("plugin"));
-        std::env::remove_var("MP_SIN_LIMITE_SUB");
-        assert!(!sub_exento("ella"));
-    }
-
-    fn pool_si_hay() -> Option<sqlx::PgPool> {
-        let url = std::env::var("DATABASE_URL").ok()?;
-        sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect_lazy(&url)
-            .ok()
-    }
-
-    /* Contra BD viva: 2 hit + 1 copiar hoy se agregan en la fila del día;
-     * sin `DATABASE_URL` se omite. Solo lee conteos, sin PII. */
-
-    /* [08AA-20] Por defecto CLI 8h/panel 15min; `MP_CLI_MINUTOS`
-     * manda cuando es entero positivo; lo inválido cae al default. */
-    #[test]
-    fn cli_vive_8h_y_panel_15min() {
-        std::env::remove_var("MP_CLI_MINUTOS");
-        assert_eq!(minutos_para_cli(true), 480);
-        assert_eq!(minutos_para_cli(false), 15);
-        std::env::set_var("MP_CLI_MINUTOS", "43200");
-        assert_eq!(minutos_para_cli(true), 43200);
-        assert_eq!(minutos_para_cli(false), 15);
-        std::env::set_var("MP_CLI_MINUTOS", "basura");
-        assert_eq!(minutos_para_cli(true), 480);
-        std::env::remove_var("MP_CLI_MINUTOS");
-    }
-
-    #[test]
-    fn maquina_solo_hex64() {
-        assert!(maquina_valida(&"a".repeat(64)));
-        assert!(maquina_valida(&"A1".repeat(32)));
-        assert!(!maquina_valida("corto"));
-        assert!(!maquina_valida(&"z".repeat(64)));
-        assert!(!maquina_valida(""));
-    }
-
-    #[test]
-    fn binding_solo_cuando_hay_mid() {
-        assert!(maquina_autorizada(None, None));
-        assert!(maquina_autorizada(None, Some("x")));
-        assert!(!maquina_autorizada(Some("a"), None));
-        assert!(!maquina_autorizada(Some("a"), Some("b")));
-        assert!(maquina_autorizada(Some("a"), Some("a")));
-    }
-
-    /* Tests M4: hashes estables, invalidación honesta y ciclo de la caché.
-     * Los vivos usan `pool_si_hay` (sin `DATABASE_URL` se omiten). */
-
-    fn fila_prueba(precio: f64) -> InmuebleRow {
-        InmuebleRow {
-            id: uuid::Uuid::new_v4(),
-            titulo: "Apartamento en Los Palos Grandes".to_string(),
-            descripcion: "Lindo apartamento con vista".to_string(),
-            ubicacion: "Chacao".to_string(),
-            puestos: 1,
-            residencia: "Edif. Los Pinos".to_string(),
-            precio,
-            tipo: "apartamento".to_string(),
-            operacion: "venta".to_string(),
-            habitaciones: 2,
-            banos: 2,
-            metros: 85.0,
-            metros_terreno: 0.0,
-            estado: "disponible".to_string(),
-            publicado: true,
-            slug: "apt-test".to_string(),
-            copy_corta: None,
-            copy_larga: None,
-            copy_modelo: None,
-            copy_actualizada_en: None,
-            receta: None,
-            extras: sqlx::types::Json(serde_json::json!({})),
-            precio_minimo: None,
-            marketplace_id: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            alias_titulos: Vec::new(),
-        }
-    }
-
-    fn clave_azar() -> String {
-        format!(
-            "{:x}{:x}",
-            uuid::Uuid::new_v4().as_simple(),
-            uuid::Uuid::new_v4().as_simple()
-        )
-    }
-
-    /* [08AA-21] Atajo para la foto del hilo en pruebas de caché. */
-    fn foto_prueba(
-        hilo: &'static str,
-        limpio: &'static str,
-        crudo: &'static str,
-    ) -> FotoHilo<'static> {
-        FotoHilo {
-            thread_id: hilo,
-            excerpt: limpio,
-            excerpt_crudo: crudo,
-        }
-    }
-
-    #[test]
-    fn hash_ficha_estable_y_hex64() {
-        let f = fila_prueba(43_000.0);
-        let a = hash_ficha(&f);
-        let b = hash_ficha(&fila_prueba(43_000.0));
-        assert_eq!(a, b);
-        assert!(es_hex64(&a));
-    }
-
-    #[test]
-    fn hash_ficha_invalida_si_cambia_lo_que_cita() {
-        let base = hash_ficha(&fila_prueba(43_000.0));
-        let mut f = fila_prueba(45_000.0);
-        assert_ne!(hash_ficha(&f), base, "precio distinto debe invalidar");
-        f = fila_prueba(43_000.0);
-        f.titulo = "Otro título".to_string();
-        assert_ne!(hash_ficha(&f), base, "título distinto debe invalidar");
-        f = fila_prueba(43_000.0);
-        f.estado = "vendido".to_string();
-        assert_ne!(hash_ficha(&f), base, "estado distinto debe invalidar");
-        /* [08AA-25] La operación condiciona el lenguaje del borrador
-         * (venta vs canon mensual): cambiarla invalida la caché. */
-        f = fila_prueba(43_000.0);
-        f.operacion = "alquiler".to_string();
-        assert_ne!(hash_ficha(&f), base, "operación distinta debe invalidar");
-    }
-
-    #[test]
-    fn hash_ficha_ignora_lo_que_no_entra_al_prompt() {
-        let base = hash_ficha(&fila_prueba(43_000.0));
-        let mut f = fila_prueba(43_000.0);
-        f.copy_corta = Some("Copy marketing".to_string());
-        f.extras = sqlx::types::Json(serde_json::json!({"piso": "3"}));
-        assert_eq!(hash_ficha(&f), base, "copy/extras no cambian la respuesta");
-    }
-
-    #[test]
-    fn precio_hash_ata_al_precio_citado() {
-        let a = precio_hash_seguro(
-            &strip_ficha_para_prompt(&fila_prueba(43_000.0), STRIP_VERSION).unwrap(),
-        );
-        let b = precio_hash_seguro(
-            &strip_ficha_para_prompt(&fila_prueba(45_000.0), STRIP_VERSION).unwrap(),
-        );
-        assert!(es_hex64(&a));
-        assert_ne!(a, b);
-    }
-
-    #[tokio::test]
-    async fn cache_guarda_hit_y_cuenta_usos() {
-        let Some(pool) = pool_si_hay() else { return };
-        let (firma, ph, ch) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &firma,
-            &ph,
-            &ch,
-            "texto-ia",
-            &foto_prueba("hilo-1", "Dueña: hola", "CRUDO Dueña: hola"),
-        )
-        .await
-        .expect("guarda");
-        let hit = buscar_cache(&pool, &firma, &ph, &ch).await.expect("busca");
-        assert_eq!(hit, Some(("texto-ia".to_string(), false)));
-        /* [07AA-7] El panel agrupa por chat: hilo + foto guardados.
-         * [08AA-21] El crudo viaja junto al limpio. */
-        let hilo: (String, String, Option<String>) = sqlx::query_as(
-            "SELECT thread_id, excerpt_texto, excerpt_crudo FROM mp_respuestas_cache \
-             WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
-        )
-        .bind(&firma)
-        .bind(&ph)
-        .bind(&ch)
-        .fetch_one(&pool)
-        .await
-        .expect("lee hilo");
-        assert_eq!(
-            hilo,
-            (
-                "hilo-1".to_string(),
-                "Dueña: hola".to_string(),
-                Some("CRUDO Dueña: hola".to_string())
-            )
-        );
-        buscar_cache(&pool, &firma, &ph, &ch)
-            .await
-            .expect("busca x2");
-        let usos: i64 = sqlx::query_scalar(
-            "SELECT usos::BIGINT FROM mp_respuestas_cache WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
-        )
-        .bind(&firma).bind(&ph).bind(&ch)
-        .fetch_one(&pool).await.expect("lee usos");
-        assert_eq!(usos, 2);
-        borrar_cache(&pool, &firma, &ph, &ch).await.expect("limpia");
-    }
-
-    #[tokio::test]
-    async fn cache_miss_si_cambia_precio_o_catalogo() {
-        let Some(pool) = pool_si_hay() else { return };
-        let (firma, ph, ch) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &firma,
-            &ph,
-            &ch,
-            "texto-ia",
-            &foto_prueba("hilo-1", "x", "crudo-x"),
-        )
-        .await
-        .expect("guarda");
-        assert!(buscar_cache(&pool, &firma, &clave_azar(), &ch)
-            .await
-            .expect("busca")
-            .is_none());
-        assert!(buscar_cache(&pool, &firma, &ph, &clave_azar())
-            .await
-            .expect("busca")
-            .is_none());
-        borrar_cache(&pool, &firma, &ph, &ch).await.expect("limpia");
-    }
-
-    #[tokio::test]
-    async fn cache_vencida_no_devuelve_y_purga_limpia() {
-        let Some(pool) = pool_si_hay() else { return };
-        let (firma, ph, ch) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &firma,
-            &ph,
-            &ch,
-            "viejo",
-            &foto_prueba("hilo-1", "x", "crudo-x"),
-        )
-        .await
-        .expect("guarda");
-        sqlx::query(
-            "UPDATE mp_respuestas_cache SET valida_hasta = now() - INTERVAL '1 day' \
-             WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
-        )
-        .bind(&firma)
-        .bind(&ph)
-        .bind(&ch)
-        .execute(&pool)
-        .await
-        .expect("envejece");
-        assert!(buscar_cache(&pool, &firma, &ph, &ch)
-            .await
-            .expect("busca")
-            .is_none());
-        let n = purgar_cache(&pool).await.expect("purga");
-        assert!(n >= 1, "purga={n}");
-        let queda: i64 =
-            sqlx::query_scalar("SELECT COUNT(*)::BIGINT FROM mp_respuestas_cache WHERE firma = $1")
-                .bind(&firma)
-                .fetch_one(&pool)
-                .await
-                .expect("cuenta");
-        assert_eq!(queda, 0);
-    }
-
-    /* [09AA-3] Candidatos de la regeneración masiva: entra el borrador
-     * normal; quedan fuera la corrección de la dueña y la fila vacía. */
-    #[tokio::test]
-    async fn regen_solo_borradores_no_corregidos() {
-        let Some(pool) = pool_si_hay() else { return };
-        let (fa, pa, ca) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &fa,
-            &pa,
-            &ca,
-            "borrador-a",
-            &foto_prueba("hilo-1", "x", "crudo-x"),
-        )
-        .await
-        .expect("guarda a");
-        let (fb, pb, cb) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &fb,
-            &pb,
-            &cb,
-            "borrador-b",
-            &foto_prueba("hilo-1", "y", "crudo-y"),
-        )
-        .await
-        .expect("guarda b");
-        corregir_cache(&pool, &fb, &pb, &cb, "texto duena")
-            .await
-            .expect("corrige b");
-        let (fc, pc, cc) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &fc,
-            &pc,
-            &cc,
-            "",
-            &foto_prueba("hilo-1", "z", "crudo-z"),
-        )
-        .await
-        .expect("guarda c");
-        let filas = filas_para_regenerar(&pool).await.expect("lista");
-        let firmas: Vec<&str> = filas.iter().map(|f| f.firma.as_str()).collect();
-        assert!(firmas.contains(&fa.as_str()), "a entra: {firmas:?}");
-        assert!(
-            !firmas.contains(&fb.as_str()),
-            "b fuera (corregida): {firmas:?}"
-        );
-        assert!(
-            !firmas.contains(&fc.as_str()),
-            "c fuera (vacía): {firmas:?}"
-        );
-        borrar_cache(&pool, &fa, &pa, &ca).await.expect("limpia a");
-        borrar_cache(&pool, &fb, &pb, &cb).await.expect("limpia b");
-        borrar_cache(&pool, &fc, &pc, &cc).await.expect("limpia c");
-    }
-
-    /* [09AA-4] Borrado previo a regenerar: caen los borradores viejos del
-     * hilo, queda la corrección de la dueña y no se toca otro hilo. */
-    #[tokio::test]
-    async fn borrar_hilo_respeta_correccion_y_otro_hilo() {
-        let Some(pool) = pool_si_hay() else { return };
-        let (f1, p1, c1) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &f1,
-            &p1,
-            &c1,
-            "viejo-1",
-            &foto_prueba("hilo-r", "x", "crudo-x"),
-        )
-        .await
-        .expect("guarda 1");
-        let (f2, p2, c2) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &f2,
-            &p2,
-            &c2,
-            "viejo-2",
-            &foto_prueba("hilo-r", "y", "crudo-y"),
-        )
-        .await
-        .expect("guarda 2");
-        corregir_cache(&pool, &f2, &p2, &c2, "texto duena")
-            .await
-            .expect("corrige 2");
-        let (f3, p3, c3) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &f3,
-            &p3,
-            &c3,
-            "otro-hilo",
-            &foto_prueba("hilo-otro", "z", "crudo-z"),
-        )
-        .await
-        .expect("guarda 3");
-        let n = borrar_hilo_no_corregidas(&pool, &clave_hilo("hilo-r"))
-            .await
-            .expect("borra");
-        assert_eq!(n, 1, "solo cae el borrador viejo del hilo");
-        assert!(
-            buscar_cache(&pool, &f2, &p2, &c2)
-                .await
-                .expect("busca 2")
-                .is_some(),
-            "la corrección de la dueña queda"
-        );
-        assert!(
-            buscar_cache(&pool, &f3, &p3, &c3)
-                .await
-                .expect("busca 3")
-                .is_some(),
-            "el otro hilo no se toca"
-        );
-        borrar_cache(&pool, &f1, &p1, &c1).await.expect("limpia 1");
-        borrar_cache(&pool, &f2, &p2, &c2).await.expect("limpia 2");
-        borrar_cache(&pool, &f3, &p3, &c3).await.expect("limpia 3");
-    }
-
-    #[tokio::test]
-    async fn corregir_marca_y_guardar_no_pisa_correccion() {
-        let Some(pool) = pool_si_hay() else { return };
-        let (firma, ph, ch) = (clave_azar(), clave_azar(), clave_azar());
-        guardar_cache(
-            &pool,
-            &firma,
-            &ph,
-            &ch,
-            "texto-ia",
-            &foto_prueba("hilo-1", "x", "crudo-x"),
-        )
-        .await
-        .expect("guarda");
-        corregir_cache(&pool, &firma, &ph, &ch, "texto de la dueña")
-            .await
-            .expect("corrige");
-        assert_eq!(
-            buscar_cache(&pool, &firma, &ph, &ch).await.expect("busca"),
-            Some(("texto de la dueña".to_string(), true))
-        );
-        /* Generación posterior no pisa la corrección (DO NOTHING). */
-        guardar_cache(
-            &pool,
-            &firma,
-            &ph,
-            &ch,
-            "texto-ia-2",
-            &foto_prueba("hilo-1", "x", "crudo-x"),
-        )
-        .await
-        .expect("guarda x2");
-        assert_eq!(
-            buscar_cache(&pool, &firma, &ph, &ch).await.expect("busca"),
-            Some(("texto de la dueña".to_string(), true))
-        );
-        /* Regenerar explícito sí pisa y resetea versión. */
-        reemplazar_cache(
-            &pool,
-            &firma,
-            &ph,
-            &ch,
-            "nueva-ia",
-            &foto_prueba(
-                "hilo-2",
-                "Dueña: sigue disponible?",
-                "CRUDO Dueña: sigue disponible?",
-            ),
-        )
-        .await
-        .expect("reemplaza");
-        assert_eq!(
-            buscar_cache(&pool, &firma, &ph, &ch).await.expect("busca"),
-            Some(("nueva-ia".to_string(), false))
-        );
-        /* [07AA-7] Regenerar refresca la foto del chat (+ crudo [08AA-21]). */
-        let hilo2: (String, String, Option<String>) = sqlx::query_as(
-            "SELECT thread_id, excerpt_texto, excerpt_crudo FROM mp_respuestas_cache \
-             WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
-        )
-        .bind(&firma)
-        .bind(&ph)
-        .bind(&ch)
-        .fetch_one(&pool)
-        .await
-        .expect("lee hilo");
-        assert_eq!(
-            hilo2,
-            (
-                "hilo-2".to_string(),
-                "Dueña: sigue disponible?".to_string(),
-                Some("CRUDO Dueña: sigue disponible?".to_string())
-            )
-        );
-        borrar_cache(&pool, &firma, &ph, &ch).await.expect("limpia");
-    }
-
-    #[tokio::test]
-    async fn corregir_rechaza_vacio_y_acepta_contacto() {
-        /* [08AA-14] Sin matriz negativa por decisión de ella: el texto de
-         * la dueña (incluido su contacto) pasa tal cual; solo el vacío
-         * se rechaza. (Antes este test exigía rechazar el contacto.) */
-        let Some(pool) = pool_si_hay() else { return };
-        let (firma, ph, ch) = (clave_azar(), clave_azar(), clave_azar());
-        assert!(corregir_cache(&pool, &firma, &ph, &ch, "").await.is_err());
-        assert!(
-            corregir_cache(&pool, &firma, &ph, &ch, "llámame al 0412 1234567")
-                .await
-                .is_ok()
-        );
-        assert_eq!(
-            buscar_cache(&pool, &firma, &ph, &ch).await.expect("busca"),
-            Some(("llámame al 0412 1234567".to_string(), true))
-        );
-        borrar_cache(&pool, &firma, &ph, &ch).await.expect("limpia");
-    }
-
-    /* Expiración (DoD E3): un token con `exp` pasado no decodifica — la misma
-     * `decode`+`Validation` que usa `MpAuth`, así que el rechazo queda
-     * probado a nivel JWT (el chequeo DB `expira_en > now()` es redundante). */
-    #[test]
-    fn decode_rechaza_expirado() {
-        use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-        let pasado = usize::try_from(chrono::Utc::now().timestamp() - 60).unwrap_or(0);
-        let claims = MpClaims {
-            iss: "mn-backend".to_string(),
-            sub: "s".to_string(),
-            aud: "mp".to_string(),
-            scope: "mp:borrador".to_string(),
-            exp: pasado,
-            jti: "j".to_string(),
-            mid: Some("a".repeat(64)),
-        };
-        let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(b"x")).unwrap();
-        let r = decode::<MpClaims>(
-            &token,
-            &DecodingKey::from_secret(b"x"),
-            &Validation::new(jsonwebtoken::Algorithm::HS256),
-        );
-        assert!(r.is_err());
-    }
-    /* [08AA-31] La foto fusiona sin perder al cliente: el snapshot nuevo
-     * solo trae lo propio (`Tú:`) y la foto vieja aporta la pregunta;
-     * el dedup exacto evita duplicar lo que ya estaba. */
-    #[test]
-    fn combinar_foto_hilo_conserva_cliente_ante_eco_propio() {
-        let vieja = "¿Sigue disponible?\nTú: Hola, por favor, déjame un número.";
-        let nueva = "Tú: Hola, por favor, déjame un número.";
-        assert_eq!(combinar_foto_hilo(vieja, nueva), vieja);
-        assert_eq!(combinar_foto_hilo("", nueva), nueva);
-        assert_eq!(combinar_foto_hilo(vieja, vieja), vieja);
-    }
-
-    /* [08AA-28] Releer crea la fila solo-foto si falta (sin inventar
-     * borrador) y la segunda vez solo refresca. Vivo con `pool_si_hay`;
-     * sin `DATABASE_URL` se omite. */
-    #[tokio::test]
-    async fn releer_crea_fila_si_falta() {
-        let Some(pool) = pool_si_hay() else { return };
-        let hilo = "releer-test|hilo sintético 08AA-28";
-        let limpia = || async {
-            sqlx::query("DELETE FROM mp_respuestas_cache WHERE thread_id = $1")
-                .bind(clave_hilo(hilo))
-                .execute(&pool)
-                .await
-                .expect("limpia")
-        };
-        limpia().await;
-        let (actualizado, creado) = releer_foto(&pool, hilo, "Hola. ¿Sigue disponible?", "crudo")
-            .await
-            .expect("releer crea");
-        assert!(actualizado && creado);
-        let (actualizado2, creado2) =
-            releer_foto(&pool, hilo, "Hola. ¿Sigue disponible?", "crudo2")
-                .await
-                .expect("releer refresca");
-        assert!(actualizado2 && !creado2);
-        let filas = detalle_chat(&pool, hilo).await.expect("detalle");
-        assert_eq!(filas.len(), 1);
-        assert_eq!(filas[0].respuesta, "");
-        let crudo: (String,) =
-            sqlx::query_as("SELECT excerpt_crudo FROM mp_respuestas_cache WHERE thread_id = $1")
-                .bind(clave_hilo(hilo))
-                .fetch_one(&pool)
-                .await
-                .expect("lee crudo");
-        assert_eq!(crudo.0, "crudo2");
-        limpia().await;
-    }
-
-    #[tokio::test]
-    async fn uso_agrega_por_dia_y_evento() {
-        let Some(pool) = pool_si_hay() else { return };
-        let base = uuid::Uuid::new_v4().to_string().replace('-', "");
-        for (sufijo, evento) in [("a", "hit"), ("b", "hit"), ("c", "copiar")] {
-            sqlx::query(
-                "INSERT INTO mp_auditoria (hilo_hmac, ts_hora, evento) \
-                 VALUES ($1, date_trunc('hour', now()), $2)",
-            )
-            .bind(format!("{base}{sufijo}"))
-            .bind(evento)
-            .execute(&pool)
-            .await
-            .expect("inserta auditoria");
-        }
-        let filas = resumen_uso(&pool, 7).await.expect("resume uso");
-        let hoy = chrono::Utc::now().format("%Y-%m-%d").to_string();
-        let fila = filas.iter().find(|f| f.dia == hoy).expect("fila de hoy");
-        assert!(fila.hit >= 2, "hit={}", fila.hit);
-        assert!(fila.copiar >= 1, "copiar={}", fila.copiar);
-    }
-
-    /* [09AA-2] La forma del borrador la impone Rust: batería de regresión
-     * con los testigos reales (fotos, «sigue vigente», baños). */
-    fn ia_fabio(medio: &str) -> String {
-        format!(
-            "Hola, Fabio, buenas noches, la Casa en Riberas del Caroní está disponible en $43.000 negociable.\n\n{medio}\n\nCuéntame qué estás buscando y con gusto te ayudo, cualquier cosa escríbeme al 0424 9208855\nhttps://wa.me/584249208855"
-        )
-    }
-
-    #[test]
-    fn forma_poda_oferta_de_fotos() {
-        let r =
-            imponer_forma_borrador(&ia_fabio("¿Te comparto fotos para que la veas por dentro?"));
-        assert!(!r.contains("fotos"), "{r}");
-        assert!(!r.contains('?'), "{r}");
-        assert!(r.contains("$43.000"), "{r}");
-        assert!(r.contains(CTA_FIJO), "{r}");
-        assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
-    }
-
-    #[test]
-    fn forma_poda_sinonimo_vigente() {
-        let r = imponer_forma_borrador(&ia_fabio("Sí, la publicación sigue vigente."));
-        assert!(!r.contains("vigente"), "{r}");
-        assert!(!r.contains("publicación"), "{r}");
-        /* P1 + CTA + teléfono + wa (el teléfono va en bloque propio). */
-        assert_eq!(r.split("\n\n").count(), 4, "{r}");
-    }
-
-    #[test]
-    fn forma_conserva_dato_banos() {
-        let r = imponer_forma_borrador(&ia_fabio("Tiene 2 baños y 3 habitaciones."));
-        assert!(r.contains("Tiene 2 baños y 3 habitaciones."), "{r}");
-        /* P1 + dato + CTA + teléfono + wa. */
-        assert_eq!(r.split("\n\n").count(), 5, "{r}");
-    }
-
-    #[test]
-    fn forma_sanea_pregunta_pegada_en_p1() {
-        let ia = "Hola, Fabio, ¿Te comparto fotos? La Casa en Riberas del Caroní está disponible en $43.000 negociable.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
-        let r = imponer_forma_borrador(ia);
-        assert!(!r.contains('?'), "{r}");
-        assert!(r.contains("$43.000"), "{r}");
-    }
-
-    #[test]
-    fn forma_p1_invalido_da_minimo() {
-        let r = imponer_forma_borrador("¿Te comparto fotos para que la veas?");
-        assert!(r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
-        assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
-    }
-
-    #[test]
-    fn forma_final_siempre_canonico() {
-        let r = imponer_forma_borrador(&ia_fabio("Tiene 2 baños."));
-        assert!(
-            r.contains("Cualquier cosa escríbeme al 0424 9208855"),
-            "{r}"
-        );
-        assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
-    }
-
-    #[test]
-    fn forma_partir_no_rompe_cifras() {
-        let f = partir_frases("Cuesta $43.000 negociable. Tiene 2 baños.");
-        assert!(f.iter().any(|x| x.contains("$43.000")), "{f:?}");
-    }
-}
+mod pruebas;

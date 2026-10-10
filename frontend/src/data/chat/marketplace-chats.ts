@@ -25,17 +25,40 @@ export interface ChatResumen {
   inmueble_foto?: string | null;
 }
 
-/* Fila de `GET /api/admin/marketplace/chats/:thread`. */
+/* Fila de `GET /api/admin/marketplace/chats/:thread`.
+ * `origen`: `"ia"` | `"releer"` | `null` (null = fila anterior, origen desconocido).
+ * `coste`: tokens y ms de la generación IA original; cada campo null si no se midió. */
 export interface ChatFila {
   excerpt_texto: string;
   respuesta: string;
   usos: number;
   corregida: boolean;
   valida_hasta: string;
+  origen: string | null;
+  coste: { tokens_entrada: number | null; tokens_salida: number | null; ms: number | null };
 }
 
-export function listarChats(): Promise<ChatResumen[]> {
-  return apiFetch<ChatResumen[]>('/api/admin/marketplace/chats');
+/* [09AA-31] Una página del panel. `hay_mas`: queda otra tras `chats`. */
+export interface PaginaChats {
+  chats: ChatResumen[];
+  total: number;
+  hay_mas: boolean;
+}
+
+/* [09AA-31] `cursor` = última fila ya vista (paginación keyset, sin OFFSET).
+ * [10AA-4] `soloHuerfanos`: el backend filtra los hilos con ficha conocida. */
+export function listarChats({
+  limite = 25,
+  cursor,
+  soloHuerfanos = false,
+}: { limite?: number; cursor?: ChatResumen; soloHuerfanos?: boolean } = {}): Promise<PaginaChats> {
+  const q = new URLSearchParams({ limite: String(limite) });
+  if (cursor) {
+    q.set('antes_ultimo', cursor.ultimo);
+    q.set('antes_hilo', cursor.thread_id);
+  }
+  if (soloHuerfanos) q.set('solo_huerfanos', 'true');
+  return apiFetch<PaginaChats>(`/api/admin/marketplace/chats?${q.toString()}`);
 }
 
 export function leerChat(thread: string): Promise<ChatFila[]> {
@@ -43,28 +66,33 @@ export function leerChat(thread: string): Promise<ChatFila[]> {
 }
 
 /* [08AA-39] Limpieza total del panel: borra toda la caché de borradores.
- * [09AA-4] Sin botón en el panel (un solo «Regenerar», lo pidió ella
- * 2026-10-09): queda como cliente del endpoint admin `DELETE /chats`. */
+ * [09AA-30] Sin botón en el panel: queda como cliente del endpoint admin
+ * `DELETE /chats`. */
 export function limpiarChats(): Promise<{ borrados: number }> {
   return apiFetch<{ borrados: number }>('/api/admin/marketplace/chats', { method: 'DELETE' });
 }
 
-/* [09AA-3] Regeneración masiva: una pasada en serie por cada fila con
- * borrador (ver `handlers::marketplace::regenerar_todo`). Salta
- * correcciones de la dueña y filas solo-foto. Tarda ~15s por chat. */
-export interface RegenerarTodoFila {
-  thread_id: string;
-  fuente: string;
+/* [09AA-30] Menú de tres puntos por conversación: clientes de los endpoints
+ * admin `/chats/:thread/*`. `archivarChat` solo oculta el hilo de la lista;
+ * `borrarChat` quita la conversación entera; `borrarBorradorChat` quita los
+ * borradores no corregidos del hilo. */
+export function archivarChat(thread: string): Promise<{ archivado: boolean }> {
+  return apiFetch<{ archivado: boolean }>(
+    `/api/admin/marketplace/chats/${encodeURIComponent(thread)}/archivar`,
+    { method: 'POST' },
+  );
 }
 
-export interface RegenerarTodoResumen {
-  candidatos: number;
-  regenerados: number;
-  en_reserva: number;
-  omitidos: number;
-  detalle: RegenerarTodoFila[];
+export function borrarChat(thread: string): Promise<{ borrados: number }> {
+  return apiFetch<{ borrados: number }>(
+    `/api/admin/marketplace/chats/${encodeURIComponent(thread)}`,
+    { method: 'DELETE' },
+  );
 }
 
-export function regenerarTodo(): Promise<RegenerarTodoResumen> {
-  return apiFetch<RegenerarTodoResumen>('/api/admin/marketplace/regenerar-todo', { method: 'POST' });
+export function borrarBorradorChat(thread: string): Promise<{ borrados: number }> {
+  return apiFetch<{ borrados: number }>(
+    `/api/admin/marketplace/chats/${encodeURIComponent(thread)}/borrar-borrador`,
+    { method: 'POST' },
+  );
 }

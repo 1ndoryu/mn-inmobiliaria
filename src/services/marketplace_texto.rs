@@ -12,6 +12,7 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 
 use super::marketplace::{CONTACTO_TEL, CONTACTO_WA, CTA_FIJO};
+use super::marketplace_cabecera::es_cola_de_cabecera;
 
 /// `$43.000`: miles con punto, sin decimales, solo con strings (sin casts).
 #[must_use]
@@ -203,7 +204,10 @@ pub fn normalizar_excerpt_con_hilo(
              * quitar el prefijo, porque el pelado expone el `Mensaje
              * enviado ...` que hay que pelar después. */
             t = pelar_enter_truncado(t);
-            if es_cola_truncada(t) {
+            /* [09AA-29] También la cola de la cabecera (`erto Ordaz.` del
+             * título): con espacios `es_cola_truncada` no la ve y el panel
+             * la mostraba como mensaje del Cliente. */
+            if es_cola_truncada(t) || es_cola_de_cabecera(t, nombre, aviso) {
                 continue;
             }
         }
@@ -719,7 +723,7 @@ fn sin_cabeza_corta(linea: &str) -> &str {
 /// `Andréina`/`Andreina`): el `thread_id` viaja sin tildes y el visor
 /// puede traerlas. Réplica local de `quitar_tilde` (privada de
 /// `marketplace.rs`) para no cruzar módulos por una comparación.
-fn sin_tilde_min(s: &str) -> String {
+pub(super) fn sin_tilde_min(s: &str) -> String {
     s.to_lowercase()
         .chars()
         .map(|c| match c {

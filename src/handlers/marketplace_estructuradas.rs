@@ -12,9 +12,10 @@ use axum::response::Response;
 
 use crate::errors::AppError;
 use crate::services::marketplace::{
-    buscar_cache, clave_hilo, estructuradas_apagadas, llave_esperada, normalizar_excerpt_hilo,
-    sha_hex, texto_para_prompt, validar_conversacion, validar_idempotency_key, BorradorRequest,
-    ConversacionValidada, ErrorEstructurado, CODIGO_IDEMPOTENCIA, FIRMA_VERSION_V2,
+    buscar_cache, clave_hilo, estructuradas_apagadas, llave_esperada, mensaje_clave_de,
+    normalizar_excerpt_hilo, sha_hex, texto_para_prompt, validar_conversacion,
+    validar_idempotency_key, BorradorRequest, ConversacionValidada, ErrorEstructurado, LadoUtil,
+    CODIGO_IDEMPOTENCIA, FIRMA_VERSION_V2,
 };
 
 use super::mp_logs::{hilo8, mp_log, LogNivel};
@@ -33,6 +34,9 @@ pub(crate) struct FuenteBorrador {
     pub(crate) firma_version: String,
     pub(crate) crudo: String,
     pub(crate) firma_legacy: Option<String>,
+    /* [09AA-30 F2] Clave de la caché compartida por inmueble. `None` fuera de
+     * v2 o con más de 2 mensajes del cliente: esos hilos no comparten. */
+    pub(crate) mensaje_clave: Option<String>,
 }
 
 /// `hilo_hint` opaco a hash-8 para logs: correlaciona sin exponer el hint
@@ -123,7 +127,22 @@ pub(crate) fn fuente_v2(
         firma_version: FIRMA_VERSION_V2.to_string(),
         crudo,
         firma_legacy: Some(legacy),
+        mensaje_clave: mensaje_clave_v2(val),
     }
+}
+
+/* [09AA-30 F2] Solo 1-2 mensajes del cliente (los primeros del hilo): a
+ * partir del tercero cada respuesta depende del hilo y no se comparte. */
+fn mensaje_clave_v2(val: &ConversacionValidada) -> Option<String> {
+    let clientes: Vec<&str> = val
+        .utiles
+        .iter()
+        .filter(|b| b.lado == LadoUtil::Cliente)
+        .map(|b| b.texto.as_str())
+        .collect();
+    (1..=2)
+        .contains(&clientes.len())
+        .then(|| mensaje_clave_de(&clientes))
 }
 
 /* Texto plano legacy: mismo comportamiento de siempre (limpia excerpt,
@@ -139,6 +158,7 @@ pub(crate) fn fuente_v1(r: &mut BorradorRequest) -> FuenteBorrador {
         firma_version: "firma-v1".to_string(),
         crudo,
         firma_legacy: None,
+        mensaje_clave: None,
     }
 }
 

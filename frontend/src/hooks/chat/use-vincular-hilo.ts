@@ -22,7 +22,7 @@ export function useVincularHilo() {
   useEffect(() => {
     let vivo = true;
     cargarInmuebles()
-      .then((lista) => {
+      .then(({ lista }) => {
         if (vivo) {
           setInmuebles(lista);
           setError(null);

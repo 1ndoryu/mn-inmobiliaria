@@ -247,6 +247,20 @@ pub(crate) async fn completar_opencode(
     fotos: &[String],
     sesion: &str,
 ) -> Result<(String, String), String> {
+    completar_opencode_con_uso(system, texto, fotos, sesion)
+        .await
+        .map(|(t, modelo, _)| (t, modelo))
+}
+
+/// [09AA-30] Igual que `completar_opencode` pero devuelve también los tokens
+/// del `usage` de la respuesta que trajo el texto (`None` si el relay no lo
+/// trae).
+pub(crate) async fn completar_opencode_con_uso(
+    system: &str,
+    texto: &str,
+    fotos: &[String],
+    sesion: &str,
+) -> Result<(String, String, Option<UsoIa>), String> {
     /* [08AA-19] 4000, no 2500: el modelo razona antes de redactar
      * y un prompt normal ya quema ~1788 tokens de razonamiento
      * (medido 2026-10-08 contra el endpoint real); con 2500 el
@@ -295,13 +309,16 @@ pub(crate) async fn completar_opencode(
             );
         }
     }
-    texto_ia.map(|t| (t, config.model.clone())).ok_or_else(|| {
-        tracing::warn!(
-            "OpenCode Go vacío persistente ({}); va fallback",
-            diagnostico_respuesta_vacia(&respuesta)
-        );
-        "OpenCode Go devolvio una respuesta sin texto".to_string()
-    })
+    let uso = uso_de(&respuesta);
+    texto_ia
+        .map(|t| (t, config.model.clone(), uso))
+        .ok_or_else(|| {
+            tracing::warn!(
+                "OpenCode Go vacío persistente ({}); va fallback",
+                diagnostico_respuesta_vacia(&respuesta)
+            );
+            "OpenCode Go devolvio una respuesta sin texto".to_string()
+        })
 }
 
 /* [09AA-15] Vía rápida sin razonamiento para borradores (pedido de ella:
@@ -334,13 +351,29 @@ fn cuerpo_borrador_rapido(modelo: &str, entrada: &[serde_json::Value]) -> serde_
     cuerpo
 }
 
+/// [09AA-30] Tokens que la Responses API reporta en `usage`. `None` si el
+/// relay no lo trae (el texto vale igual; solo falta el coste).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct UsoIa {
+    pub entrada: i64,
+    pub salida: i64,
+}
+
+fn uso_de(json: &serde_json::Value) -> Option<UsoIa> {
+    let usage = json.get("usage")?;
+    Some(UsoIa {
+        entrada: usage.get("input_tokens")?.as_i64()?,
+        salida: usage.get("output_tokens")?.as_i64()?,
+    })
+}
+
 /// Un intento rápido; `None` = ir a la vía estándar (nunca error: el
 /// llamador decide el fallback y lo anota en Logs).
 async fn intento_borrador_rapido(
     config: &glory_agent::providers::ProviderConfig,
     entrada: &[serde_json::Value],
     sesion: &str,
-) -> Option<(String, String)> {
+) -> Option<(String, String, Option<UsoIa>)> {
     let cliente = cliente_http(TIMEOUT_RAPIDO_SEGS).ok()?;
     let cuerpo = cuerpo_borrador_rapido(&config.model, entrada);
     let resp = cliente
@@ -361,15 +394,17 @@ async fn intento_borrador_rapido(
         return None;
     }
     let texto = glory_agent::providers::extract_first_text(&json)?;
-    Some((texto, config.model.clone()))
+    Some((texto, config.model.clone(), uso_de(&json)))
 }
 
+/// [09AA-30] Devuelve también los tokens del intento que trajo el texto: la
+/// rápida si respondió, o la estándar si cayó a ella.
 pub(crate) async fn completar_opencode_rapido(
     system: &str,
     texto: &str,
     fotos: &[String],
     sesion: &str,
-) -> Result<(String, String), String> {
+) -> Result<(String, String, Option<UsoIa>), String> {
     let key = leer_env("OPENCODE_GO_API_KEY");
     if key.is_empty() {
         return Err("Sin OPENCODE_GO_API_KEY en .env".to_string());
@@ -388,7 +423,7 @@ pub(crate) async fn completar_opencode_rapido(
         "la vía rápida no trajo texto; va la estándar".to_string(),
         &[("modelo", serde_json::json!(config.model))],
     );
-    completar_opencode(system, texto, fotos, sesion).await
+    completar_opencode_con_uso(system, texto, fotos, sesion).await
 }
 
 /// [309A-4] Transcribe una nota de voz con Groq Whisper

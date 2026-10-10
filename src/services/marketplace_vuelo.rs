@@ -13,14 +13,16 @@
  * si el líder cae degrada a fallback igual que antes (fail-open).
  * Se re-exporta desde `marketplace.rs` para no mover sus 4 usos externos. */
 
-use super::marketplace::{asegurar_contacto, FALLBACK_BORRADOR};
+use super::marketplace::{asegurar_contacto, Coste, FALLBACK_BORRADOR};
 
 /// Generación compartible en vuelo: texto + fuente (`ia`, nunca `reserva` —
-/// el fallback no entra al vuelo: cada miss reintenta la IA).
+/// el fallback no entra al vuelo: cada miss reintenta la IA) + coste de la
+/// pasada (`Coste::default()` si no hubo IA).
 #[derive(Debug, Clone)]
 pub struct Generado {
     pub texto: String,
     pub fuente: String,
+    pub coste: Coste,
 }
 
 #[derive(Debug, Default)]
@@ -60,6 +62,7 @@ impl Singleflight {
                 std::sync::Arc::new(Generado {
                     texto: asegurar_contacto(FALLBACK_BORRADOR),
                     fuente: "reserva".to_string(),
+                    coste: Coste::default(),
                 })
             })
         } else {
@@ -99,6 +102,7 @@ mod pruebas {
                     Generado {
                         texto: "hola".to_string(),
                         fuente: "ia".to_string(),
+                        coste: Coste::default(),
                     }
                 })
                 .await

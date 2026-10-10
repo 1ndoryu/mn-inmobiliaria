@@ -7,6 +7,8 @@ mod inmueble_slug; // [09AA-24-split] slug del catálogo en su dominio (usado po
 mod inmueble_vinculo; // [09AA-21-split] vínculo marketplace_id en su dominio (usado por inmueble.rs)
 pub mod marketplace;
 mod marketplace_burbujas; // [09AA-20] F0: tipos+validador burbujas (re-exportado arriba)
+mod marketplace_cabecera; // [09AA-29] cola de cabecera cortada por el float (usado por marketplace_texto.rs)
+mod marketplace_compartida; // [09AA-30 F2] caché compartida por inmueble (re-exportada arriba)
 mod marketplace_texto; // [08AA-8] split límite 700: texto puro (re-exportado arriba)
 mod marketplace_vuelo; // [08AA-7] Singleflight en su dominio (re-exportado arriba)
 mod note;

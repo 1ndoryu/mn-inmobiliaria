@@ -154,7 +154,38 @@ impl InmuebleRepository {
     pub async fn titulos_alias_publicados(
         pool: &PgPool,
     ) -> Result<Vec<(Uuid, String, Vec<String>)>, sqlx::Error> {
-        sqlx::query_as("SELECT id, titulo, alias_titulos FROM inmuebles WHERE publicado = TRUE")
+        Self::titulos_publicados(pool, false).await
+    }
+
+    /* [09AA-29] Como `titulos_alias_publicados`, sin las fichas ya vinculadas a
+     * un aviso: el fallback por título de un ID de aviso sin dueño no puede
+     * citar la ficha de OTRO aviso. Vacío = NULL (`inmueble_vinculo`). */
+    pub async fn titulos_alias_publicados_sin_vinculo(
+        pool: &PgPool,
+    ) -> Result<Vec<(Uuid, String, Vec<String>)>, sqlx::Error> {
+        Self::titulos_publicados(pool, true).await
+    }
+
+    /* [09AA-29] Una sola `query_as` para las dos variantes: Sentinel marca cada
+     * `query_as` sin macro, y duplicarla sumaba un hallazgo. */
+    async fn titulos_publicados(
+        pool: &PgPool,
+        solo_sin_vinculo: bool,
+    ) -> Result<Vec<(Uuid, String, Vec<String>)>, sqlx::Error> {
+        sqlx::query_as(
+            "SELECT id, titulo, alias_titulos FROM inmuebles \
+             WHERE publicado = TRUE AND (NOT $1 OR marketplace_id IS NULL)",
+        )
+        .bind(solo_sin_vinculo)
+        .fetch_all(pool)
+        .await
+    }
+
+    /* [09AA-29] Ids de las fichas con ese título exacto. Los tests de caché
+     * la usan para limpiar restos de una ejecución previa sin SQL en el handler. */
+    pub async fn ids_por_titulo(pool: &PgPool, titulo: &str) -> Result<Vec<Uuid>, sqlx::Error> {
+        sqlx::query_scalar("SELECT id FROM inmuebles WHERE titulo = $1")
+            .bind(titulo)
             .fetch_all(pool)
             .await
     }

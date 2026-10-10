@@ -41,7 +41,8 @@ pub struct LogEvento {
     pub ts: String,
     pub nivel: LogNivel,
     /// Punto del flujo: `borrador.cache`, `borrador.ia`, `ia.vacia`,
-    /// `ia.reintento_ok`, `regenerar`, `regenerar-todo`.
+    /// `ia.reintento_ok`, `regenerar`, `chat.archivar`, `chat.borrar`,
+    /// `chat.borrar_borrador`.
     pub evento: String,
     /// Estado del flujo: `cache`, `ia`, `reserva`, `fallback`, `ok`, `error`.
     pub estado: String,
@@ -106,6 +107,44 @@ pub(crate) fn mp_log(
             cola.pop_front();
         }
     }
+}
+
+/* [09AA-5] Eventos de borrador para la tab de Logs, fuera de
+ * `handlers/marketplace.rs` (tope de líneas del fichero). Un hit viejo aquí
+ * explica la «plantilla fantasma» (texto de otra época servido como fresco).
+ * Sin PII: solo hash-8 del hilo. */
+pub(crate) fn log_borrador_cache(thread_id: &str, corregida: bool) {
+    mp_log(
+        LogNivel::Info,
+        "borrador.cache",
+        "cache",
+        format!(
+            "hit de caché (firma conocida{})",
+            if corregida {
+                ", corrección de la dueña"
+            } else {
+                ""
+            }
+        ),
+        &[
+            ("hilo", serde_json::json!(hilo8(thread_id))),
+            ("corregida", serde_json::json!(corregida)),
+        ],
+    );
+}
+
+pub(crate) fn log_borrador_ia(thread_id: &str, fuente: &str, latencia_ms: u64, conocido: bool) {
+    mp_log(
+        LogNivel::Info,
+        "borrador.ia",
+        fuente,
+        format!("pasada generada en {latencia_ms} ms (aviso conocido: {conocido})"),
+        &[
+            ("hilo", serde_json::json!(hilo8(thread_id))),
+            ("latencia_ms", serde_json::json!(latencia_ms)),
+            ("aviso_conocido", serde_json::json!(conocido)),
+        ],
+    );
 }
 
 fn nivel_de(s: &str) -> Option<LogNivel> {

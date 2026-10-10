@@ -3,7 +3,7 @@
 // (vía props desde `ChatsMarketplace`, sin segundo fetch): la lista y el
 // detalle del hilo; el catálogo y la acción viven en `useVincularHilo`.
 
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import { normalizarMarketplaceId } from '@/domain/inmueble';
 import { useVincularHilo } from '@/hooks/chat/use-vincular-hilo';
 import type { ChatResumen } from '../../data/chat/marketplace-chats';
@@ -14,17 +14,26 @@ import { VincularHilo } from './vincular-hilo';
  * como ID; si es un título aproximado no hay nada que sugerir. */
 function avisoSugeridoDe(threadId: string): string {
   const parte = threadId.split('|')[1]?.trim() ?? '';
-  return normalizarMarketplaceId(parte);
+  return normalizarMarketplaceId(parte) ?? '';
 }
 
+/* [10AA-4] `total` = huérfanos en toda la BD (no solo los cargados).
+ * `raizRef`/`centinelaRef`: scroll infinito de la lista; la página la pide el
+ * padre (`ChatsMarketplace`) y el filtro lo hace el backend. */
 export function HilosHuerfanos({
   hilos,
+  total,
   seleccion,
   alElegir,
+  raizRef,
+  centinelaRef,
 }: {
   hilos: ChatResumen[];
+  total: number;
   seleccion: DetalleChat | null;
   alElegir: (hilo: string) => void;
+  raizRef: RefObject<HTMLDivElement | null>;
+  centinelaRef: RefObject<HTMLDivElement | null>;
 }) {
   const [hiloElegido, setHiloElegido] = useState<string | null>(null);
   const { inmuebles, cargando, error, vinculando, aviso, vincular } = useVincularHilo();
@@ -43,29 +52,33 @@ export function HilosHuerfanos({
   return (
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">
-        Hilos sin ficha exacta ({huerfanos.length}): vincúlalos a mano a su inmueble.
+        Hilos sin ficha exacta ({total}): vincúlalos a mano a su inmueble.
         {sinDato && ' El backend aún no confirma el vínculo: se listan todos.'}
       </p>
       {huerfanos.length === 0 ? (
         <p className="text-sm text-muted-foreground">Sin hilos huérfanos: todo hilo tiene su ficha.</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          <ul className="space-y-1">
-            {huerfanos.map((h) => (
-              <li key={h.thread_id}>
-                <button
-                  type="button"
-                  onClick={() => elegir(h.thread_id)}
-                  className={`w-full rounded-md border px-3 py-2 text-left text-xs hover:bg-muted ${hiloElegido === h.thread_id ? 'border-primary' : ''}`}
-                >
-                  <span className="block break-all font-medium">{h.thread_id}</span>
-                  <span className="text-muted-foreground">
-                    {h.borradores} borradores · {h.usos} usos
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div ref={raizRef} className="max-h-[60vh] overflow-y-auto pr-1">
+            <ul className="space-y-1">
+              {huerfanos.map((h) => (
+                <li key={h.thread_id}>
+                  <button
+                    type="button"
+                    onClick={() => elegir(h.thread_id)}
+                    className={`w-full rounded-md border px-3 py-2 text-left text-xs hover:bg-muted ${hiloElegido === h.thread_id ? 'border-primary' : ''}`}
+                  >
+                    <span className="block break-all font-medium">{h.thread_id}</span>
+                    <span className="text-muted-foreground">
+                      {h.borradores} borradores · {h.usos} usos
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {/* [10AA-4] Centinela del scroll infinito: al verse, pide la siguiente página. */}
+            <div ref={centinelaRef} aria-hidden className="h-px" />
+          </div>
           <div className="space-y-2">
             {!actual ? (
               <p className="text-sm text-muted-foreground">Elige un hilo para vincularlo.</p>

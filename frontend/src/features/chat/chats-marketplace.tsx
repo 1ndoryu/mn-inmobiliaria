@@ -3,19 +3,59 @@
 // la conversación (`excerpt_texto`) al lado del texto guardado.
 
 import { usePestanaPersistida } from '../../hooks/app/use-pestana-persistida';
+import { useScrollInfinito } from '../../hooks/app/use-scroll-infinito';
 import { useChatsMarketplace } from './use-chats-marketplace';
-import type { ChatResumen } from '../../data/chat/marketplace-chats';
+import type { ChatFila, ChatResumen } from '../../data/chat/marketplace-chats';
 import { HilosHuerfanos } from './hilos-huerfanos';
 import { LogsMarketplace } from './logs-marketplace';
 import { VinculoInmueble } from './vinculo-inmueble';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { confirmar } from '@/platform/ventana';
+import { EllipsisVertical } from 'lucide-react';
 
 const TABS_MARKETPLACE = ['chats', 'logs', 'huerfanos'] as const;
 
 function fechaCorta(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+/* Origen de la fila: `ia` | `releer` | null (fila anterior, origen desconocido). */
+function textoOrigen(origen: string | null): string {
+  if (origen === 'ia') return 'IA';
+  if (origen === 'releer') return 'solo foto (releer)';
+  return 'origen desconocido';
+}
+
+/* Con caché servida: «servido desde caché N veces»; sin usos, «0 usos». */
+function textoUsos(usos: number): string {
+  if (usos > 0) return `servido desde caché ${usos} ${usos === 1 ? 'vez' : 'veces'}`;
+  return `${usos} usos`;
+}
+
+/* Tokens y tiempo de la generación IA original: solo filas `origen = "ia"`.
+ * Un dato null omite su trozo; el total de tokens solo se muestra con ambos. */
+function textoMetricas(f: ChatFila): string[] {
+  if (f.origen !== 'ia') return [];
+  const { tokens_entrada: entrada, tokens_salida: salida, ms } = f.coste;
+  const trozos: string[] = [];
+  const piezas: string[] = [];
+  if (entrada !== null) piezas.push(`entrada ${entrada}`);
+  if (salida !== null) piezas.push(`salida ${salida}`);
+  if (piezas.length > 0) {
+    const total = entrada !== null && salida !== null ? `${entrada + salida} ` : '';
+    trozos.push(`${total}tokens (${piezas.join(' / ')})`);
+  }
+  if (ms !== null) trozos.push(`${(ms / 1000).toFixed(1)} s`);
+  return trozos;
 }
 
 /* [08AA-31] Lado por marca de texto: lo propio viaja como `Tú:`/`Tu:`/`You:`
@@ -34,21 +74,62 @@ function textoSinMarca(linea: string): string {
   return resto === '' ? linea.trim() : resto;
 }
 
+/* El hilo es `comprador|aviso` (clave del puente). El título del chat es el
+ * comprador; el aviso distingue dos chats del mismo comprador. Sin `|` el hilo
+ * es solo el comprador. El hilo entero queda en el `title` del elemento. */
+function partirHilo(hilo: string): { comprador: string; aviso: string } {
+  const i = hilo.indexOf('|');
+  if (i < 0) return { comprador: hilo.trim(), aviso: '' };
+  return { comprador: hilo.slice(0, i).trim() || hilo.trim(), aviso: hilo.slice(i + 1).trim() };
+}
+
 export function ChatsMarketplace() {
-  const { lista, seleccion, error, recargar, elegir, regenerando, resumenRegen, regenerarTodoPanel } = useChatsMarketplace();
-  /* [09AA-23] Vínculo del hilo con su inmueble (título + `aviso_conocido`).
-   * [09AA-28] Se pinta con `VinculoInmueble` (miniatura + título). */
-  const vinculoDe = (hilo: string): ChatResumen | undefined => lista.find((c) => c.thread_id === hilo);
-  /* [09AA-5] Tab de Logs: qué hizo el puente (caché/IA/fallback) por cada
-   * borrador, para cazar la «plantilla fantasma» sin leer el log de texto.
-   * [09AA-19 F7c] Tab de Huérfanos: hilos sin ficha exacta con vínculo
-   * manual (reutiliza esta lista + detalle, sin segundo fetch). */
-  /* [09AA-27] La sub-pestaña abierta sobrevive a recargas. */
+  /* [09AA-27] La sub-pestaña abierta sobrevive a recargas. Va antes del hook de
+   * datos: la pestaña Huérfanos pide al backend solo los hilos sin ficha. */
   const [tab, setTab] = usePestanaPersistida<'chats' | 'logs' | 'huerfanos'>(
     'admin:mensajes:marketplace-tab',
     TABS_MARKETPLACE,
     'chats',
   );
+  const {
+    lista,
+    total,
+    hayMas,
+    cargando,
+    seleccion,
+    error,
+    recargar,
+    cargarMas,
+    elegir,
+    archivar,
+    borrar,
+    borrarBorrador,
+  } = useChatsMarketplace(tab === 'huerfanos');
+  /* [09AA-23] Vínculo del hilo con su inmueble (título + `aviso_conocido`).
+   * [09AA-28] Se pinta con `VinculoInmueble` (miniatura + título). */
+  const vinculoDe = (hilo: string): ChatResumen | undefined => lista.find((c) => c.thread_id === hilo);
+  /* [09AA-30] Solo las dos acciones que borran piden confirmación; archivar
+   * oculta el hilo de la lista sin tocar datos. */
+  const pedirBorrar = (hilo: string) => {
+    if (confirmar(`Borrar el chat ${hilo} con sus borradores y correcciones. No se puede deshacer.`)) {
+      void borrar(hilo);
+    }
+  };
+  const pedirBorrarBorrador = (hilo: string) => {
+    if (confirmar(`Borrar los borradores no corregidos del chat ${hilo}.`)) {
+      void borrarBorrador(hilo);
+    }
+  };
+  /* [09AA-5] Tab de Logs: qué hizo el puente (caché/IA/fallback) por cada
+   * borrador, para cazar la «plantilla fantasma» sin leer el log de texto.
+   * [09AA-19 F7c] Tab de Huérfanos: hilos sin ficha exacta con vínculo
+   * manual (reutiliza esta lista + detalle, sin segundo fetch). */
+  /* [09AA-31] Scroll infinito de la lista: solo en la pestaña Chats (el centinela
+   * no existe en las otras); al volver a ella `tab` lo vuelve a observar.
+   * [10AA-4] Huérfanos tiene su propia instancia: con una sola, el observer no se
+   * volvería a enganchar al cambiar de pestaña, porque su centinela es otro nodo. */
+  const { raizRef, centinelaRef } = useScrollInfinito(tab === 'chats' && hayMas, cargarMas);
+  const huerfanosScroll = useScrollInfinito(tab === 'huerfanos' && hayMas, cargarMas);
 
   return (
     <div className="grid gap-4">
@@ -66,7 +147,21 @@ export function ChatsMarketplace() {
       {tab === 'logs' ? (
         <LogsMarketplace />
       ) : tab === 'huerfanos' ? (
-        <HilosHuerfanos hilos={lista} seleccion={seleccion} alElegir={(hilo) => void elegir(hilo)} />
+        <>
+          {error && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <HilosHuerfanos
+            hilos={lista}
+            total={total}
+            seleccion={seleccion}
+            alElegir={(hilo) => void elegir(hilo)}
+            raizRef={huerfanosScroll.raizRef}
+            centinelaRef={huerfanosScroll.centinelaRef}
+          />
+        </>
       ) : (
     <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       {error && (
@@ -75,59 +170,81 @@ export function ChatsMarketplace() {
         </p>
       )}
       <section>
-        <h3 className="mb-2 text-sm font-medium">Chats con borradores ({lista.length})</h3>
-        <ul className="space-y-2">
-          {lista.map((c) => (
-            <li key={c.thread_id}>
-              <button
-                type="button"
-                onClick={() => void elegir(c.thread_id)}
-                className={`w-full rounded-md border px-3 py-2 text-left text-xs hover:bg-muted/50 ${
+        <h3 className="mb-2 text-sm font-medium">
+          Chats con borradores ({lista.length} de {total})
+        </h3>
+        <div ref={raizRef} className="max-h-[60vh] overflow-y-auto pr-1">
+          <ul className="space-y-2">
+            {lista.map((c) => (
+              <li
+                key={c.thread_id}
+                className={`flex items-start gap-1 rounded-md border hover:bg-muted/50 ${
                   seleccion?.hilo === c.thread_id ? 'border-primary' : ''
                 }`}
               >
-                <span className="block break-all font-medium">{c.thread_id}</span>
-                <span className="mt-1 block empty:hidden">
-                  <VinculoInmueble chat={c} />
-                </span>
-                <span className="mt-0.5 block text-muted-foreground">
-                  {c.borradores} borrador{c.borradores === 1 ? '' : 'es'} · {c.usos} uso{c.usos === 1 ? '' : 's'} ·{' '}
-                  {fechaCorta(c.ultimo)}
-                </span>
-              </button>
-            </li>
-          ))}
-          {lista.length === 0 && (
-            <li className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-              Sin chats todavía. Aparecen cuando el puente genera borradores.
-            </li>
-          )}
-        </ul>
+                <button
+                  type="button"
+                  onClick={() => void elegir(c.thread_id)}
+                  className="min-w-0 flex-1 px-3 py-2 text-left text-xs"
+                >
+                  <span className="block truncate text-sm font-medium" title={c.thread_id}>
+                    {partirHilo(c.thread_id).comprador}
+                  </span>
+                  <span className="mt-1 block empty:hidden">
+                    <VinculoInmueble chat={c} />
+                  </span>
+                  {!c.inmueble_vinculado && partirHilo(c.thread_id).aviso && (
+                    <span className="mt-0.5 block truncate text-muted-foreground">{partirHilo(c.thread_id).aviso}</span>
+                  )}
+                  <span className="mt-0.5 block text-muted-foreground">
+                    {c.borradores} borrador{c.borradores === 1 ? '' : 'es'} · {c.usos} uso{c.usos === 1 ? '' : 's'} ·{' '}
+                    {fechaCorta(c.ultimo)}
+                  </span>
+                </button>
+                {/* [09AA-30] Tres puntos por conversación, dentro de la caja de la fila:
+                 * archivar, borrar borrador o borrar el chat entero. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button variant="ghost" size="icon" title="Acciones" aria-label={`Acciones del chat ${c.thread_id}`}>
+                        <EllipsisVertical />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => void archivar(c.thread_id)}>Archivar</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => pedirBorrarBorrador(c.thread_id)}>Borrar borrador</DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onClick={() => pedirBorrar(c.thread_id)}>
+                      Borrar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </li>
+            ))}
+            {lista.length === 0 && !cargando && (
+              <li className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                Sin chats todavía. Aparecen cuando el puente genera borradores.
+              </li>
+            )}
+          </ul>
+          {/* [09AA-31] Centinela del scroll infinito: al verse, pide la siguiente página. */}
+          <div ref={centinelaRef} aria-hidden className="h-px" />
+          {cargando && <p className="py-2 text-center text-xs text-muted-foreground">Cargando chats…</p>}
+        </div>
         <div className="mt-2 flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => void recargar()}>
             Recargar
           </Button>
-          {/* [09AA-3] Regeneración masiva al lado de Recargar: borra los
-           * borradores viejos y genera frescos con la IA en una pasada en
-           * serie. Tarda ~15s por chat.
-           * [09AA-4] Este botón ES el limpiar+regenerar en uno (lo pidió
-           * ella 2026-10-09): fuera el «Limpiar» separado (el endpoint
-           * DELETE /chats queda como API admin). */}
-          <Button variant="secondary" size="sm" disabled={regenerando} onClick={() => void regenerarTodoPanel()}>
-            {regenerando ? 'Regenerando…' : 'Regenerar'}
-          </Button>
         </div>
-        {resumenRegen && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Regenerados {resumenRegen.regenerados} de {resumenRegen.candidatos}
-            {resumenRegen.en_reserva > 0 && ` (${resumenRegen.en_reserva} sin borrador fresco: la IA falló)`}
-            {resumenRegen.omitidos > 0 && `, ${resumenRegen.omitidos} omitidos`}.
-          </p>
-        )}
       </section>
       <section>
         <h3 className="mb-2 flex flex-wrap items-center gap-2 text-sm font-medium">
-          {seleccion ? `Hilo: ${seleccion.hilo}` : 'Elige un chat para ver sus borradores'}
+          {seleccion ? (
+            <span title={seleccion.hilo}>Chat de {partirHilo(seleccion.hilo).comprador}</span>
+          ) : (
+            'Elige un chat para ver sus borradores'
+          )}
           {seleccion && <VinculoInmueble chat={vinculoDe(seleccion.hilo)} />}
         </h3>
         {seleccion?.cargando && <p className="text-sm text-muted-foreground">Cargando borradores…</p>}
@@ -167,7 +284,12 @@ export function ChatsMarketplace() {
                   </Badge>
                 )}
                 <span>
-                  {f.usos} uso{f.usos === 1 ? '' : 's'} · vigente hasta {fechaCorta(f.valida_hasta)}
+                  {[
+                    textoUsos(f.usos),
+                    `vigente hasta ${fechaCorta(f.valida_hasta)}`,
+                    textoOrigen(f.origen),
+                    ...textoMetricas(f),
+                  ].join(' · ')}
                 </span>
               </span>
             </li>
