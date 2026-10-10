@@ -12,12 +12,14 @@ import { useBorrador } from '../hooks/inmuebles/use-borrador';
 import { useConfigCopy } from '../hooks/copy/use-config-copy';
 import { useCopy } from '../hooks/copy/use-copy';
 import { useInmuebles } from '../hooks/inmuebles/use-inmuebles';
+import { useConfigIA } from '../hooks/ia/use-config-ia';
 import { useSesion } from '../hooks/sesion/use-sesion';
 import { useTema } from '../hooks/app/use-tema';
 import { useFotosMejora } from '../hooks/mejora/use-fotos-mejora';
 import { useColaMejora } from '../hooks/mejora/use-cola-mejora';
 import { eliminarMejorada } from '../data/inmuebles/api';
 import type { EstadoInmueble, Inmueble } from '../domain/inmueble';
+import { resumirConexionIA } from '../domain/ia';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -69,6 +71,9 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
     }
   }, [vista]);
   const [configAbierta, setConfigAbierta] = useState(false);
+  /* Indicador de IA de la cabecera [10AA-16]: lee el estado al montar y lo
+   * vuelve a leer al cerrar Configuración (mientras está abierta no recarga). */
+  const ia = useConfigIA(!configAbierta);
   const [copyId, setCopyId] = useState<string | null>(null);
   const fotosNuevas = useAnadirFotos(inmuebles, actualizar);
   const temaApp = useTema();
@@ -143,6 +148,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
       alAbrirConfig={() => setConfigAbierta(true)}
       temaExterno={temaApp.tema}
       alCiclarTemaExterno={temaApp.ciclar}
+      iaResumen={resumirConexionIA(ia.estado, ia.error)}
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div>

@@ -5,6 +5,7 @@ import { Button, ButtonPlano } from '@/components/ui/button';
 import { useTema } from '@/hooks/app/use-tema';
 import { useAside } from '@/hooks/app/use-aside';
 import type { Tema } from '@/app/tema';
+import type { ConexionIA, ResumenConexionIA } from '@/domain/ia';
 import { cn } from '@/lib/utils';
 
 function ItemNav({
@@ -69,6 +70,64 @@ function BotonTema({ tema, alCambiar }: { tema: Tema; alCambiar: () => void }) {
   );
 }
 
+/* Estado de la conexión de IA en la cabecera del admin [10AA-16]. Verde:
+ * última prueba OK; ámbar: sin comprobar o deshabilitada; rojo: no conecta
+ * o no se pudo leer. La fecha va en el texto para juzgar si la prueba es vieja. */
+const COLOR_CONEXION: Record<ConexionIA, string> = {
+  conectada: 'bg-emerald-500',
+  'sin-comprobar': 'bg-amber-500',
+  deshabilitada: 'bg-amber-500',
+  fallo: 'bg-destructive',
+  'sin-clave': 'bg-destructive',
+  'sin-leer': 'bg-destructive',
+  cargando: 'bg-muted-foreground/40',
+};
+
+function fechaIA(epoch: number | null): string {
+  if (!epoch) return 'nunca';
+  return new Date(epoch * 1000).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function textoIA(r: ResumenConexionIA): string {
+  const proveedor = r.proveedor ?? 'IA';
+  switch (r.conexion) {
+    case 'cargando':
+      return 'IA · cargando…';
+    case 'sin-leer':
+      return 'IA · no se pudo leer el estado';
+    case 'sin-clave':
+      return `${proveedor} · sin clave en el servidor`;
+    case 'deshabilitada':
+      return `${proveedor} · deshabilitada`;
+    case 'sin-comprobar':
+      return `${proveedor} · sin comprobar`;
+    case 'fallo':
+      return `${proveedor} · la última prueba falló (${fechaIA(r.comprobadoEn)})`;
+    case 'conectada':
+      return `${proveedor} · conectada, última prueba OK ${fechaIA(r.comprobadoEn)}`;
+  }
+}
+
+/* `punto` deja solo el círculo de color (aside contraído y cabecera móvil);
+ * el texto queda en `title` y `aria-label`. */
+function IndicadorIA({ resumen, punto = false }: { resumen: ResumenConexionIA; punto?: boolean }) {
+  const texto = textoIA(resumen);
+  const color = <span aria-hidden className={cn('h-2.5 w-2.5 shrink-0 rounded-full', COLOR_CONEXION[resumen.conexion])} />;
+  if (punto) {
+    return (
+      <span role="img" title={texto} aria-label={texto} className="flex h-8 w-8 items-center justify-center">
+        {color}
+      </span>
+    );
+  }
+  return (
+    <p className="flex items-center gap-1.5 text-xs leading-snug text-muted-foreground">
+      {color}
+      <span>{texto}</span>
+    </p>
+  );
+}
+
 /* Pestaña del menú inferior móvil (259A-2): icono + etiqueta, como las
  * apps nativas. Solo móvil (`md:hidden` en el `nav` padre); el `aside`
  * de escritorio no cambia. */
@@ -111,6 +170,7 @@ export function Layout({
   alAbrirConfig,
   temaExterno,
   alCiclarTemaExterno,
+  iaResumen,
 }: {
   children: ReactNode;
   vista?: VistaApp;
@@ -118,6 +178,7 @@ export function Layout({
   alAbrirConfig?: () => void;
   temaExterno?: Tema;
   alCiclarTemaExterno?: () => void;
+  iaResumen?: ResumenConexionIA;
 }) {
   const interno = useTema();
   const tema = temaExterno ?? interno.tema;
@@ -194,9 +255,15 @@ export function Layout({
             />
           )}
         </nav>
-        {!contraido && <p className="mt-auto px-1 text-xs text-muted-foreground">Panel admin · API</p>}
+        {!contraido && (
+          <div className="mt-auto flex flex-col gap-1 px-1">
+            {iaResumen && <IndicadorIA resumen={iaResumen} />}
+            <p className="text-xs text-muted-foreground">Panel admin · API</p>
+          </div>
+        )}
         <div className={cn('flex items-center justify-between px-1 pt-1', contraido && 'mt-auto flex-col gap-1')}>
           {!contraido && <span className="text-xs text-muted-foreground">{TEXTO_TEMA[tema]}</span>}
+          {contraido && iaResumen && <IndicadorIA resumen={iaResumen} punto />}
           <BotonTema tema={tema} alCambiar={ciclar} />
         </div>
       </aside>
@@ -210,6 +277,7 @@ export function Layout({
           <Badge variant="secondary" className="ml-auto">
             {(vista ?? 'inmuebles') === 'imagenes' ? 'Imágenes' : vista === 'mensajes' ? 'Mensajes' : vista === 'publicidad' ? 'Publicidad' : 'Inmuebles'}
           </Badge>
+          {iaResumen && <IndicadorIA resumen={iaResumen} punto />}
           {alAbrirConfig && (
             <Button variant="ghost" size="icon" title="Configuración" aria-label="Abrir configuración" onClick={alAbrirConfig}>
               <Settings2 />

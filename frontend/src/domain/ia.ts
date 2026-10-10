@@ -35,3 +35,27 @@ export interface ProbarIA {
   modelo: string | null;
   error: string | null;
 }
+
+/* Resumen de la conexión activa para la cabecera del admin [10AA-16]. Puro:
+ * deriva del último diagnóstico guardado, no prueba nada por sí mismo. */
+export type ConexionIA = 'cargando' | 'sin-leer' | 'sin-clave' | 'deshabilitada' | 'sin-comprobar' | 'fallo' | 'conectada';
+
+export interface ResumenConexionIA {
+  proveedor: string | null;
+  conexion: ConexionIA;
+  comprobadoEn: number | null;
+}
+
+export function resumirConexionIA(estado: EstadoIA | null, error: string | null): ResumenConexionIA {
+  /* Un error de recarga gana al estado anterior: no mostrar como vigente un dato que ya no se pudo releer. */
+  if (error) return { proveedor: null, conexion: 'sin-leer', comprobadoEn: null };
+  if (!estado) return { proveedor: null, conexion: 'cargando', comprobadoEn: null };
+  const activo = estado.proveedores.find((p) => p.id === estado.activo);
+  if (!activo) return { proveedor: null, conexion: 'sin-clave', comprobadoEn: null };
+  const base = { proveedor: activo.nombre, comprobadoEn: activo.comprobadoEn };
+  if (!activo.configurado) return { ...base, conexion: 'sin-clave' };
+  if (!activo.habilitado) return { ...base, conexion: 'deshabilitada' };
+  if (activo.estado === 'ok') return { ...base, conexion: 'conectada' };
+  if (activo.estado === 'error') return { ...base, conexion: 'fallo' };
+  return { ...base, conexion: 'sin-comprobar' };
+}
