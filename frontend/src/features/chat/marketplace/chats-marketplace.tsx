@@ -2,10 +2,10 @@
 // (conversación + borradores + usos + vigencia) y detalle con la foto de
 // la conversación (`excerpt_texto`) al lado del texto guardado.
 
-import { usePestanaPersistida } from '../../hooks/app/use-pestana-persistida';
-import { useScrollInfinito } from '../../hooks/app/use-scroll-infinito';
+import { usePestanaPersistida } from '../../../hooks/app/use-pestana-persistida';
+import { useScrollInfinito } from '../../../hooks/app/use-scroll-infinito';
 import { useChatsMarketplace } from './use-chats-marketplace';
-import type { ChatFila, ChatResumen } from '../../data/chat/marketplace-chats';
+import type { ChatFila, ChatResumen } from '../../../data/chat/marketplace-chats';
 import { HilosHuerfanos } from './hilos-huerfanos';
 import { LogsMarketplace } from './logs-marketplace';
 import { VinculoInmueble } from './vinculo-inmueble';

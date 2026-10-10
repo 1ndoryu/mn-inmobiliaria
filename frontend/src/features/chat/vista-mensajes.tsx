@@ -5,11 +5,11 @@
 
 import { usePestanaPersistida } from '../../hooks/app/use-pestana-persistida';
 import { BandejaMensajes } from './bandeja-mensajes';
-import { ChatsMarketplace } from './chats-marketplace';
+import { ChatsMarketplace } from './marketplace/chats-marketplace';
 import { ClientesDuena } from './clientes-duena';
 import { ConfigChat } from './config-chat';
 import { SesionesWhatsapp } from './sesiones-whatsapp';
-import { UsoAuditoria } from './uso-auditoria';
+import { UsoAuditoria } from './marketplace/uso-auditoria';
 import { Button } from '@/components/ui/button';
 
 type Pestana = 'bandeja' | 'clientes' | 'marketplace' | 'whatsapp' | 'uso' | 'config';

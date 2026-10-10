@@ -6,7 +6,7 @@
 import { useState, type RefObject } from 'react';
 import { normalizarMarketplaceId } from '@/domain/inmueble';
 import { useVincularHilo } from '@/hooks/chat/use-vincular-hilo';
-import type { ChatResumen } from '../../data/chat/marketplace-chats';
+import type { ChatResumen } from '../../../data/chat/marketplace-chats';
 import type { DetalleChat } from './use-chats-marketplace';
 import { VincularHilo } from './vincular-hilo';
 import { ButtonPlano } from '@/components/ui/button';

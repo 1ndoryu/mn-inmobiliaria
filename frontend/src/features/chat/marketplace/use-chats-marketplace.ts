@@ -12,8 +12,8 @@ import {
   listarChats,
   type ChatFila,
   type ChatResumen,
-} from '../../data/chat/marketplace-chats';
-import { ErrorApi } from '../../data/inmuebles/api';
+} from '../../../data/chat/marketplace-chats';
+import { ErrorApi } from '../../../data/inmuebles/api';
 
 export interface DetalleChat {
   hilo: string;

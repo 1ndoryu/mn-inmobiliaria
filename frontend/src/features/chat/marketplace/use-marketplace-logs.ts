@@ -2,8 +2,8 @@
 // nivel y auto-refresh cada 5s (pausable). Sin PII en lo que se muestra.
 
 import { useCallback, useEffect, useState } from 'react';
-import { listarLogs, type LogEvento, type NivelLog } from '../../data/chat/marketplace-logs';
-import { ErrorApi } from '../../data/inmuebles/api';
+import { listarLogs, type LogEvento, type NivelLog } from '../../../data/chat/marketplace-logs';
+import { ErrorApi } from '../../../data/inmuebles/api';
 
 export type FiltroNivel = NivelLog | 'todos';
 
