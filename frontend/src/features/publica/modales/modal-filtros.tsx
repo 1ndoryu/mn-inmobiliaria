@@ -3,6 +3,8 @@ import { ETIQUETAS_TIPO, TIPOS, type TipoInmueble } from '../../../domain/inmueb
 import type { useFiltrosAvanzados } from '../../../hooks/publica/use-filtros-avanzados';
 import type { FiltrosAvanzados } from '../busqueda';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_FONDO, CLASE_TEXTO, CLASE_TINTA, SOLO_MOVIL_TABLETA } from '../disenno';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 /* Modal "Filtros avanzados": mismo concepto que el modal publicar (cuadrado,
  * tinta, sin sombras, Söhne 400 sin negritas; cierra con overlay o Escape,
@@ -79,7 +81,7 @@ export function ModalFiltros({
             placeholder="3"
           />
           <span className="flex gap-2">
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={() => {
                 modal.aplicar();
@@ -88,14 +90,14 @@ export function ModalFiltros({
               className={`flex-1 cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO}`}
             >
               Aplicar
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost"
               type="button"
               onClick={modal.limpiar}
               className={`flex-1 cursor-pointer rounded-none border ${CLASE_BORDE} bg-transparent px-4 py-2 ${CLASE_TEXTO}`}
             >
               Limpiar
-            </button>
+            </Button>
           </span>
         </div>
       </DialogContent>
@@ -119,7 +121,7 @@ function Campo({
   return (
     <label className={`flex flex-col gap-1 text-sm font-normal ${CLASE_TINTA} ${ancho}`}>
       {etiqueta}
-      <input
+      <Input
         type="text"
         value={valor}
         onChange={(e) => alCambiar(e.target.value)}
@@ -140,7 +142,7 @@ function TipoFiltro({
   return (
     <label className={`flex-col gap-1 text-sm font-normal ${CLASE_TINTA} ${SOLO_MOVIL_TABLETA} flex`}>
       Tipo de inmueble
-      <select
+      <select /* sentinel-disable html-nativo-en-vez-de-componente */
         value={valor ?? ''}
         onChange={(e) => alElegir(e.target.value === '' ? null : (e.target.value as TipoInmueble))}
         className={`w-full rounded-none border ${CLASE_BORDE} bg-transparent px-3 py-2 text-sm font-normal outline-none`}
@@ -168,7 +170,7 @@ function OperacionFiltro({
       Operación
       <span className="flex gap-2">
         {(['todas', 'venta', 'alquiler'] as const).map((o) => (
-          <button
+          <Button variant="ghost"
             key={o}
             type="button"
             onClick={() => alElegir(o)}
@@ -177,7 +179,7 @@ function OperacionFiltro({
             }`}
           >
             {o === 'todas' ? 'Todas' : o === 'venta' ? 'Venta' : 'Alquiler'}
-          </button>
+          </Button>
         ))}
       </span>
     </span>

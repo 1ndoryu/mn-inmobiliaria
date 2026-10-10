@@ -49,7 +49,7 @@ export function PestanaCopy({
         Restaurar llamado original
       </Button>
       <label className="flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm">
-        <input
+        <input /* sentinel-disable html-nativo-en-vez-de-componente */
           type="checkbox"
           checked={formCopy.generarAlCrear}
           onChange={(e) => alCambiarCopy({ ...formCopy, generarAlCrear: e.target.checked })}

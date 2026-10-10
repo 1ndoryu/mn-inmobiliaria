@@ -109,14 +109,14 @@ export function ModalAnadirFotos({ inmueble, alCambiarAbierto, onConfirmar }: Pr
                 {nuevas.map((f, idx) => (
                   <div key={f.slice(-32) + idx} className="group relative aspect-square overflow-hidden rounded-md border">
                     <img src={f} alt={`Nueva foto ${idx + 1}`} className="h-full w-full object-cover" />
-                      <button
+                      <Button variant="ghost"
                         type="button"
                         aria-label={`Quitar nueva foto ${idx + 1}`}
                         onClick={() => quitarNueva(idx)}
                       className="absolute right-1 top-1 rounded bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
                     >
                       <X className="h-3 w-3" />
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>

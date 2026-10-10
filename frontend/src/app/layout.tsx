@@ -23,7 +23,7 @@ function ItemNav({
   onClick?: () => void;
 }) {
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       disabled={pronto || !onClick}
       onClick={onClick}
@@ -43,7 +43,7 @@ function ItemNav({
           Pronto
         </Badge>
       )}
-    </button>
+    </Button>
   );
 }
 
@@ -84,7 +84,7 @@ function BotonTab({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       onClick={onClick}
       aria-current={activo ? 'page' : undefined}
@@ -95,7 +95,7 @@ function BotonTab({
     >
       {icono}
       {texto}
-    </button>
+    </Button>
   );
 }
 

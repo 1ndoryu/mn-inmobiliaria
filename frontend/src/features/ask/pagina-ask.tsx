@@ -24,6 +24,8 @@ import {
   CLASE_TINTA,
   RELLENO_LATERAL_SITIO,
 } from '../publica/disenno';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 /* /ask (279A-3 + 279A-4): cuestionario privado para completar fichas,
  * misma línea visual que la página pública (fondo #e8e7e3, tinta, sin
@@ -56,7 +58,7 @@ function EntradaAsk({ alEntrar }: { alEntrar: (email: string) => void }) {
         >
           <label className={`flex flex-col gap-1 text-sm ${CLASE_TINTA}`}>
             Correo
-            <input
+            <Input
               type="email"
               value={login.email}
               onChange={(e) => login.setEmail(e.target.value)}
@@ -66,7 +68,7 @@ function EntradaAsk({ alEntrar }: { alEntrar: (email: string) => void }) {
           </label>
           <label className={`flex flex-col gap-1 text-sm ${CLASE_TINTA}`}>
             Contraseña
-            <input
+            <Input
               type="password"
               value={login.clave}
               onChange={(e) => login.setClave(e.target.value)}
@@ -79,13 +81,13 @@ function EntradaAsk({ alEntrar }: { alEntrar: (email: string) => void }) {
               {login.error}
             </p>
           )}
-          <button
+          <Button variant="ghost"
             type="submit"
             disabled={login.ocupado}
             className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO} disabled:cursor-wait disabled:opacity-60`}
           >
             {login.ocupado ? 'Entrando…' : 'Entrar'}
-          </button>
+          </Button>
         </form>
       </div>
     </main>
@@ -143,13 +145,13 @@ function PanelTerminado({ vacio, alRevisar }: { vacio: boolean; alRevisar: () =>
         {vacio ? 'Aún no hay propiedades cargadas.' : '¡Todo al día! No quedan preguntas pendientes.'}
       </p>
       {!vacio && (
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={alRevisar}
           className={`mt-3 cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 text-sm ${CLASE_TEXTO}`}
         >
           Revisar de nuevo
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -223,14 +225,14 @@ function PreguntaActual({
         <div className={`mt-4 border ${CLASE_BORDE} px-4 py-6 text-center`}>
           <p className={`${CLASE_TINTA}`}>¡Listo! Respondiste todas las preguntas de esta propiedad.</p>
           <p className={`mt-1 text-sm ${CLASE_TINTA} opacity-70`}>Ficha al {porcentaje}%.</p>
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={alOtra}
             disabled={guardando}
             className={`mt-3 cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 text-sm ${CLASE_TEXTO} disabled:cursor-wait disabled:opacity-60`}
           >
             Otra pregunta aleatoria →
-          </button>
+          </Button>
         </div>
       ) : paso.kind === 'ficha' ? (
         <EntradaPregunta
@@ -284,18 +286,18 @@ function PreguntaActual({
       )}
       <div className="mt-4 flex justify-center gap-6">
         {indice > 0 && (
-          <button type="button" onClick={alAnterior} className={`cursor-pointer text-sm ${CLASE_TINTA} underline`}>
+          <Button variant="ghost" type="button" onClick={alAnterior} className={`cursor-pointer text-sm ${CLASE_TINTA} underline`}>
             ← Anterior
-          </button>
+          </Button>
         )}
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={alOtra}
           disabled={guardando}
           className={`cursor-pointer text-sm ${CLASE_TINTA} opacity-70 underline disabled:cursor-wait`}
         >
           Otra propiedad
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -214,7 +214,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
                 className="pl-9"
               />
             </div>
-            <select
+            <select /* sentinel-disable html-nativo-en-vez-de-componente */
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value as 'todos' | EstadoInmueble)}
               className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"

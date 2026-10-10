@@ -1,6 +1,8 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import type { useModalLogin } from '../../../hooks/publica/modales/use-modal-login';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_FONDO, CLASE_TEXTO, CLASE_TINTA } from '../disenno';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 /* Modal "Entrar al panel": mismo concepto que el modal publicar (cuadrado,
  * tinta, sin sombras, Söhne 400 sin negritas; cierra con overlay o Escape,
@@ -43,13 +45,13 @@ export function ModalLogin({ modal }: { modal: ReturnType<typeof useModalLogin> 
               {login.error}
             </p>
           )}
-          <button
+          <Button variant="ghost"
             type="submit"
             disabled={login.ocupado}
             className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO} disabled:cursor-wait disabled:opacity-60`}
           >
             {login.ocupado ? 'Entrando…' : 'Entrar'}
-          </button>
+          </Button>
         </form>
       </DialogContent>
     </Dialog>
@@ -72,7 +74,7 @@ function Campo({
   return (
     <label className={`flex flex-col gap-1 text-sm font-normal ${CLASE_TINTA}`}>
       {etiqueta}
-      <input
+      <Input
         type={tipo}
         value={valor}
         onChange={(e) => alCambiar(e.target.value)}

@@ -31,14 +31,15 @@ export function BotonVendida({ inmuebleId, titulo, operacion, deshabilitado, alM
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="link"
         disabled={deshabilitado}
         onClick={abrir}
-        className={`cursor-pointer text-sm ${CLASE_TINTA} underline disabled:cursor-wait disabled:opacity-60`}
+        className={`h-auto p-0 cursor-pointer text-sm ${CLASE_TINTA} underline disabled:cursor-wait disabled:opacity-60`}
       >
         Esta propiedad se vendió
-      </button>
+      </Button>
       <Dialog
         open={abierto}
         onOpenChange={(o) => {

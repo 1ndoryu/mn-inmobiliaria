@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { VistaPrevia } from './vista-publicidad';
+import { useTitulosPublicidad } from '@/hooks/publicidad/use-titulos-publicidad';
 
 interface Props {
   inmueble: Inmueble | null;
@@ -52,9 +53,7 @@ const ROLES: Array<{ rol: Rol; clave: 'fondoIdx' | 'circularGrandeIdx' | 'circul
 export function ModalEditorPublicidad({ inmueble, receta, alGuardar, alCerrar, alEditarPropiedad }: Props) {
   const [borrador, setBorrador] = useState<RecetaPublicidad | null>(null);
   const [guardando, setGuardando] = useState(false);
-  // Texto tecleado (null = sin tocar: vale el efectivo, auto o personalizado).
-  const [texto1, setTexto1] = useState<string | null>(null);
-  const [texto2, setTexto2] = useState<string | null>(null);
+  const { texto1, texto2, cambiarTitulo, reiniciar } = useTitulosPublicidad();
   const abierto = inmueble !== null && receta !== null;
   // La receta vigente es el borrador si se está editando, si no la guardada.
   const vigente = borrador ?? receta;
@@ -94,23 +93,16 @@ export function ModalEditorPublicidad({ inmueble, receta, alGuardar, alCerrar, a
     setBorrador({ ...vigente, conPrecio });
   };
 
-  const cambiarTitulo = (campo: 'texto1' | 'texto2', valor: string) => {
-    if (campo === 'texto1') setTexto1(valor);
-    else setTexto2(valor);
-  };
-
   const tituloAutomatico = () => {
     if (!vigente) return;
-    setTexto1(null);
-    setTexto2(null);
+    reiniciar();
     setBorrador({ ...vigente, titulo1: '', titulo2: '' });
   };
 
   const cerrar = (abrir: boolean) => {
     if (!abrir) {
       setBorrador(null);
-      setTexto1(null);
-      setTexto2(null);
+      reiniciar();
       alCerrar();
     }
   };
@@ -146,7 +138,7 @@ export function ModalEditorPublicidad({ inmueble, receta, alGuardar, alCerrar, a
                   <p className="text-xs font-medium">{etiqueta}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {candidatas.map((url, idx) => (
-                      <button
+                      <Button variant="ghost"
                         key={url}
                         type="button"
                         onClick={() => elegir(clave, idx)}
@@ -156,7 +148,7 @@ export function ModalEditorPublicidad({ inmueble, receta, alGuardar, alCerrar, a
                         title={`${etiqueta} · foto ${idx + 1}`}
                       >
                         <img src={url} alt="" className="h-full w-full object-cover" />
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>

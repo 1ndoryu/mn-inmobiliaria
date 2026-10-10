@@ -77,7 +77,7 @@ export function ClientesDuena() {
             )}
             {c.clientes.map((k) => (
               <li key={k.id}>
-                <button
+                <Button variant="ghost"
                   type="button"
                   onClick={() => {
                     c.elegir(k.id);
@@ -103,7 +103,7 @@ export function ClientesDuena() {
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {[k.interes, k.presupuesto, k.zona].filter(Boolean).join(' · ') || k.telefono}
                   </span>
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

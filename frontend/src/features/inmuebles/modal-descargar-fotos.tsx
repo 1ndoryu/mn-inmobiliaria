@@ -59,7 +59,7 @@ export function ModalDescargarFotos({ inmueble, alCerrar }: Props) {
               const mejorada = tieneMejorada(inmueble, indice);
               return (
                 <div key={`${indice}-${foto}`} className="relative overflow-hidden rounded-md border">
-                  <button
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => alternar(indice)}
                     title={elegida ? `Quitar foto ${indice + 1} de la selección` : `Seleccionar foto ${indice + 1}`}
@@ -74,7 +74,7 @@ export function ModalDescargarFotos({ inmueble, alCerrar }: Props) {
                       loading="lazy"
                       className="h-28 w-full object-cover"
                     />
-                  </button>
+                  </Button>
                   <span className="absolute top-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 text-[11px] font-medium">
                     {indice + 1}
                   </span>

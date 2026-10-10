@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useContactoChat } from '../../../hooks/publica/chat/use-contacto-chat';
 import type { InfoAgente } from '../../../data/chat/cliente-chat';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_FONDO, CLASE_TEXTO, CLASE_TINTA } from '../disenno';
+import { Input } from '@/components/ui/input';
 
 export function ContactoChat({
   info,
@@ -49,7 +50,7 @@ export function ContactoChat({
             >
               <label className={`flex flex-col gap-1 text-sm font-normal ${CLASE_TINTA}`}>
                 Tu nombre
-                <input
+                <Input
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   placeholder="Tu nombre"
@@ -59,7 +60,7 @@ export function ContactoChat({
               </label>
               <label className={`flex flex-col gap-1 text-sm font-normal ${CLASE_TINTA}`}>
                 Tu teléfono
-                <input
+                <Input
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
                   placeholder="Tu teléfono"

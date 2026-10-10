@@ -112,14 +112,14 @@ function TarjetaPublicidad({
 }) {
   return (
     <article className="overflow-hidden rounded-lg border bg-card">
-      <button
+      <Button variant="ghost"
         type="button"
         onClick={alAmpliar}
         title="Ver completa"
         className="block w-full cursor-zoom-in"
       >
         <VistaPrevia inmueble={inmueble} comp={comp} />
-      </button>
+      </Button>
       <div className="space-y-2 p-3">
         <div>
           <p className="truncate text-sm font-medium">{lineaTitulo1De(inmueble)}</p>

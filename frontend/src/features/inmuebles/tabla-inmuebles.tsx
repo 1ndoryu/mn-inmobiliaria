@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 /* [08AA-13] Celdas y menú viven en módulos propios: la tabla supera 300 líneas. */
 import { claseEstadoDe, precioVisible, Publico, SemaforoFicha, VinculoBadge } from './tabla/celdas-tabla-inmuebles';
 import { MenuAcciones } from './tabla/menu-acciones-inmueble';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   inmuebles: Inmueble[];
@@ -117,7 +118,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
             {inmuebles.map((i) => (
               <TableRow key={i.id}>
                 <TableCell>
-                  <button
+                  <Button variant="ghost"
                     type="button"
                     onClick={() => onVer(i)}
                     title={`Ver ${i.titulo || 'Sin título'}`}
@@ -125,7 +126,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
                     className="block cursor-pointer rounded-md transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                   >
                     <MiniaturaFoto key={portadaDe(i)} src={portadaDe(i)} titulo={i.titulo || 'Inmueble'} />
-                  </button>
+                  </Button>
                 </TableCell>
                 <TableCell className="max-w-[220px]">
                   <p className={cn('truncate font-medium', !i.titulo && 'text-muted-foreground')}>
@@ -167,7 +168,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
       <div className="grid gap-3 md:hidden">
         {inmuebles.map((i) => (
           <article key={i.id} className="overflow-hidden rounded-lg border bg-card">
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={() => onVer(i)}
               title={`Ver ${i.titulo || 'Sin título'}`}
@@ -181,7 +182,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
                   <Building2 className="h-8 w-8 text-muted-foreground" />
                 </div>
               )}
-            </button>
+            </Button>
             <div className="space-y-2 p-4">
               <div className="flex items-start justify-between gap-2">
                 <h3 className={cn('font-semibold leading-tight', !i.titulo && 'text-muted-foreground')}>

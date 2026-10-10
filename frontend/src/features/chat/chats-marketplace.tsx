@@ -182,7 +182,7 @@ export function ChatsMarketplace() {
                   seleccion?.hilo === c.thread_id ? 'border-primary' : ''
                 }`}
               >
-                <button
+                <Button variant="ghost"
                   type="button"
                   onClick={() => void elegir(c.thread_id)}
                   className="min-w-0 flex-1 px-3 py-2 text-left text-xs"
@@ -200,7 +200,7 @@ export function ChatsMarketplace() {
                     {c.borradores} borrador{c.borradores === 1 ? '' : 'es'} · {c.usos} uso{c.usos === 1 ? '' : 's'} ·{' '}
                     {fechaCorta(c.ultimo)}
                   </span>
-                </button>
+                </Button>
                 {/* [09AA-30] Tres puntos por conversación, dentro de la caja de la fila:
                  * archivar, borrar borrador o borrar el chat entero. */}
                 <DropdownMenu>
