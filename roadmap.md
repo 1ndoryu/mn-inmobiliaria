@@ -27,9 +27,11 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 ## Pendientes
 
 - **Decisiones de la usuaria: ramas y BD sueltas (2026-10-10, cierre de 10AA-13):**
-  - `fix/08AA-26-hallazgos-sentinel`: fusionada en `main` (merge `3fe28f9e`; type-check de `main` OK el 2026-10-10). Su worktree `C:/tmp/mn-wt/hallazgos-sentinel` no tenía trabajo sin commitear: `frontend/src` idéntico a `main` salvo fin de línea CRLF. Pendiente: publicar `main`, borrar rama y directorio sobrante.
-  - `origin/dependabot/cargo/cargo-09e84698d7` (PR #2, sube `jsonwebtoken` 9→10 y `rand`): sin checks en el PR; verificación local en curso. **Pregunta:** ¿mergear si pasa, o cerrar y borrar? Recomendado: mergear si pasa; si no, cerrar y borrar.
-  - 3 vulnerabilidades de Dependabot en `main` (1 alta `source-map-js` en `frontend/package-lock.json`, 1 moderada `jsonwebtoken` y 1 baja `rand` 0.8.6 en `Cargo.lock`): sin revisar aún.
+  - `fix/08AA-26-hallazgos-sentinel`: fusionada en `main` (merge `3fe28f9e`), `main` publicada (`398a3097`), worktree y directorio sobrante borrados. Su worktree no tenía trabajo sin commitear: `frontend/src` idéntico a `main` salvo fin de línea CRLF.
+  - PR #2 (`dependabot/cargo/cargo-09e84698d7`, subía `jsonwebtoken` 9→10 y `rand`): **cerrada y rama remota borrada** el 2026-10-10. Motivo: `jsonwebtoken` 10 exige feature de CryptoProvider (`rust_crypto` o `aws_lc_rs`); sin ella `encode`/`decode` entran en pánico en runtime (falla `decode_rechaza_expirado`). Copia de seguridad verificada: `C:/tmp/backups-ramas/dependabot-cargo-09e84698d7.bundle` (temporal, en `C:/tmp`).
+    - Alerta moderada `jsonwebtoken` (Cargo.lock) sigue abierta. **Pregunta:** ¿subir a 10 con `rust_crypto` en una tarea nueva (recomendado) o quedarse en 9 y aceptar la alerta?
+  - PR #3 (`dependabot/npm_and_yarn/frontend/npm_and_yarn-501f592bae`, sube `source-map-js` 1.2.1→1.2.2, cierra la alerta alta): verificado en worktree temporal: `npm ci`, `type-check` y `build` exit 0. El lock añade entradas anidadas `@tailwindcss/oxide-wasm32-wasi` (inusual, no rompe el build). **Pregunta:** ¿mergear? Recomendado: sí; luego borrar la rama remota tras copia `git bundle`.
+  - Alerta baja `rand` 0.8.6 (Cargo.lock) sigue abierta: `cargo update -p rand` tras decidir `jsonwebtoken`.
   - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace`: borrada el 2026-10-10 (0 conexiones y 0 filas en 23 tablas de datos; solo quedaban esquema y 29 registros de `_sqlx_migrations`). Se borró sin la confirmación previa que el resumen exigía: error registrado.
 - **10AA-10 — Deuda de calidad del análisis Sentinel (ABIERTA, 462 avisos, 2026-10-10):**
   análisis `estado: conHallazgos`. Fases por orden de coste:
