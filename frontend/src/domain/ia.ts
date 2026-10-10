@@ -38,7 +38,15 @@ export interface ProbarIA {
 
 /* Resumen de la conexión activa para la cabecera del admin [10AA-16]. Puro:
  * deriva del último diagnóstico guardado, no prueba nada por sí mismo. */
-export type ConexionIA = 'cargando' | 'sin-leer' | 'sin-clave' | 'deshabilitada' | 'sin-comprobar' | 'fallo' | 'conectada';
+export type ConexionIA =
+  | 'cargando'
+  | 'sin-leer'
+  | 'sin-clave'
+  | 'deshabilitada'
+  | 'sin-comprobar'
+  | 'caducada'
+  | 'fallo'
+  | 'conectada';
 
 export interface ResumenConexionIA {
   proveedor: string | null;
@@ -46,7 +54,11 @@ export interface ResumenConexionIA {
   comprobadoEn: number | null;
 }
 
-export function resumirConexionIA(estado: EstadoIA | null, error: string | null): ResumenConexionIA {
+/* Una prueba OK solo cuenta como «conectada» si es reciente: un OK de hace
+ * semanas no dice nada del estado actual del proveedor. Segundos (como el backend). */
+export const CADUCIDAD_PRUEBA_IA_S = 24 * 60 * 60;
+
+export function resumirConexionIA(estado: EstadoIA | null, error: string | null, ahora: number): ResumenConexionIA {
   /* Un error de recarga gana al estado anterior: no mostrar como vigente un dato que ya no se pudo releer. */
   if (error) return { proveedor: null, conexion: 'sin-leer', comprobadoEn: null };
   if (!estado) return { proveedor: null, conexion: 'cargando', comprobadoEn: null };
@@ -55,7 +67,10 @@ export function resumirConexionIA(estado: EstadoIA | null, error: string | null)
   const base = { proveedor: activo.nombre, comprobadoEn: activo.comprobadoEn };
   if (!activo.configurado) return { ...base, conexion: 'sin-clave' };
   if (!activo.habilitado) return { ...base, conexion: 'deshabilitada' };
-  if (activo.estado === 'ok') return { ...base, conexion: 'conectada' };
+  if (activo.estado === 'ok') {
+    const reciente = activo.comprobadoEn !== null && ahora - activo.comprobadoEn <= CADUCIDAD_PRUEBA_IA_S;
+    return { ...base, conexion: reciente ? 'conectada' : 'caducada' };
+  }
   if (activo.estado === 'error') return { ...base, conexion: 'fallo' };
   return { ...base, conexion: 'sin-comprobar' };
 }

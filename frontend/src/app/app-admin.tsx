@@ -74,6 +74,8 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
   /* Indicador de IA de la cabecera [10AA-16]: lee el estado al montar y lo
    * vuelve a leer al cerrar Configuración (mientras está abierta no recarga). */
   const ia = useConfigIA(!configAbierta);
+  /* Momento de montaje: la caducidad de la última prueba se juzga contra él, sin llamar a Date.now() en cada render. */
+  const [montadoEn] = useState(() => Date.now() / 1000);
   const [copyId, setCopyId] = useState<string | null>(null);
   const fotosNuevas = useAnadirFotos(inmuebles, actualizar);
   const temaApp = useTema();
@@ -148,7 +150,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
       alAbrirConfig={() => setConfigAbierta(true)}
       temaExterno={temaApp.tema}
       alCiclarTemaExterno={temaApp.ciclar}
-      iaResumen={resumirConexionIA(ia.estado, ia.error)}
+      iaResumen={resumirConexionIA(ia.estado, ia.error, montadoEn)}
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div>

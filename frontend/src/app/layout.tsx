@@ -71,10 +71,11 @@ function BotonTema({ tema, alCambiar }: { tema: Tema; alCambiar: () => void }) {
 }
 
 /* Estado de la conexión de IA en la cabecera del admin [10AA-16]. Verde:
- * última prueba OK; ámbar: sin comprobar o deshabilitada; rojo: no conecta
- * o no se pudo leer. La fecha va en el texto para juzgar si la prueba es vieja. */
+ * última prueba OK reciente; ámbar: sin comprobar, deshabilitada o prueba
+ * caducada; rojo: no conecta o no se pudo leer. La fecha va en el texto. */
 const COLOR_CONEXION: Record<ConexionIA, string> = {
   conectada: 'bg-emerald-500',
+  caducada: 'bg-amber-500',
   'sin-comprobar': 'bg-amber-500',
   deshabilitada: 'bg-amber-500',
   fallo: 'bg-destructive',
@@ -101,6 +102,8 @@ function textoIA(r: ResumenConexionIA): string {
       return `${proveedor} · deshabilitada`;
     case 'sin-comprobar':
       return `${proveedor} · sin comprobar`;
+    case 'caducada':
+      return `${proveedor} · última prueba OK ${fechaIA(r.comprobadoEn)}, repetir Probar`;
     case 'fallo':
       return `${proveedor} · la última prueba falló (${fechaIA(r.comprobadoEn)})`;
     case 'conectada':
