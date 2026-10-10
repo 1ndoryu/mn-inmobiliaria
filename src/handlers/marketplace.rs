@@ -191,3 +191,6 @@ pub async fn uso(
  * El borrador jamás se bloquea: los casos negativos dan `SIN_FICHA`. */
 #[cfg(test)]
 mod pruebas_claves_cache_mp_id;
+/* [10AA-17] Regenerar (`force`): filtro de hit y persistencia con/sin pisar. */
+#[cfg(test)]
+mod pruebas_regenerar_force;

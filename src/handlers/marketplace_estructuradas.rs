@@ -345,6 +345,7 @@ mod pruebas_f3 {
             aviso_id: None,
             extras: None,
             conversacion: conv,
+            force: false,
         }
     }
 

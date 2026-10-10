@@ -83,6 +83,10 @@ pub struct BorradorRequest {
      * renderiza a `excerpt.texto` antes de seguir el flujo normal. */
     #[serde(default)]
     pub conversacion: Option<super::marketplace_burbujas::ConversacionEstructurada>,
+    /* [10AA-17] Regenerar del float: salta la caché (salvo corrección de la
+     * dueña) y pisa la fila con el texto nuevo. Ausente = flujo normal. */
+    #[serde(default)]
+    pub force: bool,
 }
 
 /* `pub(super)`: lo usan los tests de `marketplace` vía `super::*`

@@ -26,6 +26,11 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
+- **Regenerar automático (cerrado en código 2026-10-10, 10AA-17; detalle en `Agente/completados/tareas-2026-10-10.md`):**
+  - Prueba viva pendiente: reiniciar la app de opencode con `lab-arrancar.ps1` (`MP_NUCLEO=on`), regenerar un chat desde el float y comprobar que el admin muestra el texto nuevo sin limpiar caché. **Pregunta:** ¿su app de opencode tiene `MP_NUCLEO` encendido? Recomendado: sí.
+  - Promoción del lab a `opencode-propio` (`marketplace-service.ts`, `marketplace-float.ts`, `marketplace-nucleo.ts` difieren de su copia). **Pregunta:** ¿autoriza la fusión manual? Recomendado: sí, con diff primero y reinicio + prueba viva.
+  - Abierto: `floatDraftCache` de main no se invalida al borrar en MN (cubierto por `force`).
+  - Seguridad: `GEMINI_PSID`/`GEMINI_PSIDTS` están en claro en `.env` (no commiteado). Recomendado: rotarlos.
 - **Decisiones de la usuaria: ramas y BD sueltas (2026-10-10, cierre de 10AA-13):**
   - `fix/08AA-26-hallazgos-sentinel`: fusionada en `main` (merge `3fe28f9e`), `main` publicada (`398a3097`), worktree y directorio sobrante borrados. Su worktree no tenía trabajo sin commitear: `frontend/src` idéntico a `main` salvo fin de línea CRLF.
   - PR #2 (`dependabot/cargo/cargo-09e84698d7`, subía `jsonwebtoken` 9→10 y `rand`): **cerrada y rama remota borrada** el 2026-10-10. Motivo: `jsonwebtoken` 10 exige feature de CryptoProvider (`rust_crypto` o `aws_lc_rs`); sin ella `encode`/`decode` entran en pánico en runtime (falla `decode_rechaza_expirado`). Copia de seguridad verificada: `C:/tmp/backups-ramas/dependabot-cargo-09e84698d7.bundle` (temporal, en `C:/tmp`).

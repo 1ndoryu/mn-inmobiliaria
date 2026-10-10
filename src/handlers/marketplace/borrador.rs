@@ -101,7 +101,13 @@ pub async fn borrador(
         precio_hash: &precio_hash,
         catalog_hash: &catalog_hash,
     };
-    if let Some((texto, corregida)) = buscar_hit(&state.pool, &cl, &foto, compartida).await? {
+    /* [10AA-17] Regenerar (`force`): solo una corrección de la dueña corta el
+     * paso; cualquier otro hit se descarta y el texto se regenera de verdad. */
+    let hit = aceptar_hit(
+        buscar_hit(&state.pool, &cl, &foto, compartida).await?,
+        r.force,
+    );
+    if let Some((texto, corregida)) = hit {
         /* Hit: el plugin audita `hit`; aquí no se audita nada (el conteo de
          * usos ya subió en la misma sentencia del `UPDATE ... RETURNING`). */
         log_borrador_cache(r.thread_id.trim(), corregida);
@@ -142,7 +148,7 @@ pub async fn borrador(
         conocido,
     );
     if gen.fuente == "ia" {
-        guardar_generado(&state.pool, &cl, &foto, &gen, compartida).await?;
+        guardar_generado(&state.pool, &cl, &foto, &gen, compartida, r.force).await?;
     }
     let resp = (
         StatusCode::OK,
@@ -162,10 +168,16 @@ pub async fn borrador(
 /// Claves de caché de una petición ya resueltas: firma del hilo (v2 y legacy)
 /// y hashes de precio y catálogo del aviso.
 pub(super) struct ClavesBorrador<'a> {
-    firma_cache: &'a str,
-    firma_legacy: Option<&'a str>,
-    precio_hash: &'a str,
-    catalog_hash: &'a str,
+    pub(super) firma_cache: &'a str,
+    pub(super) firma_legacy: Option<&'a str>,
+    pub(super) precio_hash: &'a str,
+    pub(super) catalog_hash: &'a str,
+}
+
+/// [10AA-17] Un hit cuenta si no hay Regenerar o si es corrección de la dueña
+/// (Regenerar nunca la pisa). Sin `force` devuelve el hit tal cual.
+pub(super) fn aceptar_hit(hit: Option<(String, bool)>, force: bool) -> Option<(String, bool)> {
+    hit.filter(|(_, corregida)| *corregida || !force)
 }
 
 /// Lookup de caché de `borrador`: primero la respuesta compartida del inmueble
@@ -203,26 +215,43 @@ pub(super) async fn buscar_hit(
 }
 
 /// Persiste un borrador de IA: caché del hilo y, si el nombre aparece a lo
-/// sumo una vez, plantilla compartida del inmueble.
+/// sumo una vez, plantilla compartida del inmueble. `pisar` (Regenerar) pisa
+/// la fila y la plantilla en vez de respetar la que ya hubiera.
 pub(super) async fn guardar_generado(
     pool: &sqlx::PgPool,
     cl: &ClavesBorrador<'_>,
     foto: &FotoHilo<'_>,
     gen: &crate::services::marketplace::Generado,
     compartida: Option<(&ClaveCompartida<'_>, &str)>,
+    pisar: bool,
 ) -> Result<(), AppError> {
-    guardar_cache(
-        pool,
-        cl.firma_cache,
-        cl.precio_hash,
-        cl.catalog_hash,
-        &gen.texto,
-        foto,
-        gen.coste,
-    )
-    .await?;
+    if pisar {
+        reemplazar_cache(
+            pool,
+            cl.firma_cache,
+            cl.precio_hash,
+            cl.catalog_hash,
+            &gen.texto,
+            foto,
+            gen.coste,
+        )
+        .await?;
+    } else {
+        guardar_cache(
+            pool,
+            cl.firma_cache,
+            cl.precio_hash,
+            cl.catalog_hash,
+            &gen.texto,
+            foto,
+            gen.coste,
+        )
+        .await?;
+    }
     /* [09AA-30 F2] Publica la respuesta para el inmueble solo si el nombre
-     * aparece a lo sumo una vez (`{{nombre}}` sustituye una sola ocurrencia). */
+     * aparece a lo sumo una vez (`{{nombre}}` sustituye una sola ocurrencia).
+     * [10AA-17] Con `pisar` también se pisa la plantilla: si no, el siguiente
+     * borrador del hilo (sin force) la reenlazaría con el texto viejo. */
     if let Some((clave, n)) = compartida {
         if ocurrencias_nombre(&gen.texto, n) <= 1 {
             enlazar_compartida(
@@ -231,7 +260,7 @@ pub(super) async fn guardar_generado(
                 clave,
                 &plantilla_de_nombre(&gen.texto, n),
                 gen.coste,
-                false,
+                pisar,
             )
             .await?;
         }
