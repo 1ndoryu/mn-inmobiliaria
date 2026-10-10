@@ -4,10 +4,30 @@
  * alineados a la rama/proyecto actual. */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { getBranchDbContext } from './branch-db.mjs';
+import path from 'node:path';
+import { getBranchDbContext, versionesAjenas } from './branch-db.mjs';
 
 function cargoCommand() {
   return process.platform === 'win32' ? 'cargo.exe' : 'cargo';
+}
+
+/* [10AA-11] En Windows, un `glory-backend.exe` vivo de esta misma rama bloquea
+ * el relink de cargo (`Acceso denegado (os error 5)`). Solo se paran procesos
+ * `glory-backend.exe` cuyo ejecutable cuelga de este CARGO_TARGET_DIR (la
+ * rama): nunca otros proyectos ni opencode. El prefijo lleva `\` final para no
+ * casar con `..._otra_rama`. */
+function liberarBinariosDeLaRama(targetDir) {
+  if (process.platform !== 'win32') return;
+  const prefijo = `${path.win32.resolve(targetDir)}\\`;
+  const ps = "Get-CimInstance Win32_Process -Filter \"Name='glory-backend.exe'\" | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($env:RAMA_PREFIJO, [StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; $_.ProcessId }";
+  const res = spawnSync('powershell.exe', ['-NoProfile', '-Command', ps], {
+    encoding: 'utf8',
+    env: { ...process.env, RAMA_PREFIJO: prefijo },
+  });
+  const pids = (res.stdout || '').split(/\s+/).filter(Boolean);
+  if (pids.length > 0) {
+    console.warn(`[db] Paro procesos vivos de esta rama que bloquean el build: PID ${pids.join(', ')}`);
+  }
 }
 
 function migrarBdRama(dbUrl) {
@@ -36,7 +56,7 @@ if (cargoArgs.length === 0) {
 }
 
 console.log('');
-const { dbUrl, cargoTargetDir } = getBranchDbContext();
+const { dbName, dbUrl, cargoTargetDir } = getBranchDbContext();
 console.log('');
 
 /* [011A-3] La BD de rama se crea vacia y los macros `query_*!` validan
@@ -45,7 +65,17 @@ console.log('');
  * antes de compilar. Si falta `cargo-sqlx` se avisa y se sigue (el backend
  * automigra al arrancar); si la migracion falla, se corta con el error
  * visible en vez de dejar que los macros fallen despues. */
+/* [10AA-1] Una BD con migraciones sin fichero es de otro proyecto (p. ej.
+ * `glory_backend`): migrar o compilar contra ella corrompe ambas. Se corta
+ * antes de tocarla. */
+const ajenas = versionesAjenas(dbUrl);
+if (ajenas.length > 0) {
+  console.error(`[db] La BD ${dbName} tiene migraciones sin fichero en migrations/: ${ajenas.join(', ')}`);
+  console.error('[db] Suele ser la BD de otro proyecto. Revisa DATABASE_URL en .env; no migro ni compilo.');
+  process.exit(1);
+}
 migrarBdRama(dbUrl);
+liberarBinariosDeLaRama(cargoTargetDir);
 
 const child = spawn(cargoCommand(), cargoArgs, {
   stdio: 'inherit',

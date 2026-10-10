@@ -88,12 +88,42 @@ function quoteSqlIdentifier(value) {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
+/* [10AA-1] Versiones de `_sqlx_migrations` sin fichero en migrations/ (BD de
+ * otro proyecto o de una rama vieja). [] si la BD aún no tiene la tabla. */
+export function versionesAjenas(dbUrl) {
+  const psqlBin = findPsql();
+  const migrationsDir = path.join(projectRoot, 'migrations');
+  if (!psqlBin || !existsSync(migrationsDir)) return [];
+
+  const match = dbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
+  if (!match) {
+    throw new Error(`No se pudo parsear DATABASE_URL: ${dbUrl}`);
+  }
+  const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
+  const psql = (sql) => execFileSync(
+    psqlBin,
+    ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName, '-t', '-A', '-c', sql],
+    { env: { ...process.env, PGPASSWORD: dbPass }, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+  );
+
+  if (psql("SELECT to_regclass('_sqlx_migrations') IS NOT NULL").trim() !== 't') return [];
+  const enBd = psql('SELECT version FROM _sqlx_migrations ORDER BY version')
+    .split(/\r?\n/)
+    .filter(Boolean);
+  const enFicheros = new Set(
+    readdirSync(migrationsDir)
+      .map((file) => file.match(/^(\d+)_/))
+      .filter(Boolean)
+      .map((m) => Number(m[1])),
+  );
+  return enBd.filter((version) => !enFicheros.has(Number(version)));
+}
+
 export function getBranchDbContext({ verbose = true, ensureExists = true } = {}) {
   const branch = detectBranch();
   const branchSlug = slugifyBranchName(branch);
   const pkgName = readPackageName();
   const isDefaultBranch = branch === 'main' || branch === 'master';
-  const dbName = isDefaultBranch ? pkgName : `${pkgName}_${branchSlug}`;
 
   const envPath = path.join(projectRoot, '.env');
   const envVars = existsSync(envPath) ? parseEnvFile(readFileSync(envPath, 'utf8')) : {};
@@ -106,7 +136,11 @@ export function getBranchDbContext({ verbose = true, ensureExists = true } = {})
   if (!match) {
     throw new Error(`No se pudo parsear DATABASE_URL: ${baseDbUrl}`);
   }
-  const [, dbUser, dbPass, dbHost, dbPort] = match;
+  const [, dbUser, dbPass, dbHost, dbPort, baseDbName] = match;
+  /* [10AA-1] El nombre base sale del DATABASE_URL (BD del proyecto), no del
+   * `name` de Cargo.toml: en main, `glory_backend` apuntaba a una BD ajena.
+   * Las ramas añaden su slug al nombre base. */
+  const dbName = isDefaultBranch ? baseDbName : `${baseDbName}_${branchSlug}`;
   const dbUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${dbName}`;
 
   const cargoTargetBase =
