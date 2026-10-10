@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT excerpt_texto FROM mp_respuestas_cache WHERE thread_id = $1 ORDER BY valida_hasta DESC LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "excerpt_texto",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c5076f0985c1daab0564c58613045c0d2c8ece10f1d832462e5140913ef0a7bd"
+}

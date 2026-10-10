@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE mp_respuestas_inmueble SET usos = usos + 1 WHERE catalog_hash = $1 AND precio_hash = $2 AND mensaje_clave = $3 AND valida_hasta > now() RETURNING respuesta, corregida",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "respuesta",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "corregida",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "f4401306b1901798c98e8dc77434f5d0271d103dc39211e60ecf92ce3363c768"
+}

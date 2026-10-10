@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen) VALUES ($1, 'releer', 'releer', '', $2, $3, $4, 'releer') ON CONFLICT (firma, precio_hash, catalog_hash) DO UPDATE SET excerpt_texto = EXCLUDED.excerpt_texto, excerpt_crudo = EXCLUDED.excerpt_crudo",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "60a31fa6e372e5f61582194bc1e83f5a407c647ca7578268c488f2409b00a99a"
+}

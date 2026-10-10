@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM mp_respuestas_inmueble ci WHERE ci.catalog_hash = $1 AND ci.precio_hash = $2 AND ci.mensaje_clave = $3 AND NOT ci.corregida AND NOT EXISTS (SELECT 1 FROM mp_respuestas_cache c WHERE c.catalog_hash = ci.catalog_hash AND c.precio_hash = ci.precio_hash AND c.mensaje_clave = ci.mensaje_clave)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "67e21a72a347c5f40065894c5a275cfac0b7e0379c5e9c61d482be2db9a92c8d"
+}

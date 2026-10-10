@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, titulo, alias_titulos FROM inmuebles WHERE publicado = TRUE AND (NOT $1 OR marketplace_id IS NULL)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "titulo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "alias_titulos",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0ca923f2b5c052417a7b70cf36ac1a4ce7caa1e60b1a7f30989dd8a30582a1df"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM agent_outbox WHERE status IN ('sent', 'failed') AND created_at < NOW() - ($1 * INTERVAL '1 day')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c72eddfa11c495b9f1161bd95703dd8129ab0dc0488e06841a6e30116056d1a8"
+}

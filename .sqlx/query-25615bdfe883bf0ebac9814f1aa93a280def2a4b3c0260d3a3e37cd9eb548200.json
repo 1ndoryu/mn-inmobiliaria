@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE mp_respuestas_cache SET mensaje_clave = $4 WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "25615bdfe883bf0ebac9814f1aa93a280def2a4b3c0260d3a3e37cd9eb548200"
+}

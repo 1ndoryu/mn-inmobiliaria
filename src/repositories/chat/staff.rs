@@ -31,7 +31,8 @@ pub(crate) async fn listar_sesiones_bandeja(
     estado: Option<String>,
     limit: i64,
 ) -> Result<Vec<SesionResumen>, sqlx::Error> {
-    let filas: Vec<SesionResumen> = sqlx::query_as(
+    let filas: Vec<SesionResumen> = sqlx::query_as!(
+        SesionResumen,
         "SELECT s.id, s.visitor_name, s.contact, s.status, s.ai_enabled, \
          a.estado AS estado_atencion, a.modo AS modo_atencion, \
          cs.telefono AS telefono, \
@@ -46,9 +47,9 @@ pub(crate) async fn listar_sesiones_bandeja(
             WHERE session_id = s.id ORDER BY sequence_num DESC LIMIT 1) m ON true \
           WHERE ($1::TEXT IS NULL OR s.status = $1) \
           ORDER BY s.updated_at DESC LIMIT $2",
+        estado,
+        limit
     )
-    .bind(estado)
-    .bind(limit)
     .fetch_all(pool)
     .await?;
     Ok(filas)
@@ -61,15 +62,16 @@ pub(crate) async fn mensajes_historial_paginado(
     before_seq: Option<i64>,
     limit: i64,
 ) -> Result<Vec<glory_agent::models::ChatMessage>, sqlx::Error> {
-    let msgs: Vec<glory_agent::models::ChatMessage> = sqlx::query_as(
+    let msgs: Vec<glory_agent::models::ChatMessage> = sqlx::query_as!(
+        glory_agent::models::ChatMessage,
         "SELECT id, session_id, sender, body, sequence_num, input_tokens, output_tokens, created_at \
          FROM agent_messages WHERE session_id = $1 \
          AND ($2::BIGINT IS NULL OR sequence_num < $2) \
          ORDER BY sequence_num DESC LIMIT $3",
+        session_id,
+        before_seq,
+        limit
     )
-    .bind(session_id)
-    .bind(before_seq)
-    .bind(limit)
     .fetch_all(pool)
     .await?;
     Ok(msgs)
@@ -95,16 +97,17 @@ pub(crate) async fn listar_clientes_resumen(
     query: Option<&str>,
     limit: i64,
 ) -> Result<Vec<ClienteResumen>, sqlx::Error> {
-    let filas: Vec<ClienteResumen> = sqlx::query_as(
+    let filas: Vec<ClienteResumen> = sqlx::query_as!(
+        ClienteResumen,
         "SELECT c.id, c.nombre, c.telefono, c.origen, c.interes, c.presupuesto, c.zona, \
           c.notas, (SELECT COUNT(*) FROM canal_sesiones cs WHERE cs.cliente_id = c.id) AS sesiones, \
           c.created_at, c.updated_at \
          FROM clientes c \
          WHERE ($1::TEXT IS NULL OR c.nombre ILIKE '%' || $1 || '%' OR c.telefono ILIKE '%' || $1 || '%') \
          ORDER BY c.updated_at DESC LIMIT $2",
+        query,
+        limit
     )
-    .bind(query)
-    .bind(limit)
     .fetch_all(pool)
     .await?;
     Ok(filas)
@@ -121,7 +124,8 @@ pub(crate) async fn actualizar_cliente_campos(
     zona: Option<&str>,
     notas: Option<&str>,
 ) -> Result<Option<crate::models::ClienteRow>, sqlx::Error> {
-    let fila: Option<crate::models::ClienteRow> = sqlx::query_as(
+    let fila: Option<crate::models::ClienteRow> = sqlx::query_as!(
+        crate::models::ClienteRow,
         "UPDATE clientes SET \
           nombre = COALESCE($2, nombre), interes = COALESCE($3, interes), \
           presupuesto = COALESCE($4, presupuesto), zona = COALESCE($5, zona), \
@@ -129,13 +133,13 @@ pub(crate) async fn actualizar_cliente_campos(
          WHERE id = $1 \
          RETURNING id, nombre, telefono, origen, interes, presupuesto, zona, \
            notas, created_at, updated_at",
+        id,
+        nombre,
+        interes,
+        presupuesto,
+        zona,
+        notas
     )
-    .bind(id)
-    .bind(nombre)
-    .bind(interes)
-    .bind(presupuesto)
-    .bind(zona)
-    .bind(notas)
     .fetch_optional(pool)
     .await?;
     Ok(fila)
@@ -160,18 +164,20 @@ pub(crate) async fn listar_sesiones_de_cliente(
     pool: &PgPool,
     cliente_id: Uuid,
 ) -> Result<Vec<SesionDeCliente>, sqlx::Error> {
-    let filas: Vec<SesionDeCliente> = sqlx::query_as(
-        "SELECT cs.session_id, cs.canal, cs.telefono, cs.modo, a.estado AS estado_atencion, \
-          s.status, s.ai_enabled, \
-          m.body AS last_body, m.sender AS last_sender, m.created_at AS last_at \
+    // Alias `?` fuerza Option: el LEFT JOIN LATERAL no permite a sqlx inferir la nulabilidad.
+    let filas = sqlx::query_as!(
+        SesionDeCliente,
+        "SELECT cs.session_id, cs.canal AS \"canal?\", cs.telefono AS \"telefono?\", cs.modo AS \"modo?\", \
+          a.estado AS \"estado_atencion?\", s.status AS \"status?\", s.ai_enabled AS \"ai_enabled?\", \
+          m.body AS \"last_body?\", m.sender AS \"last_sender?\", m.created_at AS \"last_at?\" \
          FROM canal_sesiones cs \
          JOIN agent_sessions s ON s.id = cs.session_id \
          LEFT JOIN atencion_sesiones a ON a.session_id = cs.session_id \
          LEFT JOIN LATERAL (SELECT body, sender, created_at FROM agent_messages \
            WHERE session_id = cs.session_id ORDER BY sequence_num DESC LIMIT 1) m ON true \
          WHERE cs.cliente_id = $1 ORDER BY s.updated_at DESC LIMIT 100",
+        cliente_id
     )
-    .bind(cliente_id)
     .fetch_all(pool)
     .await?;
     Ok(filas)

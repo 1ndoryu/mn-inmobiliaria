@@ -39,14 +39,17 @@ pub async fn revisar_tope(pool: &PgPool) -> Result<bool, String> {
     if !evaluar_tope(uso_hoy, tope, ya_alertado) {
         return Ok(false);
     }
-    let top: Vec<(Option<String>, Option<i64>)> = sqlx::query_as(
+    let top: Vec<(Option<String>, Option<i64>)> = sqlx::query!(
         "SELECT sender, SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0)) \
          FROM uso_mensajes WHERE created_at >= CURRENT_DATE \
          GROUP BY sender ORDER BY 2 DESC LIMIT 3",
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| e.to_string())?
+    .into_iter()
+    .map(|r| (Some(r.sender), r.sum))
+    .collect();
     let detalle = top
         .iter()
         .map(|(r, t)| format!("{}: {}", r.as_deref().unwrap_or("?"), t.unwrap_or(0)))
@@ -88,18 +91,19 @@ pub async fn revisar_tope(pool: &PgPool) -> Result<bool, String> {
 async fn leer_estado_uso(
     pool: &PgPool,
 ) -> Result<(String, Option<String>, Option<String>, i64), String> {
-    sqlx::query_as(
-        "SELECT CURRENT_DATE::TEXT, \
-          (SELECT value FROM agent_config WHERE key = $1), \
-          (SELECT value FROM agent_config WHERE key = $2), \
+    let r = sqlx::query!(
+        "SELECT CURRENT_DATE::TEXT AS \"hoy!\", \
+          (SELECT value FROM agent_config WHERE key = $1) AS tope, \
+          (SELECT value FROM agent_config WHERE key = $2) AS alerta, \
           (SELECT COALESCE(SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0)), 0) \
-           FROM uso_mensajes WHERE created_at >= CURRENT_DATE)",
+           FROM uso_mensajes WHERE created_at >= CURRENT_DATE) AS \"uso!\"",
+        CLAVE_TOPE,
+        CLAVE_ALERTA,
     )
-    .bind(CLAVE_TOPE)
-    .bind(CLAVE_ALERTA)
     .fetch_one(pool)
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?;
+    Ok((r.hoy, r.tope, r.alerta, r.uso))
 }
 
 /// Bucle de fondo: revisa cada 5 min; los fallos se registran y se reintenta

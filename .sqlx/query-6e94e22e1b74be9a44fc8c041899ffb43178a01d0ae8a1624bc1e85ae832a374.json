@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen, tokens_entrada, tokens_salida, ms_generacion) VALUES ($1, $2, $3, $4, $5, $6, $7, 'ia', $8, $9, $10) ON CONFLICT (firma, precio_hash, catalog_hash) DO UPDATE SET respuesta = EXCLUDED.respuesta, valida_hasta = now() + INTERVAL '90 days', corregida = FALSE, usos = 0, thread_id = EXCLUDED.thread_id, excerpt_texto = EXCLUDED.excerpt_texto, excerpt_crudo = EXCLUDED.excerpt_crudo, origen = EXCLUDED.origen, tokens_entrada = EXCLUDED.tokens_entrada, tokens_salida = EXCLUDED.tokens_salida, ms_generacion = EXCLUDED.ms_generacion",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6e94e22e1b74be9a44fc8c041899ffb43178a01d0ae8a1624bc1e85ae832a374"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT canal, telefono FROM canal_sesiones WHERE session_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "canal",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "telefono",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "bfb9a83ccc4304b41bc11f15b0318276daee5fc4b2265aa10e3f9f068b222b7a"
+}

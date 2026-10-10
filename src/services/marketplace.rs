@@ -808,11 +808,13 @@ pub async fn registrar_token(
     expira_en: &DateTime<chrono::Utc>,
 ) -> Result<String, AppError> {
     let jti = Uuid::new_v4().to_string();
-    sqlx::query("INSERT INTO mp_tokens_emitidos (jti, sub, expira_en) VALUES ($1, $2, $3)")
-        .bind(&jti)
-        .bind(sub)
-        .bind(expira_en)
-        .execute(pool)
+    sqlx::query!(
+        "INSERT INTO mp_tokens_emitidos (jti, sub, expira_en) VALUES ($1, $2, $3)",
+        &jti,
+        sub,
+        expira_en,
+    )
+    .execute(pool)
         .await?;
     Ok(jti)
 }
@@ -821,7 +823,7 @@ pub async fn registrar_token(
 /// vez (la dueña lo pidió como botón al lado de «Recargar» para no depender
 /// de limpiezas manuales por SQL). Devuelve cuántas filas cayeron.
 pub async fn borrar_todo_cache(pool: &sqlx::PgPool) -> Result<u64, AppError> {
-    let r = sqlx::query("DELETE FROM mp_respuestas_cache")
+    let r = sqlx::query!("DELETE FROM mp_respuestas_cache")
         .execute(pool)
         .await?;
     if r.rows_affected() > 0 {
@@ -840,9 +842,11 @@ pub async fn borrar_hilo_no_corregidas(
     pool: &sqlx::PgPool,
     thread_clave: &str,
 ) -> Result<u64, AppError> {
-    let r = sqlx::query("DELETE FROM mp_respuestas_cache WHERE thread_id = $1 AND NOT corregida")
-        .bind(thread_clave)
-        .execute(pool)
+    let r = sqlx::query!(
+        "DELETE FROM mp_respuestas_cache WHERE thread_id = $1 AND NOT corregida",
+        thread_clave,
+    )
+    .execute(pool)
         .await?;
     if r.rows_affected() > 0 {
         VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
@@ -853,11 +857,11 @@ pub async fn borrar_hilo_no_corregidas(
 /// Archiva un hilo: solo lo oculta de `resumen_chats`. Su caché, sus
 /// correcciones y la compartida quedan intactas.
 pub async fn archivar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<(), AppError> {
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO mp_chats_archivados (thread_id) VALUES ($1) \
          ON CONFLICT (thread_id) DO NOTHING",
+        thread_clave,
     )
-    .bind(thread_clave)
     .execute(pool)
     .await?;
     Ok(())
@@ -868,12 +872,10 @@ pub async fn archivar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<()
 /// inmueble y sigue sirviendo a otros hilos.
 pub async fn borrar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<u64, AppError> {
     let mut tx = pool.begin().await?;
-    let r = sqlx::query("DELETE FROM mp_respuestas_cache WHERE thread_id = $1")
-        .bind(thread_clave)
+    let r = sqlx::query!("DELETE FROM mp_respuestas_cache WHERE thread_id = $1", thread_clave)
         .execute(&mut *tx)
         .await?;
-    sqlx::query("DELETE FROM mp_chats_archivados WHERE thread_id = $1")
-        .bind(thread_clave)
+    sqlx::query!("DELETE FROM mp_chats_archivados WHERE thread_id = $1", thread_clave)
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
@@ -903,28 +905,33 @@ pub async fn borrar_borrador_hilo(
 ) -> Result<u64, AppError> {
     let mut tx = pool.begin().await?;
     // Las claves se leen antes de borrar: después ya no hay filas que enlazar.
-    let claves: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT DISTINCT catalog_hash, precio_hash, mensaje_clave FROM mp_respuestas_cache \
+    let claves: Vec<(String, String, String)> = sqlx::query!(
+        "SELECT DISTINCT catalog_hash, precio_hash, mensaje_clave AS \"mensaje_clave!\" FROM mp_respuestas_cache \
          WHERE thread_id = $1 AND NOT corregida AND mensaje_clave IS NOT NULL",
+        thread_clave,
     )
-    .bind(thread_clave)
     .fetch_all(&mut *tx)
-    .await?;
-    let r = sqlx::query("DELETE FROM mp_respuestas_cache WHERE thread_id = $1 AND NOT corregida")
-        .bind(thread_clave)
-        .execute(&mut *tx)
+    .await?
+    .into_iter()
+    .map(|r| (r.catalog_hash, r.precio_hash, r.mensaje_clave))
+    .collect();
+    let r = sqlx::query!(
+        "DELETE FROM mp_respuestas_cache WHERE thread_id = $1 AND NOT corregida",
+        thread_clave,
+    )
+    .execute(&mut *tx)
         .await?;
     for (catalogo, precio, mensaje) in &claves {
-        sqlx::query(
+        sqlx::query!(
             "DELETE FROM mp_respuestas_inmueble ci WHERE ci.catalog_hash = $1 \
              AND ci.precio_hash = $2 AND ci.mensaje_clave = $3 AND NOT ci.corregida \
              AND NOT EXISTS (SELECT 1 FROM mp_respuestas_cache c \
              WHERE c.catalog_hash = ci.catalog_hash AND c.precio_hash = ci.precio_hash \
              AND c.mensaje_clave = ci.mensaje_clave)",
+            catalogo.as_str(),
+            precio.as_str(),
+            mensaje.as_str(),
         )
-        .bind(catalogo.as_str())
-        .bind(precio.as_str())
-        .bind(mensaje.as_str())
         .execute(&mut *tx)
         .await?;
     }
@@ -951,23 +958,24 @@ pub struct UsoDia {
 /// N+1). `dias` se acota a 1..=90; la ventana es día calendario local del
 /// servidor (misma base que `ts_hora` truncada a la hora).
 pub async fn resumen_uso(pool: &sqlx::PgPool, dias: i32) -> Result<Vec<UsoDia>, AppError> {
-    use sqlx::Row as _;
     let dias = dias.clamp(1, 90);
-    let filas = sqlx::query(
-        "SELECT ts_hora::date AS dia, evento, COUNT(*) AS n \
+    // `GROUP BY`/`ORDER BY` repiten la expresión: con el alias `"dia!"` el
+    // nombre `dia` ya no existe en el SQL. Misma agrupación que antes.
+    let filas = sqlx::query!(
+        "SELECT ts_hora::date AS \"dia!\", evento, COUNT(*) AS \"n!\" \
          FROM mp_auditoria \
          WHERE ts_hora >= date_trunc('day', now()) - make_interval(days => $1) \
-         GROUP BY dia, evento ORDER BY dia",
+         GROUP BY ts_hora::date, evento ORDER BY ts_hora::date",
+        dias,
     )
-    .bind(dias)
     .fetch_all(pool)
     .await?;
     let mut orden: Vec<String> = Vec::new();
     let mut por_dia: std::collections::HashMap<String, UsoDia> = std::collections::HashMap::new();
-    for f in &filas {
-        let dia: chrono::NaiveDate = f.try_get("dia")?;
-        let evento: String = f.try_get("evento")?;
-        let n: i64 = f.try_get("n")?;
+    for f in filas {
+        let dia = f.dia;
+        let evento = f.evento;
+        let n = f.n;
         let clave = dia.format("%Y-%m-%d").to_string();
         let entrada = por_dia.entry(clave.clone()).or_insert_with(|| {
             orden.push(clave.clone());
@@ -1209,21 +1217,24 @@ async fn filas_chats_tras(
         Some((u, h)) => (Some(*u), Some(h.as_str())),
         None => (None, None),
     };
-    let filas: Vec<FilaChat> = sqlx::query_as(
-        "SELECT thread_id, COUNT(*)::BIGINT, COALESCE(SUM(usos), 0)::BIGINT, \
-         SUM(CASE WHEN corregida THEN 1 ELSE 0 END)::BIGINT, MAX(valida_hasta) \
+    let filas: Vec<FilaChat> = sqlx::query!(
+        "SELECT thread_id, COUNT(*)::BIGINT AS \"borradores!\", COALESCE(SUM(usos), 0)::BIGINT AS \"usos!\", \
+         SUM(CASE WHEN corregida THEN 1 ELSE 0 END)::BIGINT AS \"corregidas!\", MAX(valida_hasta) AS \"ultimo!\" \
          FROM mp_respuestas_cache \
          WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados) \
          GROUP BY thread_id \
          HAVING $1::TIMESTAMPTZ IS NULL OR (MAX(valida_hasta), thread_id) < ($1, $2) \
          ORDER BY MAX(valida_hasta) DESC, thread_id DESC \
          LIMIT $3",
+        ultimo,
+        hilo,
+        lote,
     )
-    .bind(ultimo)
-    .bind(hilo)
-    .bind(lote)
     .fetch_all(pool)
-    .await?;
+    .await?
+    .into_iter()
+    .map(|r| (r.thread_id, r.borradores, r.usos, r.corregidas, r.ultimo))
+    .collect();
     Ok(filas)
 }
 
@@ -1301,15 +1312,30 @@ pub async fn detalle_chat(pool: &sqlx::PgPool, thread: &str) -> Result<Vec<ChatF
         Option<i64>,
         Option<i64>,
     );
-    let filas: Vec<FilaBd> = sqlx::query_as(
-        "SELECT excerpt_texto, respuesta, usos::BIGINT, corregida, valida_hasta, \
+    let filas: Vec<FilaBd> = sqlx::query!(
+        "SELECT excerpt_texto, respuesta, usos::BIGINT AS \"usos!\", corregida, valida_hasta, \
          origen, tokens_entrada, tokens_salida, ms_generacion \
          FROM mp_respuestas_cache WHERE thread_id = $1 \
          ORDER BY valida_hasta DESC LIMIT 200",
+        clave_hilo(thread),
     )
-    .bind(clave_hilo(thread))
     .fetch_all(pool)
-    .await?;
+    .await?
+    .into_iter()
+    .map(|r| {
+        (
+            r.excerpt_texto,
+            r.respuesta,
+            r.usos,
+            r.corregida,
+            r.valida_hasta,
+            r.origen,
+            r.tokens_entrada,
+            r.tokens_salida,
+            r.ms_generacion,
+        )
+    })
+    .collect();
     Ok(filas
         .into_iter()
         .map(
@@ -1393,17 +1419,18 @@ pub async fn buscar_cache(
     precio_hash: &str,
     catalog_hash: &str,
 ) -> Result<Option<(String, bool)>, AppError> {
-    let fila: Option<(String, bool)> = sqlx::query_as(
+    let fila: Option<(String, bool)> = sqlx::query!(
         "UPDATE mp_respuestas_cache SET usos = usos + 1 \
          WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3 \
          AND valida_hasta > now() \
          RETURNING respuesta, corregida",
+        firma,
+        precio_hash,
+        catalog_hash,
     )
-    .bind(firma)
-    .bind(precio_hash)
-    .bind(catalog_hash)
     .fetch_optional(pool)
-    .await?;
+    .await?
+    .map(|r| (r.respuesta, r.corregida));
     Ok(fila)
 }
 
@@ -1446,20 +1473,20 @@ pub async fn guardar_cache(
     foto: &FotoHilo<'_>,
     coste: Coste,
 ) -> Result<(), AppError> {
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen, tokens_entrada, tokens_salida, ms_generacion) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'ia', $8, $9, $10) ON CONFLICT DO NOTHING",
+        firma,
+        precio_hash,
+        catalog_hash,
+        respuesta,
+        clave_hilo(foto.thread_id),
+        foto.excerpt,
+        foto.excerpt_crudo,
+        coste.tokens_entrada,
+        coste.tokens_salida,
+        coste.ms,
     )
-    .bind(firma)
-    .bind(precio_hash)
-    .bind(catalog_hash)
-    .bind(respuesta)
-    .bind(clave_hilo(foto.thread_id))
-    .bind(foto.excerpt)
-    .bind(foto.excerpt_crudo)
-    .bind(coste.tokens_entrada)
-    .bind(coste.tokens_salida)
-    .bind(coste.ms)
     .execute(pool)
     .await?;
     Ok(())
@@ -1479,7 +1506,7 @@ pub async fn reemplazar_cache(
     foto: &FotoHilo<'_>,
     coste: Coste,
 ) -> Result<(), AppError> {
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen, tokens_entrada, tokens_salida, ms_generacion) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'ia', $8, $9, $10) \
          ON CONFLICT (firma, precio_hash, catalog_hash) DO UPDATE SET \
@@ -1488,17 +1515,17 @@ pub async fn reemplazar_cache(
          excerpt_texto = EXCLUDED.excerpt_texto, excerpt_crudo = EXCLUDED.excerpt_crudo, \
          origen = EXCLUDED.origen, tokens_entrada = EXCLUDED.tokens_entrada, \
          tokens_salida = EXCLUDED.tokens_salida, ms_generacion = EXCLUDED.ms_generacion",
+        firma,
+        precio_hash,
+        catalog_hash,
+        respuesta,
+        clave_hilo(foto.thread_id),
+        foto.excerpt,
+        foto.excerpt_crudo,
+        coste.tokens_entrada,
+        coste.tokens_salida,
+        coste.ms,
     )
-    .bind(firma)
-    .bind(precio_hash)
-    .bind(catalog_hash)
-    .bind(respuesta)
-    .bind(clave_hilo(foto.thread_id))
-    .bind(foto.excerpt)
-    .bind(foto.excerpt_crudo)
-    .bind(coste.tokens_entrada)
-    .bind(coste.tokens_salida)
-    .bind(coste.ms)
     .execute(pool)
     .await?;
     Ok(())
@@ -1546,24 +1573,25 @@ pub async fn releer_foto(
     limpio: &str,
     crudo: &str,
 ) -> Result<(bool, bool), AppError> {
-    let vieja: Option<(String,)> = sqlx::query_as(
+    let vieja: Option<(String,)> = sqlx::query!(
         "SELECT excerpt_texto FROM mp_respuestas_cache WHERE thread_id = $1 \
          ORDER BY valida_hasta DESC LIMIT 1",
+        clave_hilo(hilo),
     )
-    .bind(clave_hilo(hilo))
     .fetch_optional(pool)
-    .await?;
+    .await?
+    .map(|r| (r.excerpt_texto,));
     let combinada = match &vieja {
         Some((v,)) => combinar_foto_hilo(v, limpio),
         None => limpio.to_string(),
     };
-    let tocadas = sqlx::query(
+    let tocadas = sqlx::query!(
         "UPDATE mp_respuestas_cache SET excerpt_texto = $1, excerpt_crudo = $2 \
          WHERE thread_id = $3",
+        &combinada,
+        crudo,
+        clave_hilo(hilo),
     )
-    .bind(&combinada)
-    .bind(crudo)
-    .bind(clave_hilo(hilo))
     .execute(pool)
     .await?
     .rows_affected();
@@ -1571,16 +1599,16 @@ pub async fn releer_foto(
         return Ok((true, false));
     }
     let firma = sha_hex(&format!("releer-sin-borrador|{hilo}"));
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen) \
          VALUES ($1, 'releer', 'releer', '', $2, $3, $4, 'releer') \
          ON CONFLICT (firma, precio_hash, catalog_hash) DO UPDATE SET \
          excerpt_texto = EXCLUDED.excerpt_texto, excerpt_crudo = EXCLUDED.excerpt_crudo",
+        firma,
+        clave_hilo(hilo),
+        &combinada,
+        crudo,
     )
-    .bind(firma)
-    .bind(clave_hilo(hilo))
-    .bind(&combinada)
-    .bind(crudo)
     .execute(pool)
     .await?;
     Ok((true, true))
@@ -1593,13 +1621,13 @@ pub async fn borrar_cache(
     precio_hash: &str,
     catalog_hash: &str,
 ) -> Result<(), AppError> {
-    sqlx::query(
+    sqlx::query!(
         "DELETE FROM mp_respuestas_cache \
          WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
+        firma,
+        precio_hash,
+        catalog_hash,
     )
-    .bind(firma)
-    .bind(precio_hash)
-    .bind(catalog_hash)
     .execute(pool)
     .await?;
     Ok(())
@@ -1620,17 +1648,17 @@ pub async fn corregir_cache(
     if n == 0 || n > 2000 {
         return Err(AppError::Validation("texto 1..2000 caracteres".to_string()));
     }
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, corregida) \
          VALUES ($1, $2, $3, $4, TRUE) \
          ON CONFLICT (firma, precio_hash, catalog_hash) DO UPDATE SET \
          respuesta = EXCLUDED.respuesta, valida_hasta = now() + INTERVAL '90 days', \
          corregida = TRUE, usos = 0",
+        firma,
+        precio_hash,
+        catalog_hash,
+        texto,
     )
-    .bind(firma)
-    .bind(precio_hash)
-    .bind(catalog_hash)
-    .bind(texto)
     .execute(pool)
     .await?;
     Ok(())
@@ -1639,7 +1667,7 @@ pub async fn corregir_cache(
 /// Purga vencidas; devuelve cuántas cayeron. Se corre al arrancar (siempre) y
 /// a diario vía `pg_cron` (solo `DB_24H=true`).
 pub async fn purgar_cache(pool: &sqlx::PgPool) -> Result<u64, sqlx::Error> {
-    let r = sqlx::query("DELETE FROM mp_respuestas_cache WHERE valida_hasta <= now()")
+    let r = sqlx::query!("DELETE FROM mp_respuestas_cache WHERE valida_hasta <= now()")
         .execute(pool)
         .await?;
     Ok(r.rows_affected() + purgar_compartida(pool).await?)
@@ -1650,10 +1678,10 @@ pub async fn purgar_cache(pool: &sqlx::PgPool) -> Result<u64, sqlx::Error> {
 /// `pg_cron` en el servidor: el llamador lo deja en `warn` y sigue (la purga al
 /// arrancar ya cubre; fail-open documentado, nunca tumba el boot).
 pub async fn programar_purga_diaria(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
-    sqlx::query("CREATE EXTENSION IF NOT EXISTS pg_cron")
+    sqlx::query!("CREATE EXTENSION IF NOT EXISTS pg_cron")
         .execute(pool)
         .await?;
-    sqlx::query(
+    sqlx::query!(
         "DO $purga$ BEGIN \
            IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'mp-purga-diaria') THEN \
              PERFORM cron.unschedule('mp-purga-diaria'); \

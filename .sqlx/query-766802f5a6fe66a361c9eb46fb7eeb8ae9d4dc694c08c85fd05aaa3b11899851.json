@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE fotos SET orden = orden - 1 WHERE inmueble_id = $1 AND orden > $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "766802f5a6fe66a361c9eb46fb7eeb8ae9d4dc694c08c85fd05aaa3b11899851"
+}

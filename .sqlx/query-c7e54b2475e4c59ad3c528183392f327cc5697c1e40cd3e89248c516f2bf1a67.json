@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.ai_enabled AS \"ai_enabled!\", a.estado AS \"estado?\" FROM agent_sessions s LEFT JOIN atencion_sesiones a ON a.session_id = s.id WHERE s.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ai_enabled!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "estado?",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "c7e54b2475e4c59ad3c528183392f327cc5697c1e40cd3e89248c516f2bf1a67"
+}

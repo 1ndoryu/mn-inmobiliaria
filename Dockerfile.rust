@@ -32,6 +32,8 @@ COPY . ./
 RUN git submodule update --init --depth 1 || true
 RUN git clone "${GLORY_AGENT_URL}" /src/glory-agent \
     && git -C /src/glory-agent checkout --detach "${GLORY_AGENT_REF}"
+# Las macros sqlx validan contra `.sqlx/` (caché offline): el build no tiene BD.
+ENV SQLX_OFFLINE=true
 RUN cargo build --release --bin glory-backend
 
 # ---------- Etapa 3: runtime ----------

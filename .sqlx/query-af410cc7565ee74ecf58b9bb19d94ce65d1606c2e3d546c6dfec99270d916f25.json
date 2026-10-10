@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DO $purga$ BEGIN IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'mp-purga-diaria') THEN PERFORM cron.unschedule('mp-purga-diaria'); END IF; PERFORM cron.schedule('mp-purga-diaria', '0 7 * * *', 'DELETE FROM mp_respuestas_cache WHERE valida_hasta <= now()'); END $purga$",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "af410cc7565ee74ecf58b9bb19d94ce65d1606c2e3d546c6dfec99270d916f25"
+}

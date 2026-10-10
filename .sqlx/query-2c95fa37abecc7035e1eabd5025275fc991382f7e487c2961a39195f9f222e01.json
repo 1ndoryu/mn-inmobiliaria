@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT cs.session_id, cs.canal AS \"canal?\", cs.telefono AS \"telefono?\", cs.modo AS \"modo?\", a.estado AS \"estado_atencion?\", s.status AS \"status?\", s.ai_enabled AS \"ai_enabled?\", m.body AS \"last_body?\", m.sender AS \"last_sender?\", m.created_at AS \"last_at?\" FROM canal_sesiones cs JOIN agent_sessions s ON s.id = cs.session_id LEFT JOIN atencion_sesiones a ON a.session_id = cs.session_id LEFT JOIN LATERAL (SELECT body, sender, created_at FROM agent_messages WHERE session_id = cs.session_id ORDER BY sequence_num DESC LIMIT 1) m ON true WHERE cs.cliente_id = $1 ORDER BY s.updated_at DESC LIMIT 100",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "session_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "canal?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "telefono?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "modo?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "estado_atencion?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "status?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "ai_enabled?",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "last_body?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "last_sender?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_at?",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2c95fa37abecc7035e1eabd5025275fc991382f7e487c2961a39195f9f222e01"
+}

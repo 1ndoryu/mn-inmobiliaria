@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT titulo, descripcion, ubicacion, puestos, residencia, precio, tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, copy_corta, extras, (precio_minimo IS NOT NULL AND precio_minimo > 0) AS \"margen_negociable!\" FROM inmuebles WHERE id = $1 AND publicado",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "titulo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "descripcion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "ubicacion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "puestos",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "residencia",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "precio",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "tipo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "operacion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "habitaciones",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "banos",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "metros",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 11,
+        "name": "metros_terreno",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 12,
+        "name": "estado",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "copy_corta",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 14,
+        "name": "extras",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 15,
+        "name": "margen_negociable!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "5b3011b3424b6eac2b29ce61f199240cbfcf505ad8e7ab322776c90ff742ad03"
+}

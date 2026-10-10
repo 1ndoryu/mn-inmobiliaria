@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen, tokens_entrada, tokens_salida, ms_generacion, corregida, mensaje_clave) SELECT $1::text, $2::text, $3::text, $4::text, $5::text, $6::text, $7::text, origen, tokens_entrada, tokens_salida, ms_generacion, $8::boolean, $9::text FROM mp_respuestas_inmueble WHERE catalog_hash = $3 AND precio_hash = $2 AND mensaje_clave = $9 ON CONFLICT (firma, precio_hash, catalog_hash) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cf38a3eed44d4b6b9b9f1a1e6139048f08ff15dd1f569d07bcbdaf20c79e9013"
+}

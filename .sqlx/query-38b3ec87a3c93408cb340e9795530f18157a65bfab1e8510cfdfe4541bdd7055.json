@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug, puestos, residencia, habitaciones FROM inmuebles WHERE publicado AND estado = 'disponible' AND ($1::TEXT IS NULL OR sencilla(titulo) LIKE '%' || sencilla($1) || '%' OR sencilla(ubicacion) LIKE '%' || sencilla($1) || '%') AND ($2::TEXT IS NULL OR tipo = $2) AND ($3::TEXT IS NULL OR operacion = $3) AND ($4::FLOAT8 IS NULL OR precio <= $4) AND ($6::BIGINT IS NULL OR habitaciones = $6) AND ($7::TEXT IS NULL OR sencilla(ubicacion) LIKE '%' || sencilla($7) || '%') ORDER BY updated_at DESC LIMIT $5",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "titulo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "tipo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "operacion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "precio",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "ubicacion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "puestos",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "residencia",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "habitaciones",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Float8",
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "38b3ec87a3c93408cb340e9795530f18157a65bfab1e8510cfdfe4541bdd7055"
+}

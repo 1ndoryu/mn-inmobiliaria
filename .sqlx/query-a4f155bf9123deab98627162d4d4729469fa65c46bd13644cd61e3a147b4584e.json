@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.id, s.visitor_name, s.contact, s.status, s.ai_enabled, a.estado AS estado_atencion, a.modo AS modo_atencion, cs.telefono AS telefono, m.body AS last_body, m.sender AS last_sender, m.created_at AS last_at, (SELECT COUNT(*) FROM agent_outbox o WHERE o.status = 'pending' AND o.kind = 'whatsapp' AND o.payload->>'session_id' = s.id::TEXT) AS alertas, s.updated_at FROM agent_sessions s LEFT JOIN atencion_sesiones a ON a.session_id = s.id LEFT JOIN canal_sesiones cs ON cs.session_id = s.id LEFT JOIN LATERAL (SELECT body, sender, created_at FROM agent_messages WHERE session_id = s.id ORDER BY sequence_num DESC LIMIT 1) m ON true WHERE ($1::TEXT IS NULL OR s.status = $1) ORDER BY s.updated_at DESC LIMIT $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "visitor_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "contact",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "ai_enabled",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "estado_atencion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "modo_atencion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "telefono",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "last_body",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "last_sender",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "last_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "alertas",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "a4f155bf9123deab98627162d4d4729469fa65c46bd13644cd61e3a147b4584e"
+}

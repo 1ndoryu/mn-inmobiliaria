@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM mp_respuestas_inmueble WHERE valida_hasta <= now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "51e98e4a485d7a3053e293d2566ffb94cfd243f1ac3ee753651e9fed3ba35b0a"
+}

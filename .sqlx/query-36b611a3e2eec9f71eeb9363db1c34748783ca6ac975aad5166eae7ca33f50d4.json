@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO atencion_sesiones (session_id, estado, modo) VALUES ($1, 'activa', $2) ON CONFLICT (session_id) DO UPDATE SET modo = EXCLUDED.modo",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "36b611a3e2eec9f71eeb9363db1c34748783ca6ac975aad5166eae7ca33f50d4"
+}

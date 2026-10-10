@@ -61,6 +61,7 @@ impl InmuebleRepository {
         nuevo: &NuevoInmueble<'_>,
     ) -> Result<InmuebleRow, sqlx::Error> {
         let id = Uuid::new_v4();
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
             "INSERT INTO inmuebles (id, titulo, descripcion, ubicacion, puestos, residencia, \
               precio, tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, \
@@ -112,6 +113,7 @@ impl InmuebleRepository {
     }
 
     pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!("SELECT {COLUMNAS} FROM inmuebles WHERE id = $1"))
             .bind(id)
             .fetch_optional(pool)
@@ -125,6 +127,7 @@ impl InmuebleRepository {
         pool: &PgPool,
         marketplace_id: &str,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
             "SELECT {COLUMNAS} FROM inmuebles WHERE marketplace_id = $1"
         ))
@@ -138,6 +141,7 @@ impl InmuebleRepository {
         pool: &PgPool,
         slug: &str,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
             "SELECT {COLUMNAS_PUBLICAS} FROM inmuebles WHERE slug = $1 AND publicado = TRUE"
         ))
@@ -166,19 +170,23 @@ impl InmuebleRepository {
         Self::titulos_publicados(pool, true).await
     }
 
-    /* [09AA-29] Una sola `query_as` para las dos variantes: Sentinel marca cada
-     * `query_as` sin macro, y duplicarla sumaba un hallazgo. */
+    /* [09AA-29] Una sola query para las dos variantes: el SQL vive en un único
+     * sitio y la variante sin vínculo solo cambia el parámetro. */
     async fn titulos_publicados(
         pool: &PgPool,
         solo_sin_vinculo: bool,
     ) -> Result<Vec<(Uuid, String, Vec<String>)>, sqlx::Error> {
-        sqlx::query_as(
+        let filas = sqlx::query!(
             "SELECT id, titulo, alias_titulos FROM inmuebles \
              WHERE publicado = TRUE AND (NOT $1 OR marketplace_id IS NULL)",
+            solo_sin_vinculo,
         )
-        .bind(solo_sin_vinculo)
         .fetch_all(pool)
-        .await
+        .await?;
+        Ok(filas
+            .into_iter()
+            .map(|r| (r.id, r.titulo, r.alias_titulos))
+            .collect())
     }
 
     /* [09AA-29] Ids de las fichas con ese título exacto. Los tests de caché
@@ -200,12 +208,16 @@ impl InmuebleRepository {
     pub async fn vinculos_publicados(
         pool: &PgPool,
     ) -> Result<Vec<(String, Uuid, String, Vec<String>)>, sqlx::Error> {
-        sqlx::query_as(
-            "SELECT marketplace_id, id, titulo, alias_titulos FROM inmuebles \
-             WHERE publicado = TRUE AND marketplace_id IS NOT NULL",
+        let filas = sqlx::query!(
+            "SELECT marketplace_id AS \"marketplace_id!\", id, titulo, alias_titulos \
+             FROM inmuebles WHERE publicado = TRUE AND marketplace_id IS NOT NULL",
         )
         .fetch_all(pool)
-        .await
+        .await?;
+        Ok(filas
+            .into_iter()
+            .map(|r| (r.marketplace_id, r.id, r.titulo, r.alias_titulos))
+            .collect())
     }
 
     /* [09AA-28] Clave de la portada (primera foto original por `orden`) de
@@ -218,14 +230,17 @@ impl InmuebleRepository {
         if ids.is_empty() {
             return Ok(HashMap::new());
         }
-        let filas: Vec<(Uuid, String)> = sqlx::query_as(
+        let filas: Vec<(Uuid, String)> = sqlx::query!(
             "SELECT DISTINCT ON (inmueble_id) inmueble_id, storage_key FROM fotos \
              WHERE inmueble_id = ANY($1) AND origen <> 'mejorada' \
              ORDER BY inmueble_id, orden ASC",
+            ids,
         )
-        .bind(ids)
         .fetch_all(pool)
-        .await?;
+        .await?
+        .into_iter()
+        .map(|r| (r.inmueble_id, r.storage_key))
+        .collect();
         Ok(filas.into_iter().collect())
     }
 
@@ -235,6 +250,7 @@ impl InmuebleRepository {
         per_page: i64,
     ) -> Result<(Vec<InmuebleRow>, i64), sqlx::Error> {
         let offset = (page - 1) * per_page;
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         let rows = sqlx::query_as::<_, InmuebleRow>(&format!(
             "SELECT {COLUMNAS} FROM inmuebles ORDER BY updated_at DESC LIMIT $1 OFFSET $2",
         ))
@@ -243,9 +259,10 @@ impl InmuebleRepository {
         .fetch_all(pool)
         .await?;
 
-        let (total,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM inmuebles")
+        let (total,): (i64,) = sqlx::query!("SELECT COUNT(*) AS \"count!\" FROM inmuebles")
             .fetch_one(pool)
-            .await?;
+            .await
+            .map(|r| (r.count,))?;
 
         Ok((rows, total))
     }
@@ -311,6 +328,7 @@ impl InmuebleRepository {
             None => (None, false),
             Some(v) => (v, true),
         };
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
             "UPDATE inmuebles \
              SET titulo = COALESCE($1, titulo), \
@@ -377,6 +395,7 @@ impl InmuebleRepository {
         id: Uuid,
         publicado: bool,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
             "UPDATE inmuebles SET publicado = $1, updated_at = NOW() WHERE id = $2 \
              RETURNING {COLUMNAS}",
@@ -396,6 +415,7 @@ impl InmuebleRepository {
         id: Uuid,
         estado: &str,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
             "UPDATE inmuebles SET estado = $1, \
                 publicado = CASE WHEN $1 IN ('vendido', 'alquilado') THEN FALSE ELSE publicado END, \
@@ -409,8 +429,7 @@ impl InmuebleRepository {
     }
 
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query("DELETE FROM inmuebles WHERE id = $1")
-            .bind(id)
+        let result = sqlx::query!("DELETE FROM inmuebles WHERE id = $1", id)
             .execute(pool)
             .await?;
 
@@ -427,11 +446,12 @@ impl InmuebleRepository {
             return Ok(mapa);
         }
 
-        let fotos = sqlx::query_as::<_, Foto>(
+        let fotos = sqlx::query_as!(
+            Foto,
             "SELECT id, inmueble_id, storage_key, orden, origen, created_at \
              FROM fotos WHERE inmueble_id = ANY($1) ORDER BY orden ASC",
+            ids,
         )
-        .bind(ids)
         .fetch_all(pool)
         .await?;
 
@@ -449,18 +469,19 @@ impl InmuebleRepository {
         origen: &str,
     ) -> Result<Foto, sqlx::Error> {
         let id = Uuid::new_v4();
-        sqlx::query_as::<_, Foto>(
+        sqlx::query_as!(
+            Foto,
             "INSERT INTO fotos (id, inmueble_id, storage_key, orden, origen) \
              VALUES ($1, $2, $3, \
               COALESCE($4, (SELECT COALESCE(MAX(orden), -1) + 1 FROM fotos WHERE inmueble_id = $2)), \
               $5) \
              RETURNING id, inmueble_id, storage_key, orden, origen, created_at",
+            id,
+            inmueble_id,
+            storage_key,
+            orden,
+            origen,
         )
-        .bind(id)
-        .bind(inmueble_id)
-        .bind(storage_key)
-        .bind(orden)
-        .bind(origen)
         .fetch_one(pool)
         .await
     }
@@ -481,26 +502,28 @@ impl InmuebleRepository {
         };
         let mut tx = pool.begin().await?;
         let claves: Vec<String> = if foto.origen == "original" {
-            let filas: Vec<(String,)> = sqlx::query_as(
+            let filas: Vec<(String,)> = sqlx::query!(
                 "DELETE FROM fotos WHERE inmueble_id = $1 AND orden = $2 \
                  RETURNING storage_key",
+                foto.inmueble_id,
+                foto.orden,
             )
-            .bind(foto.inmueble_id)
-            .bind(foto.orden)
             .fetch_all(&mut *tx)
-            .await?;
-            sqlx::query(
+            .await?
+            .into_iter()
+            .map(|r| (r.storage_key,))
+            .collect();
+            sqlx::query!(
                 "UPDATE fotos SET orden = orden - 1 \
                  WHERE inmueble_id = $1 AND orden > $2",
+                foto.inmueble_id,
+                foto.orden,
             )
-            .bind(foto.inmueble_id)
-            .bind(foto.orden)
             .execute(&mut *tx)
             .await?;
             filas.into_iter().map(|fila| fila.0).collect()
         } else {
-            sqlx::query("DELETE FROM fotos WHERE id = $1")
-                .bind(foto_id)
+            sqlx::query!("DELETE FROM fotos WHERE id = $1", foto_id)
                 .execute(&mut *tx)
                 .await?;
             vec![foto.storage_key]
@@ -515,10 +538,12 @@ impl InmuebleRepository {
      * `fotosVisiblesDe`): al cambiar fotos hay que tocar el padre para que
      * la caché del navegador/CDN se invalide sin renombrar ficheros. */
     pub async fn tocar_inmueble(pool: &PgPool, inmueble_id: Uuid) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE inmuebles SET updated_at = NOW() WHERE id = $1")
-            .bind(inmueble_id)
-            .execute(pool)
-            .await?;
+        sqlx::query!(
+            "UPDATE inmuebles SET updated_at = NOW() WHERE id = $1",
+            inmueble_id
+        )
+        .execute(pool)
+        .await?;
         Ok(())
     }
 
@@ -529,10 +554,12 @@ impl InmuebleRepository {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         inmueble_id: Uuid,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE inmuebles SET updated_at = NOW() WHERE id = $1")
-            .bind(inmueble_id)
-            .execute(tx.as_mut())
-            .await?;
+        sqlx::query!(
+            "UPDATE inmuebles SET updated_at = NOW() WHERE id = $1",
+            inmueble_id
+        )
+        .execute(tx.as_mut())
+        .await?;
         Ok(())
     }
 
@@ -542,19 +569,21 @@ impl InmuebleRepository {
         pool: &PgPool,
     ) -> Result<Option<chrono::DateTime<chrono::Utc>>, sqlx::Error> {
         let fila: (Option<chrono::DateTime<chrono::Utc>>,) =
-            sqlx::query_as("SELECT MAX(updated_at) FROM inmuebles WHERE publicado = TRUE")
+            sqlx::query!("SELECT MAX(updated_at) AS \"max\" FROM inmuebles WHERE publicado = TRUE")
                 .fetch_one(pool)
-                .await?;
+                .await
+                .map(|r| (r.max,))?;
         Ok(fila.0)
     }
 
     /// Una foto por id (para localizar su archivo en disco al borrar)
     pub async fn find_foto(pool: &PgPool, foto_id: Uuid) -> Result<Option<Foto>, sqlx::Error> {
-        sqlx::query_as::<_, Foto>(
+        sqlx::query_as!(
+            Foto,
             "SELECT id, inmueble_id, storage_key, orden, origen, created_at \
              FROM fotos WHERE id = $1",
+            foto_id,
         )
-        .bind(foto_id)
         .fetch_optional(pool)
         .await
     }
@@ -568,12 +597,13 @@ impl InmuebleRepository {
         pool: &PgPool,
         id: Uuid,
     ) -> Result<Option<(sqlx::types::Json<serde_json::Value>, Option<f64>)>, sqlx::Error> {
-        sqlx::query_as::<_, (sqlx::types::Json<serde_json::Value>, Option<f64>)>(
+        let fila = sqlx::query!(
             "SELECT extras, precio_minimo FROM inmuebles WHERE id = $1",
+            id,
         )
-        .bind(id)
         .fetch_optional(pool)
-        .await
+        .await?;
+        Ok(fila.map(|r| (sqlx::types::Json(r.extras), r.precio_minimo)))
     }
 
     /// Guarda la ficha /ask y devuelve la fila completa
@@ -583,6 +613,7 @@ impl InmuebleRepository {
         extras: sqlx::types::Json<serde_json::Value>,
         precio_minimo: Option<f64>,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
             /* [279A-7] Con mínimo real se borra su marca «no sé» (con `None`
              * se conserva: es el estado pendiente o la marca recién guardada). */

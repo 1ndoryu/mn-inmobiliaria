@@ -40,6 +40,7 @@ impl SolicitudRepository {
         nueva: &NuevaSolicitud<'_>,
     ) -> Result<SolicitudRow, sqlx::Error> {
         let id = Uuid::new_v4();
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, SolicitudRow>(&format!(
             "INSERT INTO solicitudes (id, nombre, telefono, email, descripcion, \
               ubicacion, puestos, residencia, precio_estimado, operacion, fotos, \
@@ -66,6 +67,7 @@ impl SolicitudRepository {
     }
 
     pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<SolicitudRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, SolicitudRow>(&format!(
             "SELECT {COLUMNAS} FROM solicitudes WHERE id = $1",
         ))
@@ -84,6 +86,7 @@ impl SolicitudRepository {
         let offset = (page - 1) * per_page;
         let base =
             format!("SELECT {COLUMNAS} FROM solicitudes WHERE ($1::TEXT IS NULL OR estado = $1)");
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (base concatenado con ORDER/LIMIT); la macro exige literal
         let rows = sqlx::query_as::<_, SolicitudRow>(&format!(
             "{base} ORDER BY created_at DESC LIMIT $2 OFFSET $3"
         ))
@@ -93,12 +96,13 @@ impl SolicitudRepository {
         .fetch_all(pool)
         .await?;
 
-        let (total,): (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM solicitudes WHERE ($1::TEXT IS NULL OR estado = $1)",
+        let (total,): (i64,) = sqlx::query!(
+            "SELECT COUNT(*) AS \"total!\" FROM solicitudes WHERE ($1::TEXT IS NULL OR estado = $1)",
+            estado
         )
-        .bind(estado)
         .fetch_one(pool)
-        .await?;
+        .await
+        .map(|r| (r.total,))?;
 
         Ok((rows, total))
     }
@@ -109,6 +113,7 @@ impl SolicitudRepository {
         id: Uuid,
         estado: &str,
     ) -> Result<Option<SolicitudRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, SolicitudRow>(&format!(
             "UPDATE solicitudes SET estado = $2, updated_at = NOW() WHERE id = $1 \
              RETURNING {COLUMNAS}",

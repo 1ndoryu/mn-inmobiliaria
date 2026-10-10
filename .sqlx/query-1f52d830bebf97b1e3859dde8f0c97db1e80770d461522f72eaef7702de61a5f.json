@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT catalog_hash, precio_hash, mensaje_clave AS \"mensaje_clave!\" FROM mp_respuestas_cache WHERE thread_id = $1 AND NOT corregida AND mensaje_clave IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "catalog_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "precio_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "mensaje_clave!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "1f52d830bebf97b1e3859dde8f0c97db1e80770d461522f72eaef7702de61a5f"
+}

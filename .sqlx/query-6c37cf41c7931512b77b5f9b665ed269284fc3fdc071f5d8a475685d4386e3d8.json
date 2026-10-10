@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT excerpt_texto, respuesta, usos::BIGINT AS \"usos!\", corregida, valida_hasta, origen, tokens_entrada, tokens_salida, ms_generacion FROM mp_respuestas_cache WHERE thread_id = $1 ORDER BY valida_hasta DESC LIMIT 200",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "excerpt_texto",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "respuesta",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "usos!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "corregida",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 4,
+        "name": "valida_hasta",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "origen",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "tokens_entrada",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "tokens_salida",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "ms_generacion",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "6c37cf41c7931512b77b5f9b665ed269284fc3fdc071f5d8a475685d4386e3d8"
+}

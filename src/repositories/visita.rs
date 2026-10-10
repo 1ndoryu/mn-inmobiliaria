@@ -26,6 +26,7 @@ pub struct VisitaRepository;
 
 impl VisitaRepository {
     pub async fn crear(pool: &PgPool, nueva: NuevaVisita) -> Result<VisitaRow, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, VisitaRow>(&format!(
             "INSERT INTO visitas (inmueble_id, session_id, nombre, telefono, cuando, fecha) \
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING {COLUMNAS}",
@@ -41,6 +42,7 @@ impl VisitaRepository {
     }
 
     pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<VisitaRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, VisitaRow>(&format!("SELECT {COLUMNAS} FROM visitas WHERE id = $1"))
             .bind(id)
             .fetch_optional(pool)
@@ -71,6 +73,7 @@ impl VisitaRepository {
                     v.created_at, v.updated_at \
                     FROM visitas v JOIN inmuebles i ON i.id = v.inmueble_id \
                     WHERE ($1::TEXT IS NULL OR v.estado = $1)";
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (base concatenado con ORDER/LIMIT); la macro exige literal
         let rows = sqlx::query_as::<_, VisitaAdmin>(&format!(
             "{base} ORDER BY v.created_at DESC LIMIT $2 OFFSET $3"
         ))
@@ -80,11 +83,13 @@ impl VisitaRepository {
         .fetch_all(pool)
         .await?;
 
-        let (total,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM visitas WHERE ($1::TEXT IS NULL OR estado = $1)")
-                .bind(estado)
-                .fetch_one(pool)
-                .await?;
+        let (total,): (i64,) = sqlx::query!(
+            "SELECT COUNT(*) AS \"total!\" FROM visitas WHERE ($1::TEXT IS NULL OR estado = $1)",
+            estado
+        )
+        .fetch_one(pool)
+        .await
+        .map(|r| (r.total,))?;
 
         Ok((rows, total))
     }
@@ -96,6 +101,7 @@ impl VisitaRepository {
         estado: &str,
         fecha: Option<NaiveDate>,
     ) -> Result<Option<VisitaRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, VisitaRow>(&format!(
             "UPDATE visitas SET estado = $2, fecha = COALESCE($3, fecha), updated_at = NOW() \
              WHERE id = $1 RETURNING {COLUMNAS}",

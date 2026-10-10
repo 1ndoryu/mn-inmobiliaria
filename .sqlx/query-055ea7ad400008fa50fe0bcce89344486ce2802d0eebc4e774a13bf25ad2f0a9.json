@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE agent_outbox SET status = 'pending' WHERE status = 'failed' AND kind = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "055ea7ad400008fa50fe0bcce89344486ce2802d0eebc4e774a13bf25ad2f0a9"
+}

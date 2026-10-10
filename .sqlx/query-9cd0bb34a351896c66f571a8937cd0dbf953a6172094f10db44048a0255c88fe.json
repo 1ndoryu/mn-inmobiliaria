@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO canal_sesiones (session_id, cliente_id, canal, telefono, modo) VALUES ($1, $2, 'web', $3, 'completo') ON CONFLICT (session_id) DO UPDATE SET cliente_id = EXCLUDED.cliente_id, telefono = EXCLUDED.telefono",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9cd0bb34a351896c66f571a8937cd0dbf953a6172094f10db44048a0255c88fe"
+}

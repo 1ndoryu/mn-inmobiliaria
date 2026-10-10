@@ -62,7 +62,8 @@ pub(crate) async fn tarjetas_inmuebles(
     habitaciones: Option<i64>,
     zona: Option<&str>,
 ) -> Result<Vec<Tarjeta>, sqlx::Error> {
-    sqlx::query_as(
+    sqlx::query_as!(
+        Tarjeta,
         "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug, puestos, residencia, habitaciones \
              FROM inmuebles \
              WHERE publicado AND estado = 'disponible' \
@@ -73,27 +74,28 @@ pub(crate) async fn tarjetas_inmuebles(
              AND ($6::BIGINT IS NULL OR habitaciones = $6) \
              AND ($7::TEXT IS NULL OR sencilla(ubicacion) LIKE '%' || sencilla($7) || '%') \
              ORDER BY updated_at DESC LIMIT $5",
+        texto,
+        tipo,
+        operacion,
+        precio_max,
+        limite,
+        habitaciones,
+        zona
     )
-    .bind(texto)
-    .bind(tipo)
-    .bind(operacion)
-    .bind(precio_max)
-    .bind(limite)
-    .bind(habitaciones)
-    .bind(zona)
     .fetch_all(pool)
     .await
 }
 
 /// Ficha de `detalle_inmueble`: `None` si el inmueble no existe o no está publicado.
 pub(crate) async fn ficha_inmueble(pool: &PgPool, id: Uuid) -> Result<Option<Ficha>, sqlx::Error> {
-    sqlx::query_as(
+    sqlx::query_as!(
+        Ficha,
         "SELECT titulo, descripcion, ubicacion, puestos, residencia, precio, tipo, operacion, \
               habitaciones, banos, metros, metros_terreno, estado, copy_corta, extras, \
-              (precio_minimo IS NOT NULL AND precio_minimo > 0) AS margen_negociable \
+              (precio_minimo IS NOT NULL AND precio_minimo > 0) AS \"margen_negociable!\" \
               FROM inmuebles WHERE id = $1 AND publicado",
+        id
     )
-    .bind(id)
     .fetch_optional(pool)
     .await
 }

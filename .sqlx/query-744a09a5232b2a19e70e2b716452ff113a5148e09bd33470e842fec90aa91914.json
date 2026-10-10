@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE agent_outbox SET status = $2, idempotency_key = CASE WHEN $2 = 'sent' THEN NULL ELSE idempotency_key END WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "744a09a5232b2a19e70e2b716452ff113a5148e09bd33470e842fec90aa91914"
+}

@@ -215,10 +215,12 @@ async fn describir_y_anexar(pool: &sqlx::PgPool, foto: FotoPendiente) {
         }
     };
     let cuerpo = format!("{} — se ve: {descripcion}", foto.cuerpo_base);
-    if let Err(e) = sqlx::query("UPDATE agent_messages SET body = $1 WHERE id = $2")
-        .bind(&cuerpo)
-        .bind(foto.mensaje_id)
-        .execute(pool)
+    if let Err(e) = sqlx::query!(
+        "UPDATE agent_messages SET body = $1 WHERE id = $2",
+        &cuerpo,
+        foto.mensaje_id,
+    )
+    .execute(pool)
         .await
     {
         tracing::warn!("webhook WhatsApp: no se pudo anexar descripción: {e}");
@@ -282,10 +284,12 @@ pub(crate) async fn transcribir_y_anexar(pool: &sqlx::PgPool, audio: AudioPendie
         }
     };
     let cuerpo = cuerpo_audio_con_texto(&audio.cuerpo_base, &texto);
-    if let Err(e) = sqlx::query("UPDATE agent_messages SET body = $1 WHERE id = $2")
-        .bind(&cuerpo)
-        .bind(audio.mensaje_id)
-        .execute(pool)
+    if let Err(e) = sqlx::query!(
+        "UPDATE agent_messages SET body = $1 WHERE id = $2",
+        &cuerpo,
+        audio.mensaje_id,
+    )
+    .execute(pool)
         .await
     {
         tracing::warn!("webhook WhatsApp: no se pudo anexar transcripción: {e}");

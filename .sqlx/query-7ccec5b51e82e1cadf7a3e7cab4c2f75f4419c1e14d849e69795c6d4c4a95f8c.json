@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.id, c.nombre, c.telefono, c.origen, c.interes, c.presupuesto, c.zona, c.notas, (SELECT COUNT(*) FROM canal_sesiones cs WHERE cs.cliente_id = c.id) AS sesiones, c.created_at, c.updated_at FROM clientes c WHERE ($1::TEXT IS NULL OR c.nombre ILIKE '%' || $1 || '%' OR c.telefono ILIKE '%' || $1 || '%') ORDER BY c.updated_at DESC LIMIT $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "nombre",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "telefono",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "origen",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "interes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "presupuesto",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "zona",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "notas",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "sesiones",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "7ccec5b51e82e1cadf7a3e7cab4c2f75f4419c1e14d849e69795c6d4c4a95f8c"
+}

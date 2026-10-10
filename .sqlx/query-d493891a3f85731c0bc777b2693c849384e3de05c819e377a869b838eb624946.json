@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE mp_respuestas_cache SET usos = usos + 1 WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3 AND valida_hasta > now() RETURNING respuesta, corregida",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "respuesta",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "corregida",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d493891a3f85731c0bc777b2693c849384e3de05c819e377a869b838eb624946"
+}

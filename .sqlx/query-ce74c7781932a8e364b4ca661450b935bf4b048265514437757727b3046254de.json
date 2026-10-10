@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(c.nombre, s.visitor_name) AS nombre, COALESCE(c.telefono, cs.telefono, s.contact) AS telefono, c.interes, c.presupuesto, c.zona, COALESCE(cs.modo, 'completo') AS \"modo!\" FROM agent_sessions s LEFT JOIN canal_sesiones cs ON cs.session_id = s.id LEFT JOIN clientes c ON c.id = cs.cliente_id WHERE s.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "nombre",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "telefono",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "interes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "presupuesto",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "zona",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "modo!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "ce74c7781932a8e364b4ca661450b935bf4b048265514437757727b3046254de"
+}

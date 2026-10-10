@@ -25,8 +25,7 @@ impl ClienteRepository {
     }
 
     /// Upsert por teléfono; el nombre vacío no pisa el ya guardado.
-    /// Columnas del RETURNING en el orden de `ClienteRow` (`FromRow` mapea
-    /// por posición en `query_as` sin macro).
+    /// `query_as!` mapea el RETURNING a `ClienteRow` por nombre de columna.
     pub async fn registrar(
         pool: &PgPool,
         nombre: Option<&str>,
@@ -45,17 +44,18 @@ impl ClienteRepository {
         origen: &str,
     ) -> Result<ClienteRow, sqlx::Error> {
         let nombre_limpio = nombre.map(str::trim).filter(|n| !n.is_empty());
-        sqlx::query_as::<_, ClienteRow>(
+        sqlx::query_as!(
+            ClienteRow,
             "INSERT INTO clientes (id, nombre, telefono, origen) VALUES (gen_random_uuid(), $1, $2, $3) \
              ON CONFLICT (telefono) DO UPDATE SET \
                nombre = COALESCE(NULLIF(EXCLUDED.nombre, ''), clientes.nombre), \
                updated_at = NOW() \
              RETURNING id, nombre, telefono, origen, interes, presupuesto, zona, \
                notas, created_at, updated_at",
+            nombre_limpio,
+            telefono,
+            origen,
         )
-        .bind(nombre_limpio)
-        .bind(telefono)
-        .bind(origen)
         .fetch_one(pool)
         .await
     }
@@ -85,23 +85,23 @@ impl ClienteRepository {
         cliente_id: Uuid,
         telefono: &str,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO canal_sesiones (session_id, cliente_id, canal, telefono, modo) \
              VALUES ($1, $2, 'web', $3, 'completo') \
              ON CONFLICT (session_id) DO UPDATE SET \
                cliente_id = EXCLUDED.cliente_id, telefono = EXCLUDED.telefono",
+            session_id,
+            cliente_id,
+            telefono,
         )
-        .bind(session_id)
-        .bind(cliente_id)
-        .bind(telefono)
         .execute(pool)
         .await?;
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO atencion_sesiones (session_id, estado, modo) \
              VALUES ($1, 'activa', 'completo') \
              ON CONFLICT (session_id) DO NOTHING",
+            session_id,
         )
-        .bind(session_id)
         .execute(pool)
         .await?;
         Ok(())
@@ -137,27 +137,27 @@ impl ClienteRepository {
         canal: &str,
         modo: &str,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO canal_sesiones (session_id, cliente_id, canal, telefono, modo) \
              VALUES ($1, $2, $3, $4, $5) \
              ON CONFLICT (session_id) DO UPDATE SET \
                cliente_id = EXCLUDED.cliente_id, telefono = EXCLUDED.telefono, \
                canal = EXCLUDED.canal, modo = EXCLUDED.modo",
+            session_id,
+            cliente_id,
+            canal,
+            telefono,
+            modo,
         )
-        .bind(session_id)
-        .bind(cliente_id)
-        .bind(canal)
-        .bind(telefono)
-        .bind(modo)
         .execute(pool)
         .await?;
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO atencion_sesiones (session_id, estado, modo) \
              VALUES ($1, 'activa', $2) \
              ON CONFLICT (session_id) DO UPDATE SET modo = EXCLUDED.modo",
+            session_id,
+            modo,
         )
-        .bind(session_id)
-        .bind(modo)
         .execute(pool)
         .await?;
         Ok(())
@@ -188,13 +188,13 @@ impl ClienteRepository {
         session_id: Uuid,
         estado: &str,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO atencion_sesiones (session_id, estado, modo) \
              VALUES ($1, $2, COALESCE((SELECT modo FROM canal_sesiones WHERE session_id = $1), 'completo')) \
              ON CONFLICT (session_id) DO UPDATE SET estado = EXCLUDED.estado, updated_at = NOW()",
+            session_id,
+            estado,
         )
-        .bind(session_id)
-        .bind(estado)
         .execute(pool)
         .await?;
         Ok(())
@@ -208,17 +208,18 @@ impl ClienteRepository {
         pool: &PgPool,
         session_id: Uuid,
     ) -> Result<FichaAviso, sqlx::Error> {
-        sqlx::query_as::<_, FichaAviso>(
+        sqlx::query_as!(
+            FichaAviso,
             "SELECT COALESCE(c.nombre, s.visitor_name) AS nombre, \
                COALESCE(c.telefono, cs.telefono, s.contact) AS telefono, \
                c.interes, c.presupuesto, c.zona, \
-               COALESCE(cs.modo, 'completo') AS modo \
+               COALESCE(cs.modo, 'completo') AS \"modo!\" \
              FROM agent_sessions s \
              LEFT JOIN canal_sesiones cs ON cs.session_id = s.id \
              LEFT JOIN clientes c ON c.id = cs.cliente_id \
              WHERE s.id = $1",
+            session_id,
         )
-        .bind(session_id)
         .fetch_one(pool)
         .await
     }
@@ -255,10 +256,13 @@ impl ClienteRepository {
         pool: &PgPool,
         session_id: Uuid,
     ) -> Result<Option<(String, Option<String>)>, sqlx::Error> {
-        sqlx::query_as("SELECT canal, telefono FROM canal_sesiones WHERE session_id = $1")
-            .bind(session_id)
-            .fetch_optional(pool)
-            .await
+        let fila = sqlx::query!(
+            "SELECT canal, telefono FROM canal_sesiones WHERE session_id = $1",
+            session_id,
+        )
+        .fetch_optional(pool)
+        .await?;
+        Ok(fila.map(|r| (r.canal, r.telefono)))
     }
 }
 

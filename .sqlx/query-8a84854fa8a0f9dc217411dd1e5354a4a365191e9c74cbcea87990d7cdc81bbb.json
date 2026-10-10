@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM mp_respuestas_cache",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "8a84854fa8a0f9dc217411dd1e5354a4a365191e9c74cbcea87990d7cdc81bbb"
+}

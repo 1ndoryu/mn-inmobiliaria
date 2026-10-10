@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT marketplace_id AS \"marketplace_id!\", id, titulo, alias_titulos FROM inmuebles WHERE publicado = TRUE AND marketplace_id IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "marketplace_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "titulo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "alias_titulos",
+        "type_info": "TextArray"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f599c1d827b3fbdd2d4acc9bb8a4be59b67d0be6a69c4bc4429d548ed4dbc433"
+}

@@ -114,18 +114,18 @@ pub async fn buscar_compartida(
     pool: &sqlx::PgPool,
     clave: &ClaveCompartida<'_>,
 ) -> Result<Option<(String, bool)>, AppError> {
-    let fila: Option<(String, bool)> = sqlx::query_as(
+    let fila = sqlx::query!(
         "UPDATE mp_respuestas_inmueble SET usos = usos + 1 \
          WHERE catalog_hash = $1 AND precio_hash = $2 AND mensaje_clave = $3 \
          AND valida_hasta > now() \
          RETURNING respuesta, corregida",
+        clave.catalog_hash,
+        clave.precio_hash,
+        clave.mensaje_clave,
     )
-    .bind(clave.catalog_hash)
-    .bind(clave.precio_hash)
-    .bind(clave.mensaje_clave)
     .fetch_optional(pool)
     .await?;
-    Ok(fila)
+    Ok(fila.map(|r| (r.respuesta, r.corregida)))
 }
 
 /// Publica la respuesta del hilo como compartida y enlaza su fila
@@ -141,38 +141,52 @@ pub async fn enlazar_compartida(
     coste: Coste,
     pisar: bool,
 ) -> Result<(), AppError> {
-    const ALTA: &str = "INSERT INTO mp_respuestas_inmueble \
-         (catalog_hash, precio_hash, mensaje_clave, respuesta, origen, tokens_entrada, tokens_salida, ms_generacion) \
-         VALUES ($1, $2, $3, $4, 'ia', $5, $6, $7) \
-         ON CONFLICT (catalog_hash, precio_hash, mensaje_clave) DO NOTHING";
-    const PISAR: &str = "INSERT INTO mp_respuestas_inmueble \
-         (catalog_hash, precio_hash, mensaje_clave, respuesta, origen, tokens_entrada, tokens_salida, ms_generacion) \
-         VALUES ($1, $2, $3, $4, 'ia', $5, $6, $7) \
-         ON CONFLICT (catalog_hash, precio_hash, mensaje_clave) DO UPDATE SET \
-         respuesta = EXCLUDED.respuesta, valida_hasta = now() + INTERVAL '90 days', \
-         corregida = FALSE, usos = 0, origen = EXCLUDED.origen, \
-         tokens_entrada = EXCLUDED.tokens_entrada, tokens_salida = EXCLUDED.tokens_salida, \
-         ms_generacion = EXCLUDED.ms_generacion";
     let mut tx = pool.begin().await?;
-    let alta = if pisar { PISAR } else { ALTA };
-    sqlx::query(alta)
-        .bind(clave.catalog_hash)
-        .bind(clave.precio_hash)
-        .bind(clave.mensaje_clave)
-        .bind(plantilla)
-        .bind(coste.tokens_entrada)
-        .bind(coste.tokens_salida)
-        .bind(coste.ms)
+    if pisar {
+        sqlx::query!(
+            "INSERT INTO mp_respuestas_inmueble \
+             (catalog_hash, precio_hash, mensaje_clave, respuesta, origen, tokens_entrada, tokens_salida, ms_generacion) \
+             VALUES ($1, $2, $3, $4, 'ia', $5, $6, $7) \
+             ON CONFLICT (catalog_hash, precio_hash, mensaje_clave) DO UPDATE SET \
+             respuesta = EXCLUDED.respuesta, valida_hasta = now() + INTERVAL '90 days', \
+             corregida = FALSE, usos = 0, origen = EXCLUDED.origen, \
+             tokens_entrada = EXCLUDED.tokens_entrada, tokens_salida = EXCLUDED.tokens_salida, \
+             ms_generacion = EXCLUDED.ms_generacion",
+            clave.catalog_hash,
+            clave.precio_hash,
+            clave.mensaje_clave,
+            plantilla,
+            coste.tokens_entrada,
+            coste.tokens_salida,
+            coste.ms,
+        )
         .execute(&mut *tx)
         .await?;
-    sqlx::query(
+    } else {
+        sqlx::query!(
+            "INSERT INTO mp_respuestas_inmueble \
+             (catalog_hash, precio_hash, mensaje_clave, respuesta, origen, tokens_entrada, tokens_salida, ms_generacion) \
+             VALUES ($1, $2, $3, $4, 'ia', $5, $6, $7) \
+             ON CONFLICT (catalog_hash, precio_hash, mensaje_clave) DO NOTHING",
+            clave.catalog_hash,
+            clave.precio_hash,
+            clave.mensaje_clave,
+            plantilla,
+            coste.tokens_entrada,
+            coste.tokens_salida,
+            coste.ms,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    sqlx::query!(
         "UPDATE mp_respuestas_cache SET mensaje_clave = $4 \
          WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
+        firma,
+        clave.precio_hash,
+        clave.catalog_hash,
+        clave.mensaje_clave,
     )
-    .bind(firma)
-    .bind(clave.precio_hash)
-    .bind(clave.catalog_hash)
-    .bind(clave.mensaje_clave)
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -187,17 +201,17 @@ pub async fn vinculo_compartido(
     precio_hash: &str,
     catalog_hash: &str,
 ) -> Result<Option<(String, String)>, AppError> {
-    let fila: Option<(String, String)> = sqlx::query_as(
-        "SELECT thread_id, mensaje_clave FROM mp_respuestas_cache \
+    let fila = sqlx::query!(
+        "SELECT thread_id, mensaje_clave AS \"mensaje_clave!\" FROM mp_respuestas_cache \
          WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3 \
          AND mensaje_clave IS NOT NULL AND thread_id IS NOT NULL",
+        firma,
+        precio_hash,
+        catalog_hash,
     )
-    .bind(firma)
-    .bind(precio_hash)
-    .bind(catalog_hash)
     .fetch_optional(pool)
     .await?;
-    Ok(fila)
+    Ok(fila.map(|r| (r.thread_id, r.mensaje_clave)))
 }
 
 /// Hilo que recibe una respuesta compartida ya servida (acierto de la clave):
@@ -213,32 +227,33 @@ pub async fn vincular_hilo_compartido(
     foto: &FotoHilo<'_>,
 ) -> Result<(), AppError> {
     let mut tx = pool.begin().await?;
-    sqlx::query(
+    // Casts explícitos: sin ellos Postgres tipa $8 como text y falla contra `corregida BOOLEAN`.
+    sqlx::query!(
         "INSERT INTO mp_respuestas_cache (firma, precio_hash, catalog_hash, respuesta, thread_id, excerpt_texto, excerpt_crudo, origen, tokens_entrada, tokens_salida, ms_generacion, corregida, mensaje_clave) \
-         SELECT $1, $2, $3, $4, $5, $6, $7, origen, tokens_entrada, tokens_salida, ms_generacion, $8, $9 \
+         SELECT $1::text, $2::text, $3::text, $4::text, $5::text, $6::text, $7::text, origen, tokens_entrada, tokens_salida, ms_generacion, $8::boolean, $9::text \
          FROM mp_respuestas_inmueble \
          WHERE catalog_hash = $3 AND precio_hash = $2 AND mensaje_clave = $9 \
          ON CONFLICT (firma, precio_hash, catalog_hash) DO NOTHING",
+        firma,
+        clave.precio_hash,
+        clave.catalog_hash,
+        texto,
+        clave_hilo(foto.thread_id),
+        foto.excerpt,
+        foto.excerpt_crudo,
+        corregida,
+        clave.mensaje_clave,
     )
-    .bind(firma)
-    .bind(clave.precio_hash)
-    .bind(clave.catalog_hash)
-    .bind(texto)
-    .bind(clave_hilo(foto.thread_id))
-    .bind(foto.excerpt)
-    .bind(foto.excerpt_crudo)
-    .bind(corregida)
-    .bind(clave.mensaje_clave)
     .execute(&mut *tx)
     .await?;
-    sqlx::query(
+    sqlx::query!(
         "UPDATE mp_respuestas_cache SET mensaje_clave = $4 \
          WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
+        firma,
+        clave.precio_hash,
+        clave.catalog_hash,
+        clave.mensaje_clave,
     )
-    .bind(firma)
-    .bind(clave.precio_hash)
-    .bind(clave.catalog_hash)
-    .bind(clave.mensaje_clave)
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -252,17 +267,17 @@ pub async fn corregir_compartida(
     clave: &ClaveCompartida<'_>,
     plantilla: &str,
 ) -> Result<(), AppError> {
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO mp_respuestas_inmueble (catalog_hash, precio_hash, mensaje_clave, respuesta, corregida) \
          VALUES ($1, $2, $3, $4, TRUE) \
          ON CONFLICT (catalog_hash, precio_hash, mensaje_clave) DO UPDATE SET \
          respuesta = EXCLUDED.respuesta, valida_hasta = now() + INTERVAL '90 days', \
          corregida = TRUE, usos = 0",
+        clave.catalog_hash,
+        clave.precio_hash,
+        clave.mensaje_clave,
+        plantilla,
     )
-    .bind(clave.catalog_hash)
-    .bind(clave.precio_hash)
-    .bind(clave.mensaje_clave)
-    .bind(plantilla)
     .execute(pool)
     .await?;
     Ok(())
@@ -270,7 +285,7 @@ pub async fn corregir_compartida(
 
 /// Purga las compartidas vencidas; la llama `purgar_cache`.
 pub async fn purgar_compartida(pool: &sqlx::PgPool) -> Result<u64, sqlx::Error> {
-    let r = sqlx::query("DELETE FROM mp_respuestas_inmueble WHERE valida_hasta <= now()")
+    let r = sqlx::query!("DELETE FROM mp_respuestas_inmueble WHERE valida_hasta <= now()")
         .execute(pool)
         .await?;
     Ok(r.rows_affected())

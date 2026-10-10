@@ -1,0 +1,81 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE clientes SET nombre = COALESCE($2, nombre), interes = COALESCE($3, interes), presupuesto = COALESCE($4, presupuesto), zona = COALESCE($5, zona), notas = COALESCE($6, notas), updated_at = NOW() WHERE id = $1 RETURNING id, nombre, telefono, origen, interes, presupuesto, zona, notas, created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "nombre",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "telefono",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "origen",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "interes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "presupuesto",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "zona",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "notas",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "f88a1b5a04a64ad2bb3b400373eda1814f93d85cca4335463c5b5ad44083cf9c"
+}

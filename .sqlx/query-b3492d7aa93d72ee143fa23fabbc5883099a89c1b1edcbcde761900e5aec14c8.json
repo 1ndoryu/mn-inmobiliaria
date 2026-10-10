@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO mp_respuestas_inmueble (catalog_hash, precio_hash, mensaje_clave, respuesta, corregida) VALUES ($1, $2, $3, $4, TRUE) ON CONFLICT (catalog_hash, precio_hash, mensaje_clave) DO UPDATE SET respuesta = EXCLUDED.respuesta, valida_hasta = now() + INTERVAL '90 days', corregida = TRUE, usos = 0",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b3492d7aa93d72ee143fa23fabbc5883099a89c1b1edcbcde761900e5aec14c8"
+}

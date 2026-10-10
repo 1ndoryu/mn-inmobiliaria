@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT m.session_id, LEFT(m.body, 200) AS \"extracto?\", m.created_at, s.status AS \"status?\", s.ai_enabled AS \"ai_enabled?\", a.estado AS \"estado_atencion?\", a.modo AS \"modo_atencion?\", c.nombre AS \"nombre?\", c.telefono AS \"telefono?\", (SELECT COUNT(*) FROM agent_messages WHERE session_id = m.session_id AND sender = 'ai') AS \"ia?\", (SELECT COUNT(*) FROM agent_messages WHERE session_id = m.session_id AND sender = 'staff') AS \"humano?\", (SELECT COUNT(*) FROM agent_messages WHERE session_id = m.session_id AND sender = 'client') AS \"visitante?\" FROM agent_messages m JOIN agent_sessions s ON s.id = m.session_id LEFT JOIN atencion_sesiones a ON a.session_id = m.session_id LEFT JOIN canal_sesiones cs ON cs.session_id = m.session_id LEFT JOIN clientes c ON c.id = cs.cliente_id WHERE m.sender = 'staff' ORDER BY m.created_at DESC LIMIT $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "session_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "extracto?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "status?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "ai_enabled?",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "estado_atencion?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "modo_atencion?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "nombre?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "telefono?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "ia?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "humano?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "visitante?",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3d28e36af479eae63af9ef3b4463a128fe44117c0aac4dc47834ed75879ec9ac"
+}

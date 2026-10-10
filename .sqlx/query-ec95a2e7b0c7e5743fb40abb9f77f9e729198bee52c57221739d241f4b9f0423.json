@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT date_trunc('day', created_at)::DATE AS \"dia?\", sender AS \"remitente?\", COUNT(*) AS \"mensajes?\", SUM(tokens_est) AS \"tokens_est?\", SUM(COALESCE(tokens_in, 0)) AS \"tokens_in?\", SUM(COALESCE(tokens_out, 0)) AS \"tokens_out?\" FROM uso_mensajes WHERE created_at >= NOW() - ($1::text || ' days')::INTERVAL GROUP BY 1, 2 ORDER BY 1 DESC, 2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dia?",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 1,
+        "name": "remitente?",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "mensajes?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "tokens_est?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "tokens_in?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "tokens_out?",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "ec95a2e7b0c7e5743fb40abb9f77f9e729198bee52c57221739d241f4b9f0423"
+}

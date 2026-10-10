@@ -1,0 +1,78 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO clientes (id, nombre, telefono, origen) VALUES (gen_random_uuid(), $1, $2, $3) ON CONFLICT (telefono) DO UPDATE SET nombre = COALESCE(NULLIF(EXCLUDED.nombre, ''), clientes.nombre), updated_at = NOW() RETURNING id, nombre, telefono, origen, interes, presupuesto, zona, notas, created_at, updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "nombre",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "telefono",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "origen",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "interes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "presupuesto",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "zona",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "notas",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "bbc6d7791b009f0b5eb376489dfafcfe23a823a5afb26356dfc4974f9dc5f70a"
+}

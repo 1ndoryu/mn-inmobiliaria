@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM mp_respuestas_cache WHERE valida_hasta <= now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "281b211899a16d10ff88f905f283b5ef895a158663f7bd0696425a1f1ea007af"
+}

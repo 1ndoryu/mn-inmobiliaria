@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO mp_respuestas_inmueble (catalog_hash, precio_hash, mensaje_clave, respuesta, origen, tokens_entrada, tokens_salida, ms_generacion) VALUES ($1, $2, $3, $4, 'ia', $5, $6, $7) ON CONFLICT (catalog_hash, precio_hash, mensaje_clave) DO UPDATE SET respuesta = EXCLUDED.respuesta, valida_hasta = now() + INTERVAL '90 days', corregida = FALSE, usos = 0, origen = EXCLUDED.origen, tokens_entrada = EXCLUDED.tokens_entrada, tokens_salida = EXCLUDED.tokens_salida, ms_generacion = EXCLUDED.ms_generacion",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "76d80e13996084429f13d9975b7afba1e1bcb1211bcbce76cd9d1e3736ed30c5"
+}

@@ -20,13 +20,14 @@ impl SuscriptorRepository {
         nuevo: &NuevoSuscriptor<'_>,
     ) -> Result<SuscriptorRow, sqlx::Error> {
         let id = Uuid::new_v4();
-        sqlx::query_as::<_, SuscriptorRow>(
+        sqlx::query_as!(
+            SuscriptorRow,
             "INSERT INTO suscriptores (id, email) VALUES ($1, $2) \
              ON CONFLICT (email) DO UPDATE SET updated_at = NOW() \
              RETURNING id, email, created_at, updated_at",
+            id,
+            nuevo.email
         )
-        .bind(id)
-        .bind(nuevo.email)
         .fetch_one(pool)
         .await
     }

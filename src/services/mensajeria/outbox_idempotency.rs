@@ -131,19 +131,20 @@ pub async fn encolar(
     };
     /* `xmax = 0` distingue inserto (fila nueva) de actualizado (revive):
      * `xmax` es el xid de la transacción que tocó la fila por última vez. */
-    let fila: Option<(Uuid, bool)> = sqlx::query_as(
+    let fila: Option<(Uuid, bool)> = sqlx::query!(
         "INSERT INTO agent_outbox (kind, payload, idempotency_key) \
          VALUES ($1, $2, $3) \
          ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL \
          DO UPDATE SET status = 'pending', payload = EXCLUDED.payload \
          WHERE agent_outbox.status = 'failed' \
-         RETURNING id, (xmax = 0) AS fue_insert",
+         RETURNING id, (xmax = 0) AS \"fue_insert!\"",
+        kind,
+        payload,
+        clave,
     )
-    .bind(kind)
-    .bind(payload)
-    .bind(clave)
     .fetch_optional(pool)
-    .await?;
+    .await?
+    .map(|r| (r.id, r.fue_insert));
     match fila {
         Some((id, true)) => Ok(Encolado::Nuevo(id)),
         Some((id, false)) => Ok(Encolado::Revivido(id)),
@@ -162,13 +163,13 @@ pub async fn marcar(pool: &PgPool, id: Uuid, estado: &str) -> Result<(), sqlx::E
             "outbox estado debe ser pending|sent|failed".into(),
         ));
     }
-    sqlx::query(
+    sqlx::query!(
         "UPDATE agent_outbox SET status = $2, \
          idempotency_key = CASE WHEN $2 = 'sent' THEN NULL \
          ELSE idempotency_key END WHERE id = $1",
+        id,
+        estado,
     )
-    .bind(id)
-    .bind(estado)
     .execute(pool)
     .await?;
     Ok(())
@@ -181,11 +182,11 @@ pub async fn marcar(pool: &PgPool, id: Uuid, estado: &str) -> Result<(), sqlx::E
 /// vez de duplicar). Retorna filas movidas. Idempotente: repetirlo no
 /// cambia nada.
 pub async fn reencolar_fallidos(pool: &PgPool, kind: &str) -> Result<u64, sqlx::Error> {
-    let r = sqlx::query(
+    let r = sqlx::query!(
         "UPDATE agent_outbox SET status = 'pending' \
          WHERE status = 'failed' AND kind = $1",
+        kind,
     )
-    .bind(kind)
     .execute(pool)
     .await?;
     Ok(r.rows_affected())
@@ -194,11 +195,11 @@ pub async fn reencolar_fallidos(pool: &PgPool, kind: &str) -> Result<u64, sqlx::
 /// Purga TTL: borra `sent`/`failed` con más de 7 días. Retorna filas.
 /// `pending` jamás se toca.
 pub async fn purgar_resueltos(pool: &PgPool) -> Result<u64, sqlx::Error> {
-    let r = sqlx::query(
+    let r = sqlx::query!(
         "DELETE FROM agent_outbox WHERE status IN ('sent', 'failed') \
          AND created_at < NOW() - ($1 * INTERVAL '1 day')",
+        TTL_RESUELTOS_DIAS as f64,
     )
-    .bind(TTL_RESUELTOS_DIAS)
     .execute(pool)
     .await?;
     Ok(r.rows_affected())

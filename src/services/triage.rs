@@ -394,13 +394,14 @@ struct FotoHilo {
 }
 
 async fn foto_hilo(pool: &sqlx::PgPool, sesion: Uuid) -> FotoHilo {
-    let fila = sqlx::query_as::<_, (bool, Option<String>)>(
-        "SELECT s.ai_enabled, a.estado FROM agent_sessions s \
+    let fila = sqlx::query!(
+        "SELECT s.ai_enabled AS \"ai_enabled!\", a.estado AS \"estado?\" FROM agent_sessions s \
          LEFT JOIN atencion_sesiones a ON a.session_id = s.id WHERE s.id = $1",
+        sesion,
     )
-    .bind(sesion)
     .fetch_optional(pool)
-    .await;
+    .await
+    .map(|o| o.map(|r| (r.ai_enabled, r.estado)));
     match fila {
         Ok(Some((ia_hilo, estado))) => FotoHilo { estado, ia_hilo },
         Ok(None) => FotoHilo {
@@ -423,13 +424,18 @@ async fn foto_hilo(pool: &sqlx::PgPool, sesion: Uuid) -> FotoHilo {
  * `20260916000008_agent_config`): con `clave`/`valor` la consulta fallaba
  * siempre y el `unwrap_or_default` lo escondía en fail-open silencioso. */
 async fn config_triage(pool: &sqlx::PgPool) -> (bool, i64) {
-    let filas = sqlx::query_as::<_, (String, Option<String>)>(
+    let filas = sqlx::query!(
         "SELECT key, value FROM agent_config WHERE key IN ($1, $2)",
+        CLAVE_IA_GLOBAL,
+        CLAVE_VENTANA,
     )
-    .bind(CLAVE_IA_GLOBAL)
-    .bind(CLAVE_VENTANA)
     .fetch_all(pool)
     .await
+    .map(|v| {
+        v.into_iter()
+            .map(|r| (r.key, Some(r.value)))
+            .collect::<Vec<_>>()
+    })
     .unwrap_or_default();
     let mut ia_global = true;
     let mut ventana = VENTANA_RETRASO_MIN_DEFAULT;

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO atencion_sesiones (session_id, estado, modo) VALUES ($1, 'activa', 'completo') ON CONFLICT (session_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c6481e5ca070b9fe6bec46687e907d21b0c605e284ec3fb73ba22decda0de4d2"
+}

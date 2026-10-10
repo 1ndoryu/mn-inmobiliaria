@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO atencion_sesiones (session_id, estado, modo) VALUES ($1, $2, COALESCE((SELECT modo FROM canal_sesiones WHERE session_id = $1), 'completo')) ON CONFLICT (session_id) DO UPDATE SET estado = EXCLUDED.estado, updated_at = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "18870bf8935115af8cc79aa701b627294d93f7b2c6a20f73ecfd3fe4883a6adc"
+}

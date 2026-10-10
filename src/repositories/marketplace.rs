@@ -24,13 +24,13 @@ pub(crate) async fn registrar_auditoria(
     clave_hilo: &str,
     evento: &str,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO mp_auditoria (hilo_hmac, ts_hora, evento) \
          SELECT encode(sha256(($1 || $2)::bytea), 'hex'), date_trunc('hour', now()), $3",
+        secreto,
+        clave_hilo,
+        evento
     )
-    .bind(secreto)
-    .bind(clave_hilo)
-    .bind(evento)
     .execute(pool)
     .await?;
     Ok(())

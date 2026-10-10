@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM mp_respuestas_cache WHERE thread_id = $1 AND NOT corregida",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4381e2faa182300c21dc5a4fe02bb6d8331006aa5f1a166ee0baa601fbc4c057"
+}

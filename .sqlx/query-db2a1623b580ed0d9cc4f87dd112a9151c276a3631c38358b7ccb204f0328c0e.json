@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT ON (inmueble_id) inmueble_id, storage_key FROM fotos WHERE inmueble_id = ANY($1) AND origen <> 'mejorada' ORDER BY inmueble_id, orden ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "inmueble_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "storage_key",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "db2a1623b580ed0d9cc4f87dd112a9151c276a3631c38358b7ccb204f0328c0e"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO mp_chats_archivados (thread_id) VALUES ($1) ON CONFLICT (thread_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "11fa9960181929573f15a7a29fca9d67fdc781af91e6ccf022ee74113b26f727"
+}

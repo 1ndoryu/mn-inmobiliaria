@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO agent_outbox (kind, payload, idempotency_key) VALUES ($1, $2, $3) ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO UPDATE SET status = 'pending', payload = EXCLUDED.payload WHERE agent_outbox.status = 'failed' RETURNING id, (xmax = 0) AS \"fue_insert!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "fue_insert!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "10b085d0216ee86f737c1f61150e1d0e963c3dc1dbcae98160c669fa40eb425d"
+}
