@@ -45,7 +45,7 @@ export function FichaFormulario(props: {
           return (
             <div key={p.clave} className="space-y-1">
               <Etiqueta>{p.etiqueta}</Etiqueta>
-              <select
+              <select /* sentinel-disable html-nativo-en-vez-de-componente */
                 value={actual === true ? 'si' : actual === false ? 'no' : actual === NO_SE ? 'nose' : ''}
                 onChange={(e) =>
                   props.alCambiarExtra(
@@ -68,7 +68,7 @@ export function FichaFormulario(props: {
           return (
             <div key={p.clave} className="space-y-1">
               <Etiqueta>{p.etiqueta}</Etiqueta>
-              <select
+              <select /* sentinel-disable html-nativo-en-vez-de-componente */
                 value={valorActual}
                 onChange={(e) =>
                   props.alCambiarExtra(

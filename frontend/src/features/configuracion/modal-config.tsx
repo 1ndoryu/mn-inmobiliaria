@@ -173,7 +173,7 @@ export function ModalConfig({
                 const activo = formMejora.modo === m.valor;
                 const Icono = m.valor === 'manual' ? Hand : WandSparkles;
                 return (
-                  <button
+                  <Button variant="ghost"
                     key={m.valor}
                     type="button"
                     onClick={() => setFormMejora({ ...formMejora, modo: m.valor })}
@@ -192,7 +192,7 @@ export function ModalConfig({
                       )}
                     </span>
                     <span className="text-xs font-normal text-muted-foreground">{m.descripcion}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

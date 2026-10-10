@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { ValorUbicacion } from '../../domain/pasos-ask';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_TEXTO, CLASE_TINTA } from '../publica/disenno';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 /* Paso inteligente ubicación+residencia (279A-3 F2): una pregunta, dos
  * campos prellenados con lo que ya hay. Guardar rellena las columnas del
@@ -41,7 +43,7 @@ export function EntradaUbicacion({
       <div className="mt-4 flex flex-col gap-3">
         <label className={`flex flex-col gap-1 text-sm ${CLASE_TINTA}`}>
           Ubicación (zona)
-          <input
+          <Input
             type="text"
             value={ubicacion}
             onChange={(e) => setUbicacion(e.target.value)}
@@ -57,7 +59,7 @@ export function EntradaUbicacion({
         </label>
         <label className={`flex flex-col gap-1 text-sm ${CLASE_TINTA}`}>
           Residencia o conjunto
-          <input
+          <Input
             type="text"
             value={residencia}
             onChange={(e) => setResidencia(e.target.value)}
@@ -71,15 +73,15 @@ export function EntradaUbicacion({
             className={`w-full rounded-none border ${CLASE_BORDE} bg-transparent px-3 py-3 text-sm outline-none placeholder:text-black/40 ${CLASE_TINTA}`}
           />
         </label>
-        <button
+        <Button variant="ghost"
           type="button"
           disabled={guardando}
           onClick={guardar}
           className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO} disabled:cursor-wait disabled:opacity-60`}
         >
           {guardando ? 'Guardando…' : 'Guardar y seguir'}
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost"
           type="button"
           disabled={guardando}
           aria-pressed={noSeActual}
@@ -89,12 +91,12 @@ export function EntradaUbicacion({
           }`}
         >
           No lo sé
-        </button>
+        </Button>
       </div>
       <div className="mt-3 flex gap-4">
-        <button type="button" onClick={alSaltar} className={`cursor-pointer text-sm ${CLASE_TINTA} underline`}>
+        <Button variant="ghost" type="button" onClick={alSaltar} className={`cursor-pointer text-sm ${CLASE_TINTA} underline`}>
           Saltar por ahora
-        </button>
+        </Button>
       </div>
     </div>
   );

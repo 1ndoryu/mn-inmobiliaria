@@ -5,6 +5,8 @@ import type { EstadoInmueble, Operacion } from '../../domain/inmueble';
 import { assertNunca } from '../../domain/pasos-ask';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_TEXTO, CLASE_TINTA } from '../publica/disenno';
 import { BotonVendida } from './boton-vendida';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 /* Entrada de una pregunta /ask (279A-3 F2 + 279A-7): Sí/No, opciones fijas
  * (amoblado, agua…), o campo de texto/número con unidad, stepper y error
@@ -79,7 +81,7 @@ export function EntradaPregunta({
     const activo = valorActual === valor;
     const esNoSe = valor === NO_SE;
     return (
-      <button
+      <Button variant="ghost"
         type="button"
         disabled={guardando}
         aria-pressed={activo}
@@ -91,7 +93,7 @@ export function EntradaPregunta({
         }`}
       >
         {etiqueta}
-      </button>
+      </Button>
     );
   };
 
@@ -118,16 +120,16 @@ export function EntradaPregunta({
         <div className="mt-4 flex flex-col gap-3">
           <div className="flex items-stretch gap-2">
             {pregunta.tipo === 'entero' && (
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => moverPaso(-1)}
                 aria-label="Quitar uno"
                 className={`cursor-pointer rounded-none border ${CLASE_BORDE} bg-transparent px-4 text-lg ${CLASE_TINTA}`}
               >
                 −
-              </button>
+              </Button>
             )}
-            <input
+            <Input
               type="text"
               value={texto}
               inputMode={pregunta.tipo === 'texto_corto' ? 'text' : 'decimal'}
@@ -146,19 +148,19 @@ export function EntradaPregunta({
               className={`min-w-0 flex-1 rounded-none border ${CLASE_BORDE} bg-transparent px-3 py-3 text-center text-sm outline-none placeholder:text-black/40 ${CLASE_TINTA}`}
             />
             {pregunta.tipo === 'entero' && (
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => moverPaso(1)}
                 aria-label="Añadir uno"
                 className={`cursor-pointer rounded-none border ${CLASE_BORDE} bg-transparent px-4 text-lg ${CLASE_TINTA}`}
               >
                 +
-              </button>
+              </Button>
             )}
             {pregunta.unidad && <span className={`self-center text-sm ${CLASE_TINTA} opacity-70`}>{pregunta.unidad}</span>}
           </div>
           {error && <p className="text-sm text-red-700">{error}</p>}
-          <button
+          <Button variant="ghost"
             type="button"
             disabled={guardando}
             onClick={() => {
@@ -168,9 +170,9 @@ export function EntradaPregunta({
             className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO} disabled:cursor-wait disabled:opacity-60`}
           >
             {guardando ? 'Guardando…' : 'Guardar y seguir'}
-          </button>
+          </Button>
           {conNoSe && (
-            <button
+            <Button variant="ghost"
               type="button"
               disabled={guardando}
               aria-pressed={valorActual === NO_SE}
@@ -180,7 +182,7 @@ export function EntradaPregunta({
               }`}
             >
               No lo sé
-            </button>
+            </Button>
           )}
         </div>
       ) : (
@@ -188,14 +190,14 @@ export function EntradaPregunta({
       )}
       <div className="mt-3 flex justify-center gap-4">
         {pregunta.tipo !== 'si_no' && pregunta.tipo !== 'opciones' && (
-          <button type="button" onClick={alSaltar} className={`cursor-pointer text-sm ${CLASE_TINTA} underline`}>
+          <Button variant="ghost" type="button" onClick={alSaltar} className={`cursor-pointer text-sm ${CLASE_TINTA} underline`}>
             Saltar por ahora
-          </button>
+          </Button>
         )}
         {conNoAplica && (
-          <button type="button" onClick={() => alResponder(null)} className={`cursor-pointer text-sm ${CLASE_TINTA} opacity-60 underline`}>
+          <Button variant="ghost" type="button" onClick={() => alResponder(null)} className={`cursor-pointer text-sm ${CLASE_TINTA} opacity-60 underline`}>
             No aplica
-          </button>
+          </Button>
         )}
         {conNoAplica && accionVendida && (
           <BotonVendida

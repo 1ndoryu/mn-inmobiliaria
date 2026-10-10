@@ -105,7 +105,7 @@ export function ModalVerInmueble({ inmueble, fotosMejora, alCambiarAbierto, onEd
                 {inmueble.fotos.length > 1 && (
                   <div className="grid grid-cols-6 gap-2">
                     {inmueble.fotos.map((f, i) => (
-                      <button
+                      <Button variant="ghost"
                         key={f.slice(-32) + i}
                         type="button"
                         onClick={() => setIndice(i)}
@@ -131,7 +131,7 @@ export function ModalVerInmueble({ inmueble, fotosMejora, alCambiarAbierto, onEd
                             <Sparkles className="h-3 w-3" />
                           </span>
                         )}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 )}

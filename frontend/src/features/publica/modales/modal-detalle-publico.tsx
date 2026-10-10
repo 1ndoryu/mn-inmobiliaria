@@ -18,6 +18,7 @@ import {
   CLASE_TINTA,
 } from '../disenno';
 import { formatearPrecio } from '../formato';
+import { Button } from '@/components/ui/button';
 
 /* Detalle público del inmueble: se abre al pulsar cualquier parte de la
  * caja. Mismo lenguaje que la lista: cuadrado, tinta, sin sombras, Söhne
@@ -90,25 +91,25 @@ function Contenido({ inmueble: i }: { inmueble: InmueblePublico }) {
         )}
         {total > 1 && (
           <>
-            <button
+            <Button variant="ghost"
               type="button"
               aria-label="Foto anterior"
               onClick={() => irA(indice - 1)}
               className="absolute top-1/2 left-2 -translate-y-1/2 rounded-none bg-black/60 p-1 hover:bg-black"
             >
               <ChevronLeft className={`h-5 w-5 ${CLASE_ACENTO}`} />
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost"
               type="button"
               aria-label="Foto siguiente"
               onClick={() => irA(indice + 1)}
               className="absolute top-1/2 right-2 -translate-y-1/2 rounded-none bg-black/60 p-1 hover:bg-black"
             >
               <ChevronRight className={`h-5 w-5 ${CLASE_ACENTO}`} />
-            </button>
+            </Button>
             <div className="absolute inset-x-2 bottom-2 flex justify-center gap-1 opacity-0 transition group-hover:opacity-100">
               {galeria.map((f, idx) => (
-                <button
+                <Button variant="ghost"
                   key={`${idx}-${f.length}-${f.slice(-16)}`}
                   type="button"
                   aria-label={`Ver foto ${idx + 1}`}
@@ -119,7 +120,7 @@ function Contenido({ inmueble: i }: { inmueble: InmueblePublico }) {
                   * máxima resolución solo se pide al verla en grande (la
                   * principal al abrir, las demás al navegar). */}
                   <img src={f} alt="" loading="lazy" decoding="async" className="h-12 w-16 rounded-none object-cover" />
-                </button>
+                </Button>
               ))}
             </div>
           </>

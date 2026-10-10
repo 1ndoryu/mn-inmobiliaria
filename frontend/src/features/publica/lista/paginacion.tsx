@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_REPOSO, CLASE_TEXTO } from '../disenno';
+import { Button } from '@/components/ui/button';
 
 function BotonPagina({
   etiqueta,
@@ -14,7 +15,7 @@ function BotonPagina({
   alElegir: () => void;
 }) {
   return (
-    <button
+    <Button variant="ghost"
       type="button"
       onClick={alElegir}
       disabled={deshabilitado}
@@ -23,7 +24,7 @@ function BotonPagina({
     >
       {icono}
       {etiqueta}
-    </button>
+    </Button>
   );
 }
 
@@ -46,7 +47,7 @@ export function Paginacion({
         alElegir={() => irA(pagina - 1)}
       />
       {Array.from({ length: totalPaginas }, (_, n) => n + 1).map((n) => (
-        <button
+        <Button variant="ghost"
           key={n}
           type="button"
           onClick={() => irA(n)}
@@ -56,7 +57,7 @@ export function Paginacion({
           }`}
         >
           {n}
-        </button>
+        </Button>
       ))}
       <BotonPagina
         etiqueta="Siguiente"

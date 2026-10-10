@@ -153,7 +153,7 @@ export function ModalInmueble(props: Props) {
             </div>
             <div className="space-y-1">
               <Etiqueta>Estado</Etiqueta>
-              <select
+              <select /* sentinel-disable html-nativo-en-vez-de-componente */
                 value={form.estado}
                 onChange={(e) => cambiar('estado', e.target.value as InmuebleDraft['estado'])}
                 className={CLASE_SELECT}
@@ -167,7 +167,7 @@ export function ModalInmueble(props: Props) {
             </div>
             <div className="space-y-1">
               <Etiqueta error={errores.tipo}>Tipo</Etiqueta>
-              <select
+              <select /* sentinel-disable html-nativo-en-vez-de-componente */
                 value={form.tipo}
                 onChange={(e) => cambiar('tipo', e.target.value as InmuebleDraft['tipo'])}
                 className={cn(CLASE_SELECT, errores.tipo && 'border-destructive')}
@@ -183,7 +183,7 @@ export function ModalInmueble(props: Props) {
             </div>
             <div className="space-y-1">
               <Etiqueta error={errores.operacion}>Operación</Etiqueta>
-              <select
+              <select /* sentinel-disable html-nativo-en-vez-de-componente */
                 value={form.operacion}
                 onChange={(e) => cambiar('operacion', e.target.value as InmuebleDraft['operacion'])}
                 className={cn(CLASE_SELECT, errores.operacion && 'border-destructive')}

@@ -18,6 +18,7 @@ import {
   CLASE_RELLENO_SUAVE,
   CLASE_TEXTO,
 } from '../disenno';
+import { Input } from '@/components/ui/input';
 
 /* Pide un humano con palabras propias: la tarjeta se abre sola. */
 const PIDE_HUMANO = /humano|persona|agente|llam|tel[eé]fono|whatsapp|contacto/i;
@@ -82,7 +83,7 @@ export function ChatVisitante({ abierto, alCerrar }: { abierto: boolean; alCerra
         className={`flex border-t ${CLASE_BORDE}`}
         onSubmit={alEnviar}
       >
-        <input
+        <Input
           value={estado.texto}
           onChange={(e) => poner({ texto: e.target.value })}
           placeholder="Escribe tu mensaje…"

@@ -76,14 +76,14 @@ export function TarjetaFotoMejora(props: {
     <div className="overflow-hidden rounded-lg border bg-card">
       <div className="grid grid-cols-2 gap-px bg-border">
         <div className="bg-card">
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={() => setAmpliada('original')}
             title="Ver original completa"
             className="block w-full cursor-zoom-in"
           >
             <img src={foto.original} alt="Original" className="aspect-square w-full object-cover" loading="lazy" />
-          </button>
+          </Button>
           <p className="px-2 pt-1 text-[11px] text-muted-foreground">Original</p>
           {idOriginal && (
             <p
@@ -96,14 +96,14 @@ export function TarjetaFotoMejora(props: {
         </div>
         <div className="bg-card">
           {foto.mejorada ? (
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={() => setAmpliada('mejorada')}
               title="Ver mejorada completa"
               className="block w-full cursor-zoom-in"
             >
               <img src={foto.mejorada} alt="Mejorada" className="aspect-square w-full object-cover" loading="lazy" />
-            </button>
+            </Button>
           ) : (
             <div className="flex aspect-square w-full items-center justify-center bg-muted text-xs text-muted-foreground">
               {foto.estado === 'procesando' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sin mejorar'}
