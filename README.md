@@ -17,7 +17,7 @@ Pensado para máxima velocidad de desarrollo, seguridad por defecto y escalabili
 | Variables de entorno | dotenvy                      | Cargar .env                             |
 | Logging              | tracing + tracing-subscriber | Logs estructurados                      |
 | Errores              | thiserror                    | Errores tipados                         |
-| Auth (JWT)           | jsonwebtoken                 | Tokens                                  |
+| Auth (JWT)           | HS256 propio                 | Tokens (HS256, `src/services/jwt.rs`)   |
 | Hashing              | argon2                       | Hashing seguro de contraseñas           |
 | CORS                 | tower-http                   | Middleware CORS                         |
 | Linter               | clippy (paranoia)            | Código limpio                           |

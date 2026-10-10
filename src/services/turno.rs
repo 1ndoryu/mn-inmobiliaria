@@ -207,7 +207,7 @@ async fn describir_y_anexar(pool: &sqlx::PgPool, foto: FotoPendiente) {
         foto.mime,
         base64::engine::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes)
     );
-    let descripcion = match crate::handlers::ia::ia::describir_foto(&data_url, &foto.pie).await {
+    let descripcion = match crate::handlers::ia::rutas::describir_foto(&data_url, &foto.pie).await {
         Ok(d) => d,
         Err(e) => {
             tracing::warn!("webhook WhatsApp: no se pudo describir {}: {e}", foto.clave);
@@ -273,7 +273,7 @@ pub(crate) async fn transcribir_y_anexar(pool: &sqlx::PgPool, audio: AudioPendie
         return;
     }
     let nombre = ruta.file_name().and_then(|n| n.to_str()).unwrap_or("nota");
-    let texto = match crate::handlers::ia::ia::transcribir_audio(&bytes, nombre, &audio.mime).await {
+    let texto = match crate::handlers::ia::rutas::transcribir_audio(&bytes, nombre, &audio.mime).await {
         Ok(t) => t,
         Err(e) => {
             tracing::warn!(

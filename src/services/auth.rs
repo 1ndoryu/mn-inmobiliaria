@@ -2,7 +2,6 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -10,6 +9,7 @@ use uuid::Uuid;
 use crate::errors::AppError;
 use crate::models::{AuthResponse, LoginRequest, RegisterRequest, User};
 use crate::repositories::UserRepository;
+use crate::services::jwt;
 
 /// Claims del JWT — `sub` es el `user_id`, `exp` la expiración Unix
 #[derive(Debug, Serialize, Deserialize)]
@@ -128,22 +128,13 @@ impl AuthService {
 
         let claims = Claims { sub: user_id, exp };
 
-        encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(secret.as_bytes()),
-        )
-        .map_err(|e| AppError::Internal(format!("Error generando token: {e}")))
+        jwt::firmar(&claims, secret.as_bytes())
+            .map_err(|e| AppError::Internal(format!("Error generando token: {e:?}")))
     }
 
     /// Verifica un JWT y retorna los claims
     pub fn verify_token(token: &str, secret: &str) -> Result<Claims, AppError> {
-        decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(secret.as_bytes()),
-            &Validation::default(),
-        )
-        .map(|data| data.claims)
-        .map_err(|_| AppError::Unauthorized)
+        jwt::verificar::<Claims>(token, secret.as_bytes(), None, None)
+            .map_err(|_| AppError::Unauthorized)
     }
 }

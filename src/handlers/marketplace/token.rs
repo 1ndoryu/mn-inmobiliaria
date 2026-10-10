@@ -15,13 +15,13 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use chrono::Utc;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
 use crate::repositories::marketplace::token_vigente;
+use crate::services::jwt;
 use crate::services::marketplace::{consumir_minuto, registrar_token, MpClaims};
 use crate::AppState;
 
@@ -51,15 +51,12 @@ impl FromRequestParts<AppState> for MpAuth {
             .and_then(|v| v.to_str().ok())
             .and_then(|h| h.strip_prefix("Bearer "))
             .ok_or(AppError::Unauthorized)?;
-        let mut validacion = Validation::new(jsonwebtoken::Algorithm::HS256);
-        validacion.set_issuer(&[ISS]);
-        validacion.set_audience(&[AUD]);
-        let claims = decode::<MpClaims>(
+        let claims: MpClaims = jwt::verificar(
             token,
-            &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
-            &validacion,
+            state.jwt_secret.as_bytes(),
+            Some(ISS),
+            Some(AUD),
         )
-        .map(|d| d.claims)
         .map_err(|_| AppError::Unauthorized)?;
         if claims.scope != SCOPE {
             return Err(AppError::Forbidden("alcance insuficiente".to_string()));
@@ -124,8 +121,7 @@ pub async fn emitir_token(
     let jti = registrar_token(&state.pool, &sub, &expira).await?;
     let exp = usize::try_from(expira.timestamp())
         .map_err(|_| AppError::Internal("Timestamp fuera de rango".to_string()))?;
-    let token = encode(
-        &Header::default(),
+    let token = jwt::firmar(
         &MpClaims {
             iss: ISS.to_string(),
             sub,
@@ -135,9 +131,9 @@ pub async fn emitir_token(
             jti,
             mid: None,
         },
-        &EncodingKey::from_secret(state.jwt_secret.as_bytes()),
+        state.jwt_secret.as_bytes(),
     )
-    .map_err(|e| AppError::Internal(format!("Error generando token mp: {e}")))?;
+    .map_err(|e| AppError::Internal(format!("Error generando token mp: {e:?}")))?;
     Ok((
         StatusCode::CREATED,
         Json(TokenResponse {
@@ -191,8 +187,7 @@ pub async fn emitir_token_cli(
     let jti = registrar_token(&state.pool, &sub, &expira).await?;
     let exp = usize::try_from(expira.timestamp())
         .map_err(|_| AppError::Internal("Timestamp fuera de rango".to_string()))?;
-    let token = encode(
-        &Header::default(),
+    let token = jwt::firmar(
         &MpClaims {
             iss: ISS.to_string(),
             sub,
@@ -202,9 +197,9 @@ pub async fn emitir_token_cli(
             jti,
             mid: Some(mid),
         },
-        &EncodingKey::from_secret(state.jwt_secret.as_bytes()),
+        state.jwt_secret.as_bytes(),
     )
-    .map_err(|e| AppError::Internal(format!("Error generando token CLI: {e}")))?;
+    .map_err(|e| AppError::Internal(format!("Error generando token CLI: {e:?}")))?;
     Ok((
         StatusCode::CREATED,
         Json(TokenResponse {

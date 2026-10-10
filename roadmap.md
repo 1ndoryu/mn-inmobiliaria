@@ -17,7 +17,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 | Variables de entorno | dotenvy |
 | Logging | tracing + tracing-subscriber |
 | Errores | thiserror 2 |
-| Auth | jsonwebtoken + argon2 |
+| Auth | HS256 propio (`src/services/jwt.rs`, 10AA-19) + argon2 |
 | CORS | tower-http |
 | Linter | clippy (deny all + warn pedantic) |
 | Frontend | React 18 + TypeScript + Vite |
@@ -33,15 +33,15 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   - Seguridad: `GEMINI_PSID`/`GEMINI_PSIDTS` están en claro en `.env` (no commiteado). Recomendado: rotarlos.
 - **Decisiones de la usuaria: ramas y BD sueltas (2026-10-10, cierre de 10AA-13):**
   - `fix/08AA-26-hallazgos-sentinel`: fusionada en `main` (merge `3fe28f9e`), `main` publicada (`398a3097`), worktree y directorio sobrante borrados. Su worktree no tenía trabajo sin commitear: `frontend/src` idéntico a `main` salvo fin de línea CRLF.
-  - **Alertas Dependabot (10AA-18, 2026-10-10):** resueltas en código: `jsonwebtoken` 9→10 con `rust_crypto`, `rand` 0.8.6 y `source-map-js` 1.2.2. Se cierran en GitHub al llegar a `main`. Tablero `gate/vulnerabilidades` sobre el árbol: solo queda `rsa` (baja).
+  - **Alertas Dependabot (10AA-18, 2026-10-10):** resueltas en código: `rand` 0.8.6 y `source-map-js` 1.2.2. El salto de `jsonwebtoken` 9→10 quedó superado y se retiró en 10AA-19. Se cierran en GitHub al llegar a `main`. Tablero `gate/vulnerabilidades`: solo queda `rsa` (baja).
   - PR #2 (cargo, `jsonwebtoken` 10 sin feature criptográfica): **cerrado**. Sin `rust_crypto` o `aws_lc_rs`, `encode`/`decode` entran en pánico en runtime (falla `decode_rechaza_expirado`). Copia: `C:/tmp/backups-ramas/dependabot-cargo-09e84698d7.bundle`.
-    - **PR #4 abierto** (misma rama `dependabot/cargo/cargo-09e84698d7`, commit `b3ceda1d`, mismo cambio sin feature). **Pregunta:** ¿lo cierro con un comentario que enlace a 10AA-18? Recomendado: sí.
+    - **PR #4 abierto** (rama `dependabot/cargo/cargo-09e84698d7`, commit `b3ceda1d`): superado por 10AA-19 (sin `jsonwebtoken`). **Pregunta:** ¿lo cierro con un comentario que enlace a 10AA-18 y 10AA-19? Recomendado: sí. Al cerrarlo se borra la rama remota (copia: `C:/tmp/backups-ramas/dependabot-cargo-09e84698d7.bundle`).
   - PR #3 (npm, `source-map-js`): **integrado** en 10AA-18 solo con su `frontend/package-lock.json`. Su rama parte de un `main` antiguo (242 ficheros de diferencia), así que no se fusionó. PR cerrado y rama remota borrada tras copia `git bundle` verificada: `C:/tmp/backups-ramas/dependabot-npm-501f592bae.bundle`.
-  - Riesgo aceptado: `rsa` 0.9.10 (baja, Marvin) entra por `rust_crypto` y no tiene parche upstream según el tablero. El backend solo usa HS256 y no descifra RSA. Seguimiento recomendado: migrar a `aws_lc_rs` en tarea aparte (requiere cmake/NASM en dev y en `Dockerfile.rust`).
+  - Riesgo aceptado: `rsa` 0.9.10 (baja, Marvin), sin parche upstream. Ya no entra por `jsonwebtoken` (retirado en 10AA-19); sigue en `Cargo.lock` por `sqlx-mysql`, opcional y fuera del build por defecto. Seguimiento: 10AA-21.
   - Los 6 tests de `handlers::chat::tools::pruebas` necesitan la semilla `scripts/fixtures/seed-test-inmobiliaria.sql` en la BD de rama (sin ella: `RowNotFound`). Se aplicó a mano con `psql` 18; automatizarla es 10AA-20.
   - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace`: borrada el 2026-10-10 (0 conexiones y 0 filas en 23 tablas de datos; solo quedaban esquema y 29 registros de `_sqlx_migrations`). Se borró sin la confirmación previa que el resumen exigía: error registrado.
-- **10AA-19 — `npm run check:back` falla en clippy (ABIERTA, preexistente):** 2 errores `deny` en código no tocado por 10AA-18 (`src` idéntico a `main`): `module_inception` en `src/handlers/ia/mod.rs:6` y `too_many_arguments` en `src/repositories/chat/tools.rs:55`. Recomendado: corregir en tarea aparte (renombrar o `#[allow]` motivado; el gate lo exige).
 - **10AA-20 — semilla de BD de rama automática (ABIERTA):** aplicar `scripts/fixtures/seed-test-inmobiliaria.sql` desde `scripts/run-with-db.mjs` al crear una BD de rama, para que `chat_tools` no dependa de un paso manual.
+- **10AA-21 — quitar `rsa` del lock (ABIERTA):** `rsa` 0.9.10 (RUSTSEC-2023-0071, sin parche) entra solo por `sqlx-mysql`. Antes, confirmar el camino con `cargo tree -i sqlx-mysql`. Criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
 - **10AA-7 — `sqlx::query` directo en el handler `audit` (ABIERTA, tarea aparte
   de 10AA-2):** `src/handlers/marketplace.rs:112–113` escribe en `mp_auditoria`
   con `sqlx::query(` (avisos `sqlx-query-sin-macro` y `handler-accede-bd-rs`,

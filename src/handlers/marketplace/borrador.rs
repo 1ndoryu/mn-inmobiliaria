@@ -438,7 +438,7 @@ pub(super) async fn generar_borrador(
     /* [09AA-30] Coste de la pasada: tiempo de la llamada IA (no del vuelo
      * ni del fallback) y tokens del `usage`; `None` si el relay no los trajo. */
     let inicio_ia = std::time::Instant::now();
-    let (texto, uso) = match crate::handlers::ia::ia::completar_opencode_rapido(
+    let (texto, uso) = match crate::handlers::ia::rutas::completar_opencode_rapido(
         &sistema,
         &r.excerpt.texto,
         &[],

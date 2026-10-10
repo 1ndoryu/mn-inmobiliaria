@@ -304,7 +304,7 @@ fn admin_routes() -> Router<AppState> {
         .merge(chat::staff::staff_routes())
         /* [199A-1] Centro de IA de texto: estado/config/probar/completar
          * (rutas bajo /api/admin/ia). */
-        .merge(ia::ia::routes())
+        .merge(ia::rutas::routes())
 }
 
 /* [08AA-7] La superficie web (fallback SPA, sitemap, llms.txt, catálogo)

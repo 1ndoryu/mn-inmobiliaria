@@ -66,13 +66,13 @@ fn binding_solo_cuando_hay_mid() {
 /* Tests M4: hashes estables, invalidación honesta y ciclo de la caché.
  * Los vivos usan `pool_si_hay` (sin `DATABASE_URL` se omiten). */
 
-/* Expiración (DoD E3): un token con `exp` pasado no decodifica — la misma
- * `decode`+`Validation` que usa `MpAuth`, así que el rechazo queda
- * probado a nivel JWT (el chequeo DB `expira_en > now()` es redundante). */
+/* Expiración (DoD E3): un token con `exp` pasado no verifica — la misma
+ * `verificar` que usa `MpAuth`, así que el rechazo queda probado a nivel JWT
+ * (el chequeo DB `expira_en > now()` es redundante). 120 s: fuera del margen de 60 s. */
 #[test]
 fn decode_rechaza_expirado() {
-    use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-    let pasado = usize::try_from(chrono::Utc::now().timestamp() - 60).unwrap_or(0);
+    use crate::services::jwt::{firmar, verificar, ErrorJwt};
+    let pasado = usize::try_from(chrono::Utc::now().timestamp() - 120).unwrap_or(0);
     let claims = MpClaims {
         iss: "mn-backend".to_string(),
         sub: "s".to_string(),
@@ -82,11 +82,7 @@ fn decode_rechaza_expirado() {
         jti: "j".to_string(),
         mid: Some("a".repeat(64)),
     };
-    let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(b"x")).unwrap();
-    let r = decode::<MpClaims>(
-        &token,
-        &DecodingKey::from_secret(b"x"),
-        &Validation::new(jsonwebtoken::Algorithm::HS256),
-    );
-    assert!(r.is_err());
+    let token = firmar(&claims, b"x").unwrap();
+    let r = verificar::<MpClaims>(&token, b"x", Some("mn-backend"), Some("mp"));
+    assert!(matches!(r, Err(ErrorJwt::Expirado)));
 }

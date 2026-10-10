@@ -39,8 +39,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Error handling
 thiserror = "2"
 
-# Auth
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+# Auth. JWT HS256 propio en src/services/jwt.rs (10AA-19): jsonwebtoken 10
+# arrastraba rsa (RUSTSEC-2023-0071, sin parche). hmac ya estaba en el lock.
+hmac = "0.12"
 argon2 = "0.5"
 
 # Utils

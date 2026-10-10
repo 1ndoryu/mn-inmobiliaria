@@ -1,8 +1,8 @@
 //! [08AA-8] Proveedores de IA (`GloryAPI` + `OpenCode` Go + Groq STT).
 //!
-//! Extraído de `ia.rs` (god-object + límite 500): cliente HTTP, `ping`
+//! Extraído de `rutas.rs` (god-object + límite 500): cliente HTTP, `ping`
 //! de ambos proveedores, `completar` de ambos, transcripción de audio con
-//! rotación de claves y descripción de fotos. `ia.rs` conserva el boundary
+//! rotación de claves y descripción de fotos. `rutas.rs` conserva el boundary
 //! HTTP (`routes`, estado, config, probar, completar) y re-exporta lo que
 //! usan sus rutas, sus tests y terceros (`marketplace`, `turno`).
 
@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use crate::errors::AppError;
 
-use super::ia::{glory_base, leer_env, MAX_FOTOS};
+use super::rutas::{glory_base, leer_env, MAX_FOTOS};
 /* [09AA-5] Eventos de la tab de Logs (sin PII). */
 use crate::handlers::marketplace::logs::{mp_log, LogNivel};
 

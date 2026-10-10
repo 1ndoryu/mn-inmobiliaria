@@ -1,6 +1,7 @@
 mod auth;
 mod comercial;
 mod inmueble;
+pub mod jwt;
 pub mod marketplace;
 mod mensajeria;
 pub mod politica;

@@ -49,19 +49,32 @@ pub(crate) struct Ficha {
     pub(crate) margen_negociable: bool,
 }
 
+/// Filtros de `buscar_inmuebles`: `None` = sin filtro en ese campo.
+pub(crate) struct FiltrosTarjetas<'a> {
+    pub(crate) texto: Option<&'a str>,
+    pub(crate) tipo: Option<&'a str>,
+    pub(crate) operacion: Option<&'a str>,
+    pub(crate) precio_max: Option<f64>,
+    pub(crate) habitaciones: Option<i64>,
+    pub(crate) zona: Option<&'a str>,
+}
+
 /// Inmuebles publicados y disponibles para `buscar_inmuebles`.
 /// Binds por orden: $1 texto, $2 tipo, $3 operacion, $4 precio_max,
 /// $5 limite, $6 habitaciones, $7 zona.
 pub(crate) async fn tarjetas_inmuebles(
     pool: &PgPool,
-    texto: Option<&str>,
-    tipo: Option<&str>,
-    operacion: Option<&str>,
-    precio_max: Option<f64>,
+    filtros: FiltrosTarjetas<'_>,
     limite: i64,
-    habitaciones: Option<i64>,
-    zona: Option<&str>,
 ) -> Result<Vec<Tarjeta>, sqlx::Error> {
+    let FiltrosTarjetas {
+        texto,
+        tipo,
+        operacion,
+        precio_max,
+        habitaciones,
+        zona,
+    } = filtros;
     sqlx::query_as!(
         Tarjeta,
         "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug, puestos, residencia, habitaciones \

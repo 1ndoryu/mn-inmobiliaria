@@ -52,12 +52,7 @@ fn jwt_staff(secreto: &str) -> String {
         sub: Uuid::new_v4(),
         exp,
     };
-    jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &claims,
-        &jsonwebtoken::EncodingKey::from_secret(secreto.as_bytes()),
-    )
-    .unwrap()
+    glory_backend::services::jwt::firmar(&claims, secreto.as_bytes()).unwrap()
 }
 
 async fn limpiar(pool: &sqlx::PgPool, sid: &str) {

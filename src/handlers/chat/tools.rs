@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::models::{OPERACIONES, TIPOS};
 use crate::repositories::chat::tools::{
     claves_fotos_inmueble, ficha_inmueble, tarjetas_inmuebles, titulo_inmueble_publicado,
-    Tarjeta,
+    FiltrosTarjetas, Tarjeta,
 };
 use crate::repositories::ClienteRepository;
 use crate::services::{
@@ -182,13 +182,15 @@ async fn buscar(
      * la IA negaba oferta existente). */
     let filas: Vec<Tarjeta> = tarjetas_inmuebles(
         pool,
-        texto,
-        tipo,
-        operacion,
-        precio_max,
+        FiltrosTarjetas {
+            texto,
+            tipo,
+            operacion,
+            precio_max,
+            habitaciones,
+            zona,
+        },
         limite,
-        habitaciones,
-        zona,
     )
     .await
     .map_err(|e| AgentError::Db(e.to_string()))?;
