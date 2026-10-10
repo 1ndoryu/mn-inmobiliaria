@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::models::{CreateSolicitudRequest, OPERACIONES};
-use crate::repositories::chat_tools::titulo_inmueble_publicado;
+use crate::repositories::chat::tools::titulo_inmueble_publicado;
 use crate::repositories::{ClienteRepository, NuevaVisita, VisitaRepository};
 use crate::services::SolicitudService;
 use crate::services::{

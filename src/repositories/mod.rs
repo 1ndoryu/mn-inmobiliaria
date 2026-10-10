@@ -1,6 +1,4 @@
-pub(crate) mod chat_envio;
-pub(crate) mod chat_staff;
-pub(crate) mod chat_tools;
+pub(crate) mod chat;
 mod cliente;
 mod inmueble;
 pub(crate) mod marketplace;

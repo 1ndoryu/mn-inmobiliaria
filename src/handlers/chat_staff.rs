@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
-use crate::repositories::chat_staff::{ClienteResumen, SesionDeCliente, SesionResumen};
+use crate::repositories::chat::staff::{ClienteResumen, SesionDeCliente, SesionResumen};
 use crate::AppState;
 use glory_agent::errors::AgentError;
 
@@ -76,7 +76,7 @@ async fn listar_sesiones(
         }
     }
     let limit = f.limit.unwrap_or(50).clamp(1, 200);
-    let filas: Vec<SesionResumen> = crate::repositories::chat_staff::listar_sesiones_bandeja(
+    let filas: Vec<SesionResumen> = crate::repositories::chat::staff::listar_sesiones_bandeja(
         &state.pool,
         f.estado.clone(),
         limit,
@@ -105,7 +105,7 @@ async fn historial(
 ) -> Result<Json<Vec<glory_agent::models::ChatMessage>>, AppError> {
     let limit = q.limit.unwrap_or(100).clamp(1, 200);
     let mut msgs: Vec<glory_agent::models::ChatMessage> =
-        crate::repositories::chat_staff::mensajes_historial_paginado(
+        crate::repositories::chat::staff::mensajes_historial_paginado(
             &state.pool,
             id,
             q.before_seq,
@@ -320,7 +320,7 @@ async fn listar_clientes(
     let limit = f.limit.unwrap_or(50).clamp(1, 200);
     let q = f.query.as_deref().map(str::trim).filter(|s| !s.is_empty());
     let filas: Vec<ClienteResumen> =
-        crate::repositories::chat_staff::listar_clientes_resumen(&state.pool, q, limit).await?;
+        crate::repositories::chat::staff::listar_clientes_resumen(&state.pool, q, limit).await?;
     Ok(Json(filas))
 }
 
@@ -410,7 +410,7 @@ async fn actualizar_cliente(
         return Err(AppError::BadRequest("nada que cambiar".to_string()));
     }
     let fila: Option<crate::models::ClienteRow> =
-        crate::repositories::chat_staff::actualizar_cliente_campos(
+        crate::repositories::chat::staff::actualizar_cliente_campos(
             &state.pool,
             id,
             input.nombre.as_deref().map(str::trim),
@@ -433,7 +433,7 @@ async fn sesiones_de_cliente(
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<SesionDeCliente>>, AppError> {
     let filas: Vec<SesionDeCliente> =
-        crate::repositories::chat_staff::listar_sesiones_de_cliente(&state.pool, id).await?;
+        crate::repositories::chat::staff::listar_sesiones_de_cliente(&state.pool, id).await?;
     Ok(Json(filas))
 }
 

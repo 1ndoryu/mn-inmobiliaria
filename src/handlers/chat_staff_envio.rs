@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
-use crate::repositories::chat_envio::{AuditoriaFila, UsoDia};
+use crate::repositories::chat::envio::{AuditoriaFila, UsoDia};
 use crate::AppState;
 
 use super::chat_staff::fail;
@@ -66,7 +66,7 @@ async fn resolver_destino_envio(
          * ramas exclusivas y no se pueden unir; ver prevencion sqlite). */
         let (existe, tel) = tokio::join!(
             glory_agent::persistence::get_session(&state.pool, sid),
-            crate::repositories::chat_envio::telefono_de_sesion(&state.pool, sid)
+            crate::repositories::chat::envio::telefono_de_sesion(&state.pool, sid)
         );
         let existe = existe.map_err(|e| fail(&e))?;
         if existe.is_none() {
@@ -81,7 +81,7 @@ async fn resolver_destino_envio(
             crate::repositories::ClienteRepository::normalizar_telefono(&dest),
         ))
     } else if let Some(cid) = input.cliente_id {
-        let cliente = crate::repositories::chat_envio::cliente_por_id(&state.pool, cid).await?;
+        let cliente = crate::repositories::chat::envio::cliente_por_id(&state.pool, cid).await?;
         let Some(c) = cliente else {
             return Err(AppError::NotFound("cliente no existe".to_string()));
         };
@@ -196,7 +196,7 @@ pub(super) async fn uso_mensajes(
     Query(f): Query<FiltroUso>,
 ) -> Result<Json<Vec<UsoDia>>, AppError> {
     let dias = f.dias.unwrap_or(7).clamp(1, 90);
-    let filas = crate::repositories::chat_envio::uso_mensajes_por_dia(&state.pool, dias).await?;
+    let filas = crate::repositories::chat::envio::uso_mensajes_por_dia(&state.pool, dias).await?;
     Ok(Json(filas))
 }
 
@@ -213,7 +213,7 @@ pub(super) async fn auditoria(
     Query(q): Query<Limite>,
 ) -> Result<Json<Vec<AuditoriaFila>>, AppError> {
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
-    let filas = crate::repositories::chat_envio::auditoria_tomas_humanas(&state.pool, limit).await?;
+    let filas = crate::repositories::chat::envio::auditoria_tomas_humanas(&state.pool, limit).await?;
     Ok(Json(filas))
 }
 

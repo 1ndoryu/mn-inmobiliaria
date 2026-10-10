@@ -7,7 +7,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::models::{OPERACIONES, TIPOS};
-use crate::repositories::chat_tools::{
+use crate::repositories::chat::tools::{
     claves_fotos_inmueble, ficha_inmueble, tarjetas_inmuebles, titulo_inmueble_publicado,
     Tarjeta,
 };
