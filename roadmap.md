@@ -26,6 +26,73 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
+- **10AA-10 — Deuda de calidad del análisis Sentinel (ABIERTA, 462 avisos, 2026-10-10):**
+  análisis `estado: conHallazgos`. Fases por orden de coste:
+  - F1 `handler-accede-bd-rs` (128): mover acceso a BD de handlers a repositorios.
+  - F2 `sqlx-query-sin-macro` (157) + `sqlx-query-as-sin-macro` (74): migrar a macros; enlaza con 09AA-25.
+  - F3 `html-nativo-en-vez-de-componente` (78) + `css-hardcoded-value` (10): enlaza con 08AA-34.
+  - F4 reglas sueltas: `dom-access-outside-platform` (`glory-rs/frontend/componentes/ui/Modal.tsx:26,30`), `todo-prosa-sin-marcador` (`src/services/marketplace.rs:142,1054`), `usestate-excesivo` (2), `componente-sin-hook-glory` (1), `funcion-larga-rs` (`marketplace.rs:1055`), `directorio-abarrotado` (5). `limite-lineas` y `god-object-rs` van con 10AA-9.
+  - Muestreo: avisos reales, sin falsos positivos detectados. Cerrar con re-análisis (§6) sin avisos nuevos.
+- **10AA-7 — `sqlx::query` directo en el handler `audit` (ABIERTA, tarea aparte
+  de 10AA-2):** `src/handlers/marketplace.rs:112–113` escribe en `mp_auditoria`
+  con `sqlx::query(` (avisos `sqlx-query-sin-macro` y `handler-accede-bd-rs`,
+  preexistentes). Mover la escritura a `services/marketplace` y usar
+  `sqlx::query!`. Criterio: esos dos avisos desaparecen de ese archivo y
+  `check:back` sigue verde.
+
+- **10AA-8 — Query SQL en `marketplace_token.rs:65` (ABIERTA, ajeno a 10AA-2/5):**
+  aviso `handler-accede-bd-rs`, preexistente. Mover la query a servicio o
+  repositorio sin cambiar el comportamiento del token.
+
+- **10AA-9 — `marketplace_texto.rs` pasa de 700 líneas (ABIERTA, ajeno):**
+  Sentinel marca `limite-lineas` y `god-object-rs` (746 líneas efectivas,
+  `src/services/marketplace_texto.rs:1036`). Partir por dominio con el mismo
+  criterio que 10AA-6.
+
+- **10AA-11 — Verificar el paro automático de binarios de rama (ABIERTA, solo
+  prueba):** `scripts/run-with-db.mjs` ya para el `glory-backend.exe` de la rama
+  antes de cargo (prevención en `Agente/prevencion/prevencion-os-error-5-binario-rama-2026-10-10.md`).
+  Falta: un `cargo test` real que relinke sin `os error 5`.
+
+- **10AA-6 — Partir `src/services/marketplace.rs` por dominio (ABIERTA, siguiente
+  bloque; ya sin tests, 1588 líneas):** constantes (53–91), formato/texto (95–386), `PromptSeguro`
+  (388–400), nombre/hilo/alias (433–669), ficha y hilo previo (670–722),
+  tokens (723–817), acciones de chat (817–935), uso/resumen/detalle
+  (935–1266), caché (1266–1587). Mismo criterio: sin cambio de comportamiento,
+  gate verde por bloque. Avisos Sentinel preexistentes del archivo (sqlx sin
+  macro, `todo` en prosa, `sqlite-carga-N-consultas`) se atienden al partir.
+
+- **09AA-29 — Mensaje del cliente fiable + precio en el borrador + caché por
+  inmueble (pedido por ella 2026-10-09, EN CURSO):** retest desde cero del
+  hilo de Puerto Ordaz: el panel mostró «erto Ordaz.» como mensaje del cliente
+  (el float corta por carácter y `es_cola_truncada` no ve colas con espacio)
+  y el borrador salió `sin-ficha` (ID de aviso sin dueño no cae al título).
+  Ella quiere detección exacta porque la caché será **a nivel de inmueble**.
+  Plan: `Agente/planes/plan-cache-mensajes-inmueble-2026-10-09.md` (F1
+  extracción, F2 fallback de ficha, F3 diseño caché; F4 implementarla, con su
+  visto bueno). Decisión pendiente de ella: ¿dos compradores comparten la
+  misma respuesta cacheada (plantilla con nombre) o se personaliza por hilo?
+  **Estado:** F1+F2 implementadas; gate Rust y Sentinel OK (ver plan). Abierto:
+  retest vivo, commit (destino a confirmar: rama nueva, no `main`) y cierre.
+  Lab F1 sin git. Rama numérica de `titulo_vinculado_del_hilo` sin fallback por
+  título (decisión pendiente, documentada en `services/marketplace.rs`).
+  F3/F4 de este plan se sustituyen por 09AA-30.
+
+- **09AA-30 — Caché por inmueble, detección automática y origen visible
+  (pedido por ella 2026-10-09, EN CURSO):** misma pregunta del cliente sobre
+  el mismo inmueble → una sola IA (el nombre se rellena al servir); el float
+  relee solo al llegar o enviarse un mensaje; burbuja y admin muestran origen
+  (Caché / IA / Reserva / Plantilla local). Plan:
+  `Agente/planes/plan-cache-inmueble-automatica-2026-10-09.md` (F0 origen
+  visible → F1 detección → F2 caché por inmueble → F3 auto-borrador → F4
+  admin). **Decisiones tomadas:** IA automática en miss; corrección vale para
+  todo el inmueble; caché compartida solo con los 2 primeros mensajes del
+  cliente (sin ventana de tiempo, sin extraer hora). Hecho: F0 backend
+  (migración 35, origen y coste por fila, tokens y ms en `BorradorResponse`);
+  F1 en lab (111 tests verdes, falta retest vivo); F2 escrita en backend
+  (migración 36, `marketplace_compartida.rs`, `borrador`/`regenerar_uno`/
+  `corregir`), con gate Rust verde (09AA-31). F3–F4 pendientes.
+
 - **09AA-23 — Vínculo visible en chats (pedido por ella 2026-10-09, ACTIVA):**
   vio en el admin el borrador de `salazar|VEF0 apartamento residencias rio
   aro plaza` sin precio y pidió que el admin muestre con qué inmueble está
@@ -110,8 +177,8 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   dead-letter `pending`. NO toca regenerar. Sin empezar hasta cerrar
   09AA-4/09AA-5 (mismo pipeline) o serializar con esas sesiones.
 - **09AA-13 — Regenerar: loop + conserva (BLOQUEADA, la testea él):**
-  comportamiento actual de `regenerar_todo` intencional, funcionalidad
-  sin terminar. No tocar hasta que avise; coordinar con 09AA-4.
+  `regenerar_todo` retirado en 09AA-31 (2026-10-09); queda la ruta por fila
+  `/marketplace/regenerar`. No tocar hasta que avise; coordinar con 09AA-4.
 - **09AA-8 — Webhook fail-closed + tope media (09AA-6 §8.2).**
 - **09AA-9 — Auth con rol en consola staff (09AA-6 §8.3, requiere verificar
   contrato float opencode-propio antes de codificar).**
@@ -151,18 +218,14 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   buffer en memoria (500 eventos) + `GET /api/admin/marketplace/logs`
   (solo admin; hilos como hash-8, jamás PII) con eventos `borrador.cache`,
   `borrador.ia` (fuente+latencia+reintento), `ia.vacia` (WARN forma),
-  `ia.reintento_ok`, `regenerar` (borradas+fuente), `regenerar-todo`
-  (resumen); panel con tab «Logs»: tabla Hora|Nivel|Estado|Evento|Mensaje,
+  `ia.reintento_ok`, `regenerar` (borradas+fuente), `chat.archivar`,
+  `chat.borrar`, `chat.borrar_borrador` (09AA-31); panel con tab «Logs»: tabla Hora|Nivel|Estado|Evento|Mensaje,
   filtro por nivel, click → modal con detalle (prioridad: error=alta,
   warn=media, info=baja), auto-refresh 5s + pausa.
 - **09AA-3 — Regenerar-todo + dieta del prompt (pedido por ella 2026-10-09,
-  CERRADA pendiente de su prueba):** (1) botón «Regenerar todo» (secondary)
-  al lado de Recargar, con confirmación y resumen
-  (`Regenerados X de N (+Y en reserva, +Z omitidos)`):
-  `POST /api/admin/marketplace/regenerar-todo` (solo admin) regenera EN SERIE
-  cada fila con borrador (`filas_para_regenerar`: salta `corregida=TRUE` y
-  `respuesta=''`, recientes-primero), responde
-  `{candidatos, regenerados, en_reserva, omitidos, detalle[]}`; (2) dieta del
+  CERRADA pendiente de su prueba; «Regenerar todo» RETIRADO en 09AA-31):**
+  (1) ~~botón «Regenerar todo»~~ y su endpoint `regenerar-todo`/
+  `filas_para_regenerar`, retirados 2026-10-09; (2) dieta del
   prompt (~-40%: bans fusionados, la forma la impone Rust desde 09AA-2);
   (3) `Regenerar` ya NO borra en reserva: `regenerar_uno` extraído conserva
   el viejo si la IA cae. Gate: fmt 0 + tsc 0 + clippy 0 + test 151/151

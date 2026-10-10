@@ -1,5 +1,18 @@
 # Lecciones aprendidas
 
+## 2026-10-09 - Sentinel marca toda `query_as` sin macro; un test de BD puede ensuciar la siguiente corrida (09AA-29)
+- Sentinel marca `sqlx-query-as-sin-macro` en cualquier `query_as`, incluidas las
+  de `repositories/` (no están exentos). Una variante nueva sube el contador aunque
+  el resto ya sea baseline. Regla: unificar variantes en una sola consulta
+  parametrizada (`$1` booleano: `NOT $1 OR ...`) y usar `query_scalar` para
+  escalares (no se marca).
+- `limpiar_restos` no basta: un handler que lo llama dispara
+  `handler-accede-bd-rs`. Los tests de BD con fixture: borrar residuos al inicio
+  además de al final, porque un assert que falla salta la limpieza.
+- Fixture de fallback por título: un título con palabras comunes con una ficha real
+  (p. ej. «Casa en venta …») la empareja y el test cita la ficha equivocada. Usar
+  títulos sin palabras compartidas con el catálogo vivo.
+
 ## 2026-10-08 - Vista local-first + renumerado servidor = sombra stale (08AA-4)
 - El visor prefiere la IndexedDB local (`mejoradaDeLista ?? mejoradasServidor`):
   tras reparar el pareo en el servidor (renumerar `orden`), el navegador siguió

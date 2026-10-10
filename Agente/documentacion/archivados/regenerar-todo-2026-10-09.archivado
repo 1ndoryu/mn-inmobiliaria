@@ -1,0 +1,279 @@
+# Archivado 2026-10-09: «Regenerar todo» (retirado del panel de chats por decisión de la dueña).
+# Texto sin compilar. Para restaurar, copiar cada bloque a su archivo de origen (ruta en el encabezado).
+
+## src/handlers/marketplace.rs:561-670 (tipos RegenerarTodo*, hora_caracas_actual, regenerar_todo)
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct RegenerarTodoFila {
+    pub thread_id: String,
+    /// `ia` (reemplazado), `reserva` (la IA cayó y NO quedó borrador fresco:
+    /// lo viejo se borró antes de generar, ver `regenerar_uno`) u `omitido`
+    /// (sin excerpt con que regenerar).
+    pub fuente: String,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct RegenerarTodoResponse {
+    pub candidatos: i64,
+    pub regenerados: i64,
+    pub en_reserva: i64,
+    pub omitidos: i64,
+    pub detalle: Vec<RegenerarTodoFila>,
+}
+
+/// Hora actual de Caracas en RFC3339 `-04:00` (el schema la exige así):
+/// UTC-4 fijo, sin tzdata. El saludo del borrador queda fechado al momento
+/// de la regeneración masiva, no al del mensaje original.
+fn hora_caracas_actual() -> String {
+    let ahora = chrono::Utc::now() - chrono::Duration::hours(4);
+    format!("{}-04:00", ahora.format("%Y-%m-%dT%H:%M:%S"))
+}
+
+/// [09AA-3] Regeneración masiva del panel (botón «Regenerar todo»): una
+/// pasada EN SERIE por cada fila con borrador (ver `filas_para_regenerar`:
+/// salta correcciones de la dueña y filas solo-foto). En serie, no en
+/// paralelo: la misma carga que N clics manuales, sin picos contra la IA
+/// (cada uno tarda ~15s). Solo JWT admin. Responde el resumen por hilo.
+#[utoipa::path(
+    post,
+    path = "/api/admin/marketplace/regenerar-todo",
+    responses(
+        (status = 200, description = "Resumen de la regeneración masiva", body = RegenerarTodoResponse),
+    )
+)]
+pub async fn regenerar_todo(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Result<Response, AppError> {
+    let filas = filas_para_regenerar(&state.pool).await?;
+    let hora = hora_caracas_actual();
+    let mut detalle = Vec::with_capacity(filas.len());
+    for f in &filas {
+        if f.excerpt_texto.trim().is_empty() {
+            detalle.push(RegenerarTodoFila {
+                thread_id: f.thread_id.clone(),
+                fuente: "omitido".to_string(),
+            });
+            continue;
+        }
+        /* La firma HMAC real viaja en la fila (es la llave de caché); el
+         * resto se reconstruye: `remitente_hash` nunca sale del proceso
+         * (la validación de ingreso ya pasó) y la hora es la actual. */
+        let req = BorradorRequest {
+            thread_id: f.thread_id.clone(),
+            firma: f.firma.clone(),
+            firma_version: "firma-v1".to_string(),
+            lang: "es".to_string(),
+            excerpt: ExcerptIn {
+                remitente_hash: sha_hex("regenerar-todo"),
+                texto: f.excerpt_texto.clone(),
+                hora: hora.clone(),
+                leido: false,
+            },
+            aviso_id: None,
+            extras: None,
+            /* [09AA-20] Masiva siempre por texto plano: las filas guardan
+             * excerpt ya normalizado, no burbujas. */
+            conversacion: None,
+        };
+        let fuente = regenerar_uno(&state.pool, req, None).await?.fuente;
+        detalle.push(RegenerarTodoFila {
+            thread_id: f.thread_id.clone(),
+            fuente,
+        });
+    }
+    /* `i64` sin cast: el conteo cabe siempre; si algún día no cupiera,
+     * se satura en vez de envolver. */
+    let cuenta = |fuente: &str| {
+        i64::try_from(detalle.iter().filter(|d| d.fuente == fuente).count()).unwrap_or(i64::MAX)
+    };
+    let respuesta = RegenerarTodoResponse {
+        candidatos: i64::try_from(detalle.len()).unwrap_or(i64::MAX),
+        regenerados: cuenta("ia"),
+        en_reserva: cuenta("reserva"),
+        omitidos: cuenta("omitido"),
+        detalle,
+    };
+    /* [09AA-5] Resumen a la tab de Logs. */
+    mp_log(
+        LogNivel::Info,
+        "regenerar-todo",
+        "ok",
+        format!(
+            "masiva: {} regenerados de {} ({} sin fresco, {} omitidos)",
+            respuesta.regenerados, respuesta.candidatos, respuesta.en_reserva, respuesta.omitidos
+        ),
+        &[
+            ("candidatos", serde_json::json!(respuesta.candidatos)),
+            ("regenerados", serde_json::json!(respuesta.regenerados)),
+            ("en_reserva", serde_json::json!(respuesta.en_reserva)),
+            ("omitidos", serde_json::json!(respuesta.omitidos)),
+        ],
+    );
+    Ok((StatusCode::OK, Json(respuesta)).into_response())
+}
+
+
+## src/handlers/marketplace.rs:1087 (ruta)
+        .route("/marketplace/regenerar-todo", post(regenerar_todo))
+
+## src/handlers/mod.rs:102 (openapi)
+        marketplace::regenerar_todo,
+
+## src/services/marketplace.rs:1114-1141 (FilaRegen, filas_para_regenerar)
+/// [09AA-3] Candidata a regeneración masiva: hilos con borrador real.
+/// Salta correcciones de la dueña (`corregida`: su texto manda) y filas
+/// solo-foto (`respuesta=''`: sin borrador que refrescar). Una fila por
+/// clave de caché (un hilo puede traer varias: cada una se regenera).
+#[derive(Debug, Clone)]
+pub struct FilaRegen {
+    pub thread_id: String,
+    pub firma: String,
+    pub excerpt_texto: String,
+}
+
+pub async fn filas_para_regenerar(pool: &sqlx::PgPool) -> Result<Vec<FilaRegen>, AppError> {
+    let filas: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT thread_id, firma, excerpt_texto FROM mp_respuestas_cache \
+         WHERE respuesta <> '' AND NOT corregida ORDER BY valida_hasta DESC",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(filas
+        .into_iter()
+        .map(|(thread_id, firma, excerpt_texto)| FilaRegen {
+            thread_id,
+            firma,
+            excerpt_texto,
+        })
+        .collect())
+}
+
+
+## src/services/marketplace.rs:2353-2412 (test regen_solo_borradores_no_corregidos)
+    /* [09AA-3] Candidatos de la regeneración masiva: entra el borrador
+     * normal; quedan fuera la corrección de la dueña y la fila vacía. */
+    #[tokio::test]
+    async fn regen_solo_borradores_no_corregidos() {
+        let Some(pool) = pool_si_hay() else { return };
+        let (fa, pa, ca) = (clave_azar(), clave_azar(), clave_azar());
+        guardar_cache(
+            &pool,
+            &fa,
+            &pa,
+            &ca,
+            "borrador-a",
+            &foto_prueba("hilo-1", "x", "crudo-x"),
+            Coste::default(),
+        )
+        .await
+        .expect("guarda a");
+        let (fb, pb, cb) = (clave_azar(), clave_azar(), clave_azar());
+        guardar_cache(
+            &pool,
+            &fb,
+            &pb,
+            &cb,
+            "borrador-b",
+            &foto_prueba("hilo-1", "y", "crudo-y"),
+            Coste::default(),
+        )
+        .await
+        .expect("guarda b");
+        corregir_cache(&pool, &fb, &pb, &cb, "texto duena")
+            .await
+            .expect("corrige b");
+        let (fc, pc, cc) = (clave_azar(), clave_azar(), clave_azar());
+        guardar_cache(
+            &pool,
+            &fc,
+            &pc,
+            &cc,
+            "",
+            &foto_prueba("hilo-1", "z", "crudo-z"),
+            Coste::default(),
+        )
+        .await
+        .expect("guarda c");
+        let filas = filas_para_regenerar(&pool).await.expect("lista");
+        let firmas: Vec<&str> = filas.iter().map(|f| f.firma.as_str()).collect();
+        assert!(firmas.contains(&fa.as_str()), "a entra: {firmas:?}");
+        assert!(
+            !firmas.contains(&fb.as_str()),
+            "b fuera (corregida): {firmas:?}"
+        );
+        assert!(
+            !firmas.contains(&fc.as_str()),
+            "c fuera (vacía): {firmas:?}"
+        );
+        borrar_cache(&pool, &fa, &pa, &ca).await.expect("limpia a");
+        borrar_cache(&pool, &fb, &pb, &cb).await.expect("limpia b");
+        borrar_cache(&pool, &fc, &pc, &cc).await.expect("limpia c");
+    }
+
+
+## frontend/src/features/chat/chats-marketplace.tsx:136-156 (botón Regenerar y resumen)
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => void recargar()}>
+            Recargar
+          </Button>
+          {/* [09AA-3] Regeneración masiva al lado de Recargar: borra los
+           * borradores viejos y genera frescos con la IA en una pasada en
+           * serie. Tarda ~15s por chat.
+           * [09AA-4] Este botón ES el limpiar+regenerar en uno (lo pidió
+           * ella 2026-10-09): fuera el «Limpiar» separado (el endpoint
+           * DELETE /chats queda como API admin). */}
+          <Button variant="secondary" size="sm" disabled={regenerando} onClick={() => void regenerarTodoPanel()}>
+            {regenerando ? 'Regenerando…' : 'Regenerar'}
+          </Button>
+        </div>
+        {resumenRegen && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Regenerados {resumenRegen.regenerados} de {resumenRegen.candidatos}
+            {resumenRegen.en_reserva > 0 && ` (${resumenRegen.en_reserva} sin borrador fresco: la IA falló)`}
+            {resumenRegen.omitidos > 0 && `, ${resumenRegen.omitidos} omitidos`}.
+          </p>
+        )}
+
+## frontend/src/features/chat/use-chats-marketplace.ts:49-69 (regenerarTodoPanel)
+  /* [09AA-3] Regeneración masiva con confirmación: refresca toda la
+   * lista al terminar y muestra el resumen por hilo. Tarda ~15s por
+   * chat (una pasada en serie contra la IA). */
+  const [regenerando, setRegenerando] = useState(false);
+  const [resumenRegen, setResumenRegen] = useState<RegenerarTodoResumen | null>(null);
+  const regenerarTodoPanel = useCallback(async () => {
+    if (!window.confirm('¿Regenerar todos los borradores? Tarda ~15s por chat y la última que escribe gana.')) return;
+    setRegenerando(true);
+    setResumenRegen(null);
+    try {
+      const resumen = await regenerarTodo();
+      setResumenRegen(resumen);
+      setLista(await listarChats());
+      setError(null);
+    } catch (e: unknown) {
+      setError(e instanceof ErrorApi ? e.message : 'Fallo inesperado.');
+    } finally {
+      setRegenerando(false);
+    }
+  }, []);
+
+
+## frontend/src/data/chat/marketplace-chats.ts:56-74 (regenerarTodo y tipos)
+/* [09AA-3] Regeneración masiva: una pasada en serie por cada fila con
+ * borrador (ver `handlers::marketplace::regenerar_todo`). Salta
+ * correcciones de la dueña y filas solo-foto. Tarda ~15s por chat. */
+export interface RegenerarTodoFila {
+  thread_id: string;
+  fuente: string;
+}
+
+export interface RegenerarTodoResumen {
+  candidatos: number;
+  regenerados: number;
+  en_reserva: number;
+  omitidos: number;
+  detalle: RegenerarTodoFila[];
+}
+
+export function regenerarTodo(): Promise<RegenerarTodoResumen> {
+  return apiFetch<RegenerarTodoResumen>('/api/admin/marketplace/regenerar-todo', { method: 'POST' });
+}
