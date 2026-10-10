@@ -15,7 +15,7 @@ use crate::AppState;
  * `index.html` en cualquier otra ruta (el front resuelve sus rutas). Las
  * rutas de API nunca caen aquí: devuelven 404 seco para no enmascarar
  * errores del backend con HTML. */
-pub(super) async fn fallback_spa(
+pub(in crate::handlers) async fn fallback_spa(
     axum::extract::State(est): axum::extract::State<AppState>,
     uri: Uri,
 ) -> impl axum::response::IntoResponse {
@@ -82,7 +82,7 @@ pub(super) async fn fallback_spa(
 /* [249A-1] Sitemap mínimo y honesto: el detalle es solo-modal (sin URLs con
  * slug indexables), así que declara `/` con su última modificación. Las URLs
  * `/inmueble/:slug` quedan para el bloque de ruteo futuro. */
-pub(super) async fn sitemap(
+pub(in crate::handlers) async fn sitemap(
     axum::extract::State(est): axum::extract::State<AppState>,
 ) -> impl axum::response::IntoResponse {
     use crate::repositories::InmuebleRepository;
@@ -123,7 +123,7 @@ fn linea(v: &str) -> &str {
     }
 }
 
-pub(super) async fn llms_txt(
+pub(in crate::handlers) async fn llms_txt(
     axum::extract::State(est): axum::extract::State<AppState>,
 ) -> Result<impl axum::response::IntoResponse, AppError> {
     use crate::models::FiltrosPublicos;
@@ -198,7 +198,7 @@ pub(super) async fn llms_txt(
  * detalle es solo-modal, sin URLs por inmueble) y 2 consultas
  * representativas. Sin errores del validador oficial (warnings como
  * mucho): `specVersion` es `"1.0"` y el esquema no admite props extra. */
-pub(super) async fn ai_catalog(
+pub(in crate::handlers) async fn ai_catalog(
     axum::extract::State(est): axum::extract::State<AppState>,
 ) -> Result<impl axum::response::IntoResponse, AppError> {
     use crate::models::FiltrosPublicos;

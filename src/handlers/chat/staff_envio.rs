@@ -18,7 +18,7 @@ use crate::middleware::AuthUser;
 use crate::repositories::chat::envio::{AuditoriaFila, UsoDia};
 use crate::AppState;
 
-use super::chat_staff::fail;
+use super::staff::fail;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct EnvioManual {
@@ -106,7 +106,7 @@ async fn resolver_destino_envio(
         .await?;
         Ok((sid, c.telefono))
     } else if let Some(tel) = input.telefono.clone() {
-        if !super::chat_tools::telefono_valido(&tel) {
+        if !super::tools::telefono_valido(&tel) {
             return Err(AppError::BadRequest("telefono invalido".to_string()));
         }
         let canal = input.canal.as_deref().map_or("wa_a", str::trim);

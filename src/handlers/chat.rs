@@ -9,6 +9,13 @@
  * Sin `OPENCODE_GO_API_KEY` el chat persiste + reenvia en realtime pero
  * la IA no responde (degradado verificado en glory-agent F2). */
 
+pub mod staff;
+pub mod staff_config;
+pub mod staff_envio;
+pub mod tools;
+pub mod tools_captacion;
+pub mod tools_definiciones;
+
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
@@ -17,7 +24,6 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::chat_tools;
 use super::whatsapp;
 use crate::repositories::ClienteRepository;
 use glory_agent::errors::AgentError;
@@ -177,11 +183,11 @@ pub fn agent_router(pool: sqlx::PgPool, hub: ChatHub) -> Router<()> {
         std::env::var("OPENCODE_GO_API_KEY").unwrap_or_default(),
     );
     let mut registro = glory_agent::tools::ToolRegistry::new();
-    for def in chat_tools::definiciones() {
+    for def in tools::definiciones() {
         registro.register(def);
     }
     let executor: Arc<dyn glory_agent::tools::ToolExecutor> = Arc::new(
-        chat_tools::Herramientas::new(pool.clone(), contacto_defecto()).with_hub(hub.clone()),
+        tools::Herramientas::new(pool.clone(), contacto_defecto()).with_hub(hub.clone()),
     );
     let mut state = glory_agent::transport::AgentState::new(provider, prompt_config())
         .with_pool(pool)
@@ -213,7 +219,7 @@ async fn info(
         .pool
         .clone()
         .ok_or_else(|| AgentError::Internal("sin BD".to_string()))?;
-    let contacto = chat_tools::contacto_publico(&pool, &contacto_defecto()).await?;
+    let contacto = tools::contacto_publico(&pool, &contacto_defecto()).await?;
     let global = glory_agent::persistence::get_config(&pool, "ai_enabled_global").await?;
     Ok(Json(InfoPublica {
         contacto_telefono: contacto
@@ -253,7 +259,7 @@ async fn guardar_contacto(
             "nombre requerido (1..80)".to_string(),
         ));
     }
-    if !chat_tools::telefono_valido(telefono) {
+    if !tools::telefono_valido(telefono) {
         return Err(AgentError::BadRequest("telefono invalido".to_string()));
     }
     glory_agent::persistence::ensure_session(&pool, id).await?;

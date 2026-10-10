@@ -7,8 +7,7 @@ use crate::models::{FiltrosPublicos, Inmueble, PaginatedInmuebles};
 use crate::services::InmuebleService;
 use crate::AppState;
 
-use super::solicitud;
-use super::suscriptor;
+use super::comercial::{solicitud, suscriptor};
 
 /* [159A-1] Web pública de solo lectura: solo inmuebles con `publicado = TRUE`.
  * Sin JWT: la visibilidad la decide el backend, no el cliente. */

@@ -1,32 +1,13 @@
 #![allow(clippy::needless_for_each)] // Generado por utoipa OpenApi derive
 
-mod ask;
-mod auth;
-mod chat;
-mod chat_staff;
-mod chat_staff_config; // [08AA-6] split god-object: config del panel
-mod chat_staff_envio; // [08AA-8] split god-object: envío+uso+auditoría+gateway
-pub(crate) mod chat_tools;
-mod chat_tools_captacion; // [08AA-8] split god-object: captación/contacto/escalado
-mod chat_tools_definiciones; // [08AA-6] split god-object: schemas provider
+pub(crate) mod chat;
+mod comercial;
+mod cuentas;
 mod health;
 pub(crate) mod ia;
-mod ia_proveedores; // [08AA-8] split god-object: GloryAPI+OpenCode+Groq STT
-mod inmuebles;
+mod inmobiliario;
 pub mod marketplace;
-pub(crate) mod marketplace_estructuradas; // split god-object: F0 estructuradas/idempotencia (FuenteBorrador, resolver_fuente, idempotencia)
-pub(crate) mod marketplace_token; // [08AA-8] split límite 500: extractor `MpAuth` + emisión panel/CLI
-pub(crate) mod mp_logs; // [09AA-5] split: buffer de eventos + `GET /marketplace/logs`
-mod notes;
 mod public;
-mod rate_limit;
-mod solicitud;
-mod sombra;
-mod superficie; // [08AA-7] superficie web pública (SPA + SEO + catálogo agente)
-mod suscriptor;
-mod uploads;
-mod users;
-mod visita;
 mod whatsapp;
 
 use std::path::PathBuf;
@@ -66,40 +47,40 @@ impl utoipa::Modify for SecurityAddon {
 #[openapi(
     paths(
         health::health_check,
-        auth::register,
-        auth::login,
-        ask::get_ficha,
-        ask::set_ficha,
-        users::create_user,
-        notes::create_note,
-        notes::get_note,
-        notes::list_notes,
-        notes::update_note,
-        notes::delete_note,
-        inmuebles::create_inmueble,
-        inmuebles::list_inmuebles,
-        inmuebles::get_inmueble,
-        inmuebles::update_inmueble,
-        inmuebles::set_publicacion,
-        inmuebles::set_estado,
-        inmuebles::delete_inmueble,
-        inmuebles::add_foto,
-        inmuebles::delete_foto,
-        uploads::upload_foto,
-        uploads::servir_archivo,
-        uploads::servir_archivo_solicitud,
-        uploads::servir_archivo_whatsapp,
-        solicitud::subir_foto_solicitud,
-        solicitud::create_solicitud,
-        solicitud::list_solicitudes,
-        solicitud::revisar_solicitud,
-        visita::list_visitas,
-        visita::revisar_visita,
-        marketplace_token::emitir_token,
-        marketplace_token::emitir_token_cli,
+        cuentas::auth::register,
+        cuentas::auth::login,
+        ia::ask::get_ficha,
+        ia::ask::set_ficha,
+        cuentas::users::create_user,
+        comercial::notes::create_note,
+        comercial::notes::get_note,
+        comercial::notes::list_notes,
+        comercial::notes::update_note,
+        comercial::notes::delete_note,
+        inmobiliario::inmuebles::create_inmueble,
+        inmobiliario::inmuebles::list_inmuebles,
+        inmobiliario::inmuebles::get_inmueble,
+        inmobiliario::inmuebles::update_inmueble,
+        inmobiliario::inmuebles::set_publicacion,
+        inmobiliario::inmuebles::set_estado,
+        inmobiliario::inmuebles::delete_inmueble,
+        inmobiliario::inmuebles::add_foto,
+        inmobiliario::inmuebles::delete_foto,
+        inmobiliario::uploads::upload_foto,
+        inmobiliario::uploads::servir_archivo,
+        inmobiliario::uploads::servir_archivo_solicitud,
+        inmobiliario::uploads::servir_archivo_whatsapp,
+        comercial::solicitud::subir_foto_solicitud,
+        comercial::solicitud::create_solicitud,
+        comercial::solicitud::list_solicitudes,
+        comercial::solicitud::revisar_solicitud,
+        comercial::visita::list_visitas,
+        comercial::visita::revisar_visita,
+        marketplace::token::emitir_token,
+        marketplace::token::emitir_token_cli,
         marketplace::borrador,
         marketplace::regenerar,
-        mp_logs::logs,
+        marketplace::logs::logs,
         marketplace::corregir,
         marketplace::audit,
         marketplace::uso,
@@ -111,7 +92,7 @@ impl utoipa::Modify for SecurityAddon {
         marketplace::chats_admin::version_borradores,
         public::list_public,
         public::get_public,
-        suscriptor::suscribir,
+        comercial::suscriptor::suscribir,
     ),
     components(schemas(
         health::HealthResponse,
@@ -151,14 +132,14 @@ impl utoipa::Modify for SecurityAddon {
         crate::services::marketplace::ExtrasIn,
         crate::services::marketplace::Tono,
         crate::services::marketplace::Largo,
-        crate::handlers::marketplace_token::TokenResponse,
+        crate::handlers::marketplace::token::TokenResponse,
         crate::handlers::marketplace::BorradorResponse,
-        crate::handlers::mp_logs::LogEvento,
-        crate::handlers::mp_logs::LogNivel,
-        crate::handlers::mp_logs::LogsResponse,
+        crate::handlers::marketplace::logs::LogEvento,
+        crate::handlers::marketplace::logs::LogNivel,
+        crate::handlers::marketplace::logs::LogsResponse,
         crate::handlers::marketplace::AuditIn,
         crate::handlers::marketplace::EventoAudit,
-        crate::handlers::marketplace_token::CliTokenRequest,
+        crate::handlers::marketplace::token::CliTokenRequest,
         crate::handlers::marketplace::CorregirRequest,
         crate::handlers::marketplace::CorregirResponse,
         crate::handlers::marketplace::UsoQuery,
@@ -237,24 +218,30 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .route("/uploads/:inmueble/:archivo", get(uploads::servir_archivo))
+        .route(
+            "/uploads/:inmueble/:archivo",
+            get(inmobiliario::uploads::servir_archivo),
+        )
         .route(
             "/uploads/solicitudes/:sesion/:archivo",
-            get(uploads::servir_archivo_solicitud),
+            get(inmobiliario::uploads::servir_archivo_solicitud),
         )
         /* [279A-2] Fotos entrantes de WhatsApp archivadas en disco local. */
         .route(
             "/uploads/whatsapp/:telefono/:archivo",
-            get(uploads::servir_archivo_whatsapp),
+            get(inmobiliario::uploads::servir_archivo_whatsapp),
         )
         /* [249A-1] Sitemap dinámico (ruta explícita: no cae al fallback). */
-        .route("/sitemap.xml", get(superficie::sitemap))
+        .route("/sitemap.xml", get(inmobiliario::superficie::sitemap))
         /* [249A-4] `llms.txt` y catálogo agente dinámicos desde la BD
          * (siempre frescos, sin depender del prebuild): el estático
          * `public/llms.txt` nunca llegaba al build de Coolify y el
          * fallback servía `index.html` en su lugar (agéntica 1/4). */
-        .route("/llms.txt", get(superficie::llms_txt))
-        .route("/.well-known/ai-catalog.json", get(superficie::ai_catalog))
+        .route("/llms.txt", get(inmobiliario::superficie::llms_txt))
+        .route(
+            "/.well-known/ai-catalog.json",
+            get(inmobiliario::superficie::ai_catalog),
+        )
         .nest("/api", api_routes())
         /* nest_service porque el chat trae Router<()> (estado propio):
          * nest exige el mismo estado. Despoja /api igual que nest. */
@@ -265,7 +252,7 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
      * (verificado en prod: `Content-Encoding` ausente en el JS/CSS/HTML).
      * `with_state` sigue ultimo y da estado a rutas y fallback por igual. */
     let app = if sirve_front {
-        app.fallback(superficie::fallback_spa)
+        app.fallback(inmobiliario::superficie::fallback_spa)
     } else {
         app
     };
@@ -285,8 +272,8 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
          * Escrituras 120/min, lecturas 1200/min; el exceso es 429 con
          * `Retry-After`. Ver `rate_limit.rs`. */
         .layer(axum::middleware::from_fn_with_state(
-            rate_limit::LimitadorTasa::default(),
-            rate_limit::capa_limite,
+            cuentas::rate_limit::LimitadorTasa::default(),
+            cuentas::rate_limit::capa_limite,
         ));
     app.with_state(state)
 }
@@ -294,8 +281,8 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
 fn api_routes() -> Router<AppState> {
     Router::new()
         .merge(health::routes())
-        .merge(auth::routes())
-        .merge(notes::routes())
+        .merge(cuentas::auth::routes())
+        .merge(comercial::notes::routes())
         .nest("/admin", admin_routes())
         .nest("/public", public::routes())
 }
@@ -303,21 +290,21 @@ fn api_routes() -> Router<AppState> {
 /// Rutas de administración: cada ruta requiere JWT (`AuthUser` por handler)
 fn admin_routes() -> Router<AppState> {
     Router::new()
-        .merge(inmuebles::routes())
+        .merge(inmobiliario::inmuebles::routes())
         /* [279A-3] Ficha /ask de la dueña (rutas bajo /api/admin/...). */
-        .merge(ask::routes())
-        .merge(solicitud::admin_routes())
-        .merge(visita::admin_routes())
-        .merge(uploads::routes())
-        .merge(users::routes())
+        .merge(ia::ask::routes())
+        .merge(comercial::solicitud::admin_routes())
+        .merge(comercial::visita::admin_routes())
+        .merge(inmobiliario::uploads::routes())
+        .merge(cuentas::users::routes())
         /* [03AA-3 M3] Asistente Marketplace: token mp, borrador y audit. */
         .merge(marketplace::routes())
         /* [169A-4] Atención del chat: bandeja, hilo, responder, tomar/soltar
          * IA y config (rutas bajo /api/admin/agent). */
-        .merge(chat_staff::staff_routes())
+        .merge(chat::staff::staff_routes())
         /* [199A-1] Centro de IA de texto: estado/config/probar/completar
          * (rutas bajo /api/admin/ia). */
-        .merge(ia::routes())
+        .merge(ia::ia::routes())
 }
 
 /* [08AA-7] La superficie web (fallback SPA, sitemap, llms.txt, catálogo)

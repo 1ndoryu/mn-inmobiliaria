@@ -10,7 +10,7 @@ use crate::repositories::chat::staff::{ClienteResumen, SesionDeCliente, SesionRe
 use crate::AppState;
 use glory_agent::errors::AgentError;
 
-use super::chat_staff_config::{guardar_config, leer_config}; // [08AA-6] dominio config
+use super::staff_config::{guardar_config, leer_config}; // [08AA-6] dominio config
 
 /* [169A-4] Atención humana del chat (panel admin). Cada ruta requiere JWT
  * (`AuthUser`); vive en el router `AppState` porque el extractor pide ese
@@ -37,22 +37,22 @@ pub fn staff_routes() -> Router<AppState> {
         .route("/agent/clientes/:id/sesiones", get(sesiones_de_cliente))
         .route(
             "/agent/enviar",
-            post(super::chat_staff_envio::enviar_manual),
+            post(super::staff_envio::enviar_manual),
         )
-        .route("/agent/uso", get(super::chat_staff_envio::uso_mensajes))
-        .route("/agent/auditoria", get(super::chat_staff_envio::auditoria))
+        .route("/agent/uso", get(super::staff_envio::uso_mensajes))
+        .route("/agent/auditoria", get(super::staff_envio::auditoria))
         /* [289A-1] Vinculación desde la consola: proxy de estado+QR del
          * gateway (el navegador nunca habla con el gateway directo). */
         .route(
             "/agent/whatsapp/sesiones",
-            get(super::chat_staff_envio::sesiones_whatsapp),
+            get(super::staff_envio::sesiones_whatsapp),
         )
         .route(
             "/agent/whatsapp/sesiones/:canal/qr",
-            get(super::chat_staff_envio::qr_whatsapp),
+            get(super::staff_envio::qr_whatsapp),
         )
         /* [011A-2] Sombra F5-Paso1: huella solo-lectura tras GLORY_SHADOW=1. */
-        .merge(super::sombra::sombra_routes())
+        .merge(crate::handlers::ia::sombra::sombra_routes())
 }
 
 #[derive(Debug, Deserialize)]
@@ -338,7 +338,7 @@ async fn crear_cliente(
     Json(input): Json<NuevoCliente>,
 ) -> Result<Json<crate::models::Cliente>, AppError> {
     let telefono = input.telefono.trim();
-    if !super::chat_tools::telefono_valido(telefono) {
+    if !super::tools::telefono_valido(telefono) {
         return Err(AppError::BadRequest("telefono invalido".to_string()));
     }
     let origen = input.origen.as_deref().map_or("web", str::trim);

@@ -111,18 +111,7 @@ pub async fn borrador(
         /* Hit: el plugin audita `hit`; aquí no se audita nada (el conteo de
          * usos ya subió en la misma sentencia del `UPDATE ... RETURNING`). */
         log_borrador_cache(r.thread_id.trim(), corregida);
-        let resp = (
-            StatusCode::OK,
-            Json(BorradorResponse {
-                borrador: texto,
-                fuente: "cache".to_string(),
-                aviso_conocido: conocido,
-                firma_version: firma_version.clone(),
-                corregida,
-                coste: crate::services::marketplace::Coste::default(),
-            }),
-        )
-            .into_response();
+        let resp = respuesta_hit(texto, corregida, conocido, &firma_version);
         return Ok(con_idempotencia(resp, clave_idem.as_ref()));
     }
     /* Miss (el plugin audita `miss`): una sola IA por clave en vuelo. La
@@ -163,6 +152,22 @@ pub async fn borrador(
     )
         .into_response();
     Ok(con_idempotencia(resp, clave_idem.as_ref()))
+}
+
+/// Respuesta de un hit de caché: `fuente=cache` y coste vacío (no gastó IA).
+fn respuesta_hit(texto: String, corregida: bool, conocido: bool, firma_version: &str) -> Response {
+    (
+        StatusCode::OK,
+        Json(BorradorResponse {
+            borrador: texto,
+            fuente: "cache".to_string(),
+            aviso_conocido: conocido,
+            firma_version: firma_version.to_string(),
+            corregida,
+            coste: crate::services::marketplace::Coste::default(),
+        }),
+    )
+        .into_response()
 }
 
 /// Claves de caché de una petición ya resueltas: firma del hilo (v2 y legacy)
@@ -433,7 +438,7 @@ pub(super) async fn generar_borrador(
     /* [09AA-30] Coste de la pasada: tiempo de la llamada IA (no del vuelo
      * ni del fallback) y tokens del `usage`; `None` si el relay no los trajo. */
     let inicio_ia = std::time::Instant::now();
-    let (texto, uso) = match crate::handlers::ia::completar_opencode_rapido(
+    let (texto, uso) = match crate::handlers::ia::ia::completar_opencode_rapido(
         &sistema,
         &r.excerpt.texto,
         &[],

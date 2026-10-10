@@ -12,7 +12,7 @@ use crate::errors::AppError;
 use crate::middleware::AuthUser;
 use crate::AppState;
 
-use super::chat_staff::fail;
+use super::staff::fail;
 
 /// Claves editables desde el panel (allowlist: nada fuera de aquí).
 /* [07AA-1 F4] Todo-controlable del plan 03AA-4: a las 7 de F1-F3 se suman

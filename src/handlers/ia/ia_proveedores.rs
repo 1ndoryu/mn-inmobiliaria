@@ -12,7 +12,7 @@ use crate::errors::AppError;
 
 use super::ia::{glory_base, leer_env, MAX_FOTOS};
 /* [09AA-5] Eventos de la tab de Logs (sin PII). */
-use super::mp_logs::{mp_log, LogNivel};
+use crate::handlers::marketplace::logs::{mp_log, LogNivel};
 
 fn cliente_http(segs: u64) -> Result<reqwest::Client, AppError> {
     reqwest::Client::builder()

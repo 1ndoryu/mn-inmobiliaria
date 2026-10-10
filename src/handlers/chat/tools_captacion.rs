@@ -22,7 +22,7 @@ use crate::services::{
 };
 use glory_agent::errors::AgentError;
 
-use super::chat_tools::telefono_valido;
+use super::tools::telefono_valido;
 
 pub(super) async fn registrar(
     pool: &PgPool,

@@ -34,7 +34,7 @@ use crate::AppState;
  * (split god-object): aquí solo el wiring para `borrador`/`regenerar`. */
 /* [09AA-22] F3 suma al wiring: verificación de la llave contra hint+firma
  * + lectura con convivencia v2→v1 (lógica en el módulo, aquí llamadas). */
-use super::marketplace_estructuradas::{
+use estructuradas::{
     buscar_cache_convivencia, clave_idempotencia, con_idempotencia, resolver_fuente,
     verificar_idempotencia_conversacion, FuenteBorrador,
 };
@@ -42,12 +42,16 @@ use super::marketplace_estructuradas::{
 /* [08AA-8] Token mp (extractor + emisión) vive en `marketplace_token.rs`
  * (split límite 500). Re-export `pub` para las rutas utoipa de `mod.rs`
  * (`marketplace::emitir_token`…); `MpAuth`/`limite` para este boundary. */
-use super::marketplace_token::limite;
-pub use super::marketplace_token::{
+use token::limite;
+pub use token::{
     emitir_token, emitir_token_cli, CliTokenRequest, MpAuth, TokenResponse,
 };
 /* [09AA-5] Buffer de eventos del puente para la tab de Logs (sin PII). */
-use super::mp_logs::{hilo8, log_borrador_cache, log_borrador_ia, mp_log, LogNivel};
+use logs::{hilo8, log_borrador_cache, log_borrador_ia, mp_log, LogNivel};
+
+pub(crate) mod estructuradas;
+pub(crate) mod logs;
+pub(crate) mod token;
 
 pub mod chats_admin;
 
@@ -156,7 +160,7 @@ pub fn routes() -> Router<AppState> {
             get(chats_admin::version_borradores),
         )
         /* [09AA-5] Tab de Logs: eventos del puente, recientes-primero. */
-        .route("/marketplace/logs", get(super::mp_logs::logs))
+        .route("/marketplace/logs", get(logs::logs))
 }
 
 /// [03AA-3 M2] Dashboard agregado para el panel: conteos por día y evento de

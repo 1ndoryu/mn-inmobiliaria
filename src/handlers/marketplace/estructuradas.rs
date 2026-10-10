@@ -18,7 +18,7 @@ use crate::services::marketplace::{
     CODIGO_IDEMPOTENCIA, FIRMA_VERSION_V2,
 };
 
-use super::mp_logs::{hilo8, mp_log, LogNivel};
+use super::logs::{hilo8, mp_log, LogNivel};
 
 /* [09AA-20] F0: de qué conversación hablamos. La estructurada (`Some` +
  * kill-switch encendido) se valida, se firma v2 y se renderiza a

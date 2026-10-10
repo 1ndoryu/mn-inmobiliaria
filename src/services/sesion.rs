@@ -7,7 +7,7 @@
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::handlers::chat_tools::telefono_valido;
+use crate::handlers::chat::tools::telefono_valido;
 use crate::repositories::ClienteRepository;
 use crate::services::transporte::{destino_jubilado, reparto, EntradaWhatsapp};
 use crate::services::{CanalResolver, InmuebleService};

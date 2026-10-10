@@ -26,7 +26,7 @@ use glory_agent::tools::{ToolCtx, ToolExecutor};
 
 /* [08AA-6] Los schemas del provider viven en `chat_tools_definiciones`
  * (split god-object); se re-exporta `definiciones` para no romper `chat.rs`. */
-pub(crate) use super::chat_tools_definiciones::definiciones;
+pub(crate) use super::tools_definiciones::definiciones;
 
 /// Executor con acceso a BD y al contacto por defecto (`AGENTE_CONTACTO`).
 pub struct Herramientas {
@@ -536,10 +536,10 @@ pub fn telefono_valido(tel: &str) -> bool {
 /* [08AA-8] Captación/contacto/escalado a humano viven en
  * `chat_tools_captacion.rs` (split god-object); se re-exportan para el
  * dispatcher `Herramientas::ejecutar` y los tests (`super::*`). */
-pub use super::chat_tools_captacion::contacto_publico;
+pub use super::tools_captacion::contacto_publico;
 /* Solo lo que usan el dispatcher y los tests (`super::*`); los helpers
  * internos (`arg_texto`, `aviso_humano`…) quedan en el módulo hijo. */
-pub(super) use super::chat_tools_captacion::{agendar, captar, consultar, escalar, registrar};
+pub(super) use super::tools_captacion::{agendar, captar, consultar, escalar, registrar};
 
 /* [08AA-8] `destino_humano`→`agendar` movidos a `chat_tools_captacion.rs`
  * (re-export arriba para dispatcher y tests). */
