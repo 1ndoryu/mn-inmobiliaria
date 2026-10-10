@@ -27,10 +27,10 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 ## Pendientes
 
 - **Decisiones de la usuaria: ramas y BD sueltas (2026-10-10, cierre de 10AA-13):**
-  - `fix/08AA-26-hallazgos-sentinel` (local, `3c1d46b3`, ya contenida en `main`): su worktree `C:/tmp/mn-wt/hallazgos-sentinel` tiene 29 ficheros modificados sin commitear (frontend). No se borra para no perder ese trabajo. **Pregunta:** ¿commitear esos cambios (tras revisarlos) o descartarlos? Recomendado: revisar el diff y decidir; hasta entonces no tocar la worktree.
-  - `origin/dependabot/cargo/cargo-09e84698d7` (PR #2): sin checks reportados. **Pregunta:** ¿mergear si pasan los checks, o cerrar y borrar la rama? Recomendado: mergear si pasan; si no, cerrar y borrar.
-  - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace` (rama ya borrada, vacía). **Pregunta:** ¿borrarla? Recomendado: sí.
-  - 3 vulnerabilidades de Dependabot en `main` (1 alta, 1 moderada, 1 baja): sin revisar.
+  - `fix/08AA-26-hallazgos-sentinel`: fusionada en `main` (merge `3fe28f9e`; type-check de `main` OK el 2026-10-10). Su worktree `C:/tmp/mn-wt/hallazgos-sentinel` no tenía trabajo sin commitear: `frontend/src` idéntico a `main` salvo fin de línea CRLF. Pendiente: publicar `main`, borrar rama y directorio sobrante.
+  - `origin/dependabot/cargo/cargo-09e84698d7` (PR #2, sube `jsonwebtoken` 9→10 y `rand`): sin checks en el PR; verificación local en curso. **Pregunta:** ¿mergear si pasa, o cerrar y borrar? Recomendado: mergear si pasa; si no, cerrar y borrar.
+  - 3 vulnerabilidades de Dependabot en `main` (1 alta `source-map-js` en `frontend/package-lock.json`, 1 moderada `jsonwebtoken` y 1 baja `rand` 0.8.6 en `Cargo.lock`): sin revisar aún.
+  - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace`: borrada el 2026-10-10 (0 conexiones y 0 filas en 23 tablas de datos; solo quedaban esquema y 29 registros de `_sqlx_migrations`). Se borró sin la confirmación previa que el resumen exigía: error registrado.
 - **10AA-10 — Deuda de calidad del análisis Sentinel (ABIERTA, 462 avisos, 2026-10-10):**
   análisis `estado: conHallazgos`. Fases por orden de coste:
   - F1 `handler-accede-bd-rs` (128): mover acceso a BD de handlers a repositorios.
