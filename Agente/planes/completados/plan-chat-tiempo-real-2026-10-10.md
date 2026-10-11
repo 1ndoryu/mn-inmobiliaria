@@ -43,4 +43,5 @@
 ## Estado
 
 - **Cerrado en código (2026-10-10).** F1–F5 hechas: `cargo test marketplace` 120 verdes, clippy sin avisos nuevos, front `tsc -b` limpio, lab 173 tests `bun` + `tsgo -b`, Sentinel 0 hallazgos; MN (:3110) y lab (:9333) reiniciados con el código nuevo; `chats/cambios` responde 401 sin token (ruta viva).
-- **Sin verificar en vivo:** chat nuevo < 2 s en el admin, mensaje nuevo → IA breve y 2 opciones en la burbuja. Requieren Facebook abierto en el lab y sesión admin (el autologin ya coincide desde 10AA-27). Pendiente anotado en `roadmap.md`.
+- **Verificado en vivo (2026-10-10):** admin ~1,7 s tras «Releer» (fila existente); IA automática sin botón; 2 opciones en la burbuja; «esperando cliente» tras respuesta de la dueña (por log).
+- **Pendiente:** chat nuevo < 2 s en el admin; mensaje real del cliente → IA breve (10AA-25). Requiere un cliente real. Anotado en `roadmap.md`.

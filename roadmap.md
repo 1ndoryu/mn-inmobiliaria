@@ -32,7 +32,8 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   - Abierto: `floatDraftCache` de main no se invalida al borrar en MN (cubierto por `force`).
   - Seguridad: `GEMINI_PSID`/`GEMINI_PSIDTS` están en claro en `.env` (no commiteado). Recomendado: rotarlos.
 - **Chats en tiempo real, continuación y dos opciones (10AA-24/25/26, cerrado en código 2026-10-10; detalle en `Agente/completados/tareas-2026-10-10.md`):**
-  - Prueba viva pendiente (necesita Facebook y sesión admin): abrir un chat nuevo en el lab y verlo en el admin en < 2 s; que el cliente escriba de nuevo en un hilo con respuesta previa de la dueña y salga un borrador IA breve (log `[mp-float] mensaje nuevo, IA`); ver plantilla + IA como 2 opciones en la burbuja. El lab ya corre con el código nuevo (:9333).
+  - Verificado en vivo (2026-10-10): fila existente llega al admin en ~1,7 s tras «Releer»; IA automática sin botón (Celimar, Josshary, Carlos); plantilla + IA como 2 opciones en la burbuja; tras la respuesta de la dueña, Leonelalv pasa a «esperando cliente» (confirmado por log, no visualmente).
+  - Pendiente: chat nuevo visible en el admin en < 2 s (no probado); borrador IA breve cuando el cliente escribe de nuevo en un hilo con respuesta previa de la dueña. Requiere un cliente real: no se simulan envíos.
   - Abierto: el lab procesa las ventanas en serie, así que varios chats simultáneos esperan la IA uno tras otro (paralelizarlo si molesta).
 - **Decisiones de la usuaria: ramas y BD sueltas (2026-10-10, cierre de 10AA-13):**
   - `fix/08AA-26-hallazgos-sentinel`: fusionada en `main` (merge `3fe28f9e`), `main` publicada (`398a3097`), worktree y directorio sobrante borrados. Su worktree no tenía trabajo sin commitear: `frontend/src` idéntico a `main` salvo fin de línea CRLF.
