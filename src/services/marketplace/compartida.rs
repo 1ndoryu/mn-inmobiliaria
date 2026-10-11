@@ -195,14 +195,24 @@ pub async fn enlazar_compartida(
 
 /// Hilo enlazado a una clave compartida: `(thread_id, mensaje_clave)` de su
 /// fila por hilo. `None` si nunca se compartió (sin enlace, sin propagación).
+/// [10AA-28] Solo cuenta un hilo de apertura: una fila antigua enlazada desde un
+/// hilo con respuesta de la dueña no propaga su corrección a la plantilla.
+/// Macro `query_as!` (sentinel `sqlx-query-as-sin-macro`): la consulta queda en
+/// `.sqlx/`, así que cualquier cambio de SQL exige regenerarla con `sqlx prepare`.
 pub async fn vinculo_compartido(
     pool: &sqlx::PgPool,
     firma: &str,
     precio_hash: &str,
     catalog_hash: &str,
 ) -> Result<Option<(String, String)>, AppError> {
-    let fila = sqlx::query!(
-        "SELECT thread_id, mensaje_clave AS \"mensaje_clave!\" FROM mp_respuestas_cache \
+    struct Fila {
+        thread_id: Option<String>,
+        mensaje_clave: Option<String>,
+        excerpt_texto: Option<String>,
+    }
+    let fila = sqlx::query_as!(
+        Fila,
+        "SELECT thread_id, mensaje_clave, excerpt_texto FROM mp_respuestas_cache \
          WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3 \
          AND mensaje_clave IS NOT NULL AND thread_id IS NOT NULL",
         firma,
@@ -211,7 +221,10 @@ pub async fn vinculo_compartido(
     )
     .fetch_optional(pool)
     .await?;
-    Ok(fila.map(|r| (r.thread_id, r.mensaje_clave)))
+    Ok(fila.and_then(|f| match (f.thread_id, f.mensaje_clave, f.excerpt_texto) {
+        (Some(t), Some(m), Some(e)) if super::continuacion::es_apertura(&e) => Some((t, m)),
+        _ => None,
+    }))
 }
 
 /// Hilo que recibe una respuesta compartida ya servida (acierto de la clave):
@@ -426,5 +439,46 @@ mod tests {
         super::super::borrar_cache(&pool, &firma_b, &precio, &catalogo)
             .await
             .expect("limpiar hilo b");
+    }
+
+    /* [10AA-28] Regresión: un hilo con respuesta de la dueña enlazado a la
+     * compartida no es fuente de propagación; `vinculo_compartido` lo ignora. */
+    #[tokio::test]
+    async fn vinculo_ignora_hilo_con_respuesta_de_la_duena() {
+        let Some(pool) = pool_si_hay() else { return };
+        let catalogo = clave_azar();
+        let precio = clave_azar();
+        let mensaje = mensaje_clave_de(&["¿sigue disponible?"]);
+        let clave = ClaveCompartida {
+            catalog_hash: &catalogo,
+            precio_hash: &precio,
+            mensaje_clave: &mensaje,
+        };
+        let firma = clave_azar();
+        let foto = super::super::FotoHilo {
+            thread_id: "Ana|Casa",
+            excerpt: "Cliente: ¿sigue disponible?\nDueña: Sí",
+            excerpt_crudo: "",
+        };
+        super::super::guardar_cache(
+            &pool, &firma, &precio, &catalogo, "Hola {{nombre}}.", &foto, Coste::default(),
+        )
+        .await
+        .expect("guardar");
+        enlazar_compartida(&pool, &firma, &clave, "Hola {{nombre}}.", Coste::default(), false)
+            .await
+            .expect("enlazar");
+        let vinculo = vinculo_compartido(&pool, &firma, &precio, &catalogo)
+            .await
+            .expect("vinculo");
+        assert_eq!(vinculo, None);
+        sqlx::query("DELETE FROM mp_respuestas_inmueble WHERE catalog_hash = $1")
+            .bind(&catalogo)
+            .execute(&pool)
+            .await
+            .expect("limpiar compartida");
+        super::super::borrar_cache(&pool, &firma, &precio, &catalogo)
+            .await
+            .expect("limpiar hilo");
     }
 }

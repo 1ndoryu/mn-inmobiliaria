@@ -26,6 +26,13 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Pendientes
 
+- **Estado del globo, dueña y apertura (10AA-28/29, cerrado en código 2026-10-10; detalle en `Agente/completados/tareas-2026-10-10.md`):**
+  - Rama `fix/10AA-28-29-chats-admin-float` (desde `main` 5bef0631), pusheada y **sin integrar en `main`**: publicar en `main` requiere su confirmación. **Pregunta:** ¿autoriza fusionarla en `main` y publicarla? Recomendado: sí, fast-forward sin force-push; después borro la rama local y la remota con `git bundle` previo.
+  - Verificado: MN `cargo test marketplace` 122/122 (con y sin BD), clippy exit 0, Sentinel 0 hallazgos; float 116/116; en vivo, float v9 automático tras recargar SELLER.
+  - Pendiente: ver en el admin que las burbujas de la dueña aparecen como «Tú»; chip «Precio»/«Valor» en un mensaje real; continuación con cliente real.
+  - Tarea aparte: `scripts/run-with-db.mjs` para cualquier backend vivo de la rama (`Agente/prevencion/prevencion-run-with-db-mata-backend-vivo-2026-10-10.md`). Recomendado: no parar procesos con puerto en escucha.
+  - **Pregunta:** datos previos al fix (continuaciones publicadas, `thread_id` con `VEF0`, p. ej. Yennifer): ¿invalido esas filas para que se regeneren? Recomendado: sí, tras revisarlas.
+  - Ruido: 84 ficheros `.sqlx` aparecen como «M» sin diferencia de contenido (EOL con `core.autocrlf=true`). No se stagean. Recomendado: normalizar EOL en tarea aparte.
 - **Regenerar automático (cerrado en código 2026-10-10, 10AA-17; detalle en `Agente/completados/tareas-2026-10-10.md`):**
   - Prueba viva pendiente: reiniciar la app de opencode con `lab-arrancar.ps1` (`MP_NUCLEO=on`), regenerar un chat desde el float y comprobar que el admin muestra el texto nuevo sin limpiar caché. **Pregunta:** ¿su app de opencode tiene `MP_NUCLEO` encendido? Recomendado: sí.
   - Promoción del lab a `opencode-propio` (`marketplace-service.ts`, `marketplace-float.ts`, `marketplace-nucleo.ts` difieren de su copia). **Pregunta:** ¿autoriza la fusión manual? Recomendado: sí, con diff primero y reinicio + prueba viva.

@@ -31,6 +31,15 @@ pub fn es_continuacion(excerpt: &str) -> bool {
     hay_duena && ultima_es_cliente
 }
 
+/// [10AA-28] `true` si la dueña ya escribió en el hilo (alguna marca `Dueña:`).
+/// La plantilla compartida del inmueble es de apertura: un hilo con respuesta
+/// de la dueña no la consulta ni la publica, aunque su primer mensaje del
+/// cliente coincida con el de otro hilo.
+#[must_use]
+pub fn es_apertura(excerpt: &str) -> bool {
+    !excerpt.lines().any(|l| l.trim_start().starts_with("Dueña:"))
+}
+
 /// Tono pedido por el puente (`amable` por defecto).
 #[must_use]
 pub fn tono_de(r: &BorradorRequest) -> &'static str {
@@ -128,6 +137,17 @@ mod tests {
         assert!(!es_continuacion(""));
     }
 
+    /// [10AA-28] Regresión: con respuesta de la dueña el hilo no es de apertura
+    /// (no usa ni publica la plantilla compartida), aunque la dueña esté al final.
+    #[test]
+    fn hilo_con_duena_no_es_apertura() {
+        assert!(es_apertura("Cliente: ¿Sigue disponible?"));
+        assert!(es_apertura("hola\n¿sigue disponible?"));
+        assert!(!es_apertura("Cliente: Hola\nDueña: Hola, buenas"));
+        assert!(!es_apertura("Dueña: Hola\nCliente: Gracias"));
+        assert!(!es_apertura("Cliente: ¿Sigue disponible?\nDueña: Sí"));
+    }
+
     #[test]
     fn el_prompt_no_trae_molde_de_apertura_ni_contacto() {
         let p = sistema_continuacion("amable", "Casa en venta", "SIN FICHA", "nada todavía");
@@ -161,9 +181,6 @@ mod tests {
     #[test]
     fn la_forma_vacia_cae_a_la_reserva() {
         assert_eq!(dar_forma_continuacion("   "), FALLBACK_CONTINUACION);
-        assert_eq!(
-            dar_forma_continuacion(&format!("{CONTACTO_WA}")),
-            FALLBACK_CONTINUACION
-        );
+        assert_eq!(dar_forma_continuacion(CONTACTO_WA), FALLBACK_CONTINUACION);
     }
 }

@@ -75,9 +75,15 @@ pub(super) async fn regenerar_uno(
     let (seguro, precio_hash, catalog_hash, conocido) =
         claves_cache(pool, r.aviso_id.as_deref(), titulo_fb.as_deref()).await?;
     let nombre = nombre_de_thread(r.thread_id.trim());
+    /* [10AA-28] La plantilla compartida es de apertura: un hilo con respuesta de
+     * la dueña no la consulta ni la publica (ver `borrador`). */
     let clave_compartida = mensaje_clave
         .as_deref()
-        .filter(|_| conocido && nombre.is_some())
+        .filter(|_| {
+            conocido
+                && nombre.is_some()
+                && crate::services::marketplace::continuacion::es_apertura(&r.excerpt.texto)
+        })
         .map(|mensaje_clave| ClaveCompartida {
             catalog_hash: &catalog_hash,
             precio_hash: &precio_hash,

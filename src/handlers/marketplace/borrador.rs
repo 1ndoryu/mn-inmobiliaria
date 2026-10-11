@@ -80,11 +80,14 @@ pub async fn borrador(
         claves_cache(&state.pool, r.aviso_id.as_deref(), titulo_fb.as_deref()).await?;
     /* [09AA-30 F2] Caché compartida por inmueble: solo con los 2 primeros
      * mensajes del cliente y aviso conocido; sin nombre del hilo no se puede
-     * rellenar `{{nombre}}`, así que ese hilo va por su camino de siempre. */
+     * rellenar `{{nombre}}`, así que ese hilo va por su camino de siempre.
+     * [10AA-28] Además solo para apertura: con respuesta de la dueña en el
+     * hilo, la plantilla de otro hilo con el mismo primer mensaje no encaja
+     * (y la continuación no debe publicarse como plantilla). */
     let nombre = nombre_de_thread(r.thread_id.trim());
     let clave_compartida = mensaje_clave
         .as_deref()
-        .filter(|_| conocido && nombre.is_some())
+        .filter(|_| conocido && nombre.is_some() && continuacion::es_apertura(&r.excerpt.texto))
         .map(|mensaje_clave| ClaveCompartida {
             catalog_hash: &catalog_hash,
             precio_hash: &precio_hash,

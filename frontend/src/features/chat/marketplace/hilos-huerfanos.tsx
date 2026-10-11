@@ -9,6 +9,7 @@ import { useVincularHilo } from '@/hooks/chat/use-vincular-hilo';
 import type { ChatResumen } from '../../../data/chat/marketplace-chats';
 import type { DetalleChat } from './use-chats-marketplace';
 import { VincularHilo } from './vincular-hilo';
+import { mensajesDelExcerpt } from './excerpt-mensajes';
 import { ButtonPlano } from '@/components/ui/button';
 
 /* El hilo es `nombre|aviso`: si el aviso son dígitos (o URL) se sugiere
@@ -87,11 +88,14 @@ export function HilosHuerfanos({
               <>
                 {seleccion?.hilo === actual.thread_id && !seleccion.cargando && (
                   <ul className="space-y-1">
-                    {seleccion.filas.slice(0, 3).map((f, i) => (
-                      <li key={`${actual.thread_id}-${i}`} className="rounded-md border px-3 py-2 text-xs">
-                        {f.excerpt_texto.split('\n')[0]}
-                      </li>
-                    ))}
+                    {seleccion.filas.slice(0, 3).map((f, i) => {
+                      const primero = mensajesDelExcerpt(f.excerpt_texto)[0];
+                      return (
+                        <li key={`${actual.thread_id}-${i}`} className="rounded-md border px-3 py-2 text-xs">
+                          {primero && `${primero.propia ? 'Tú' : 'Cliente'}: ${primero.texto}`}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
                 {cargando ? (

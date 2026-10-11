@@ -7,6 +7,7 @@ import { useScrollInfinito } from '../../../hooks/app/use-scroll-infinito';
 import { useChatsMarketplace } from './use-chats-marketplace';
 import type { ChatFila, ChatResumen } from '../../../data/chat/marketplace-chats';
 import { HilosHuerfanos } from './hilos-huerfanos';
+import { mensajesDelExcerpt } from './excerpt-mensajes';
 import { LogsMarketplace } from './logs-marketplace';
 import { VinculoInmueble } from './vinculo-inmueble';
 import { Badge } from '@/components/ui/badge';
@@ -56,22 +57,6 @@ function textoMetricas(f: ChatFila): string[] {
   }
   if (ms !== null) trozos.push(`${(ms / 1000).toFixed(1)} s`);
   return trozos;
-}
-
-/* [08AA-31] Lado por marca de texto: lo propio viaja como `Tú:`/`Tu:`/`You:`
- * (backend 08AA-29); lo demás es del cliente (viaja sin etiqueta). Sin esta
- * separación el excerpt se veía pegado en un solo bloque (hilo angelv). */
-function esLadoPropio(linea: string): boolean {
-  const marca = linea.trim().toLowerCase();
-  return marca.startsWith('tú:') || marca.startsWith('tu:') || marca.startsWith('you:');
-}
-
-/* [08AA-31] Quita la marca de lado (`Tú: msg` → `msg`): el Badge ya dice el
- * lado, repetirlo en el texto duplica. Solo se usa con `esLadoPropio`. */
-function textoSinMarca(linea: string): string {
-  const i = linea.indexOf(':');
-  const resto = i < 0 ? '' : linea.slice(i + 1).trim();
-  return resto === '' ? linea.trim() : resto;
 }
 
 /* El hilo es `comprador|aviso` (clave del puente). El título del chat es el
@@ -259,21 +244,14 @@ export function ChatsMarketplace() {
                * pegado en un solo `span`. */}
               {i === 0 && f.excerpt_texto && (
                 <span className="block space-y-1 border-l-2 border-primary/40 pl-2 text-muted-foreground">
-                  {f.excerpt_texto.split('\n').map((linea, j) => {
-                    const texto = linea.trim();
-                    if (texto === '') return null;
-                    const propia = esLadoPropio(texto);
-                    return (
-                      <span key={j} className="flex flex-wrap items-center gap-1">
-                        <Badge variant={propia ? 'default' : 'secondary'} className="text-[10px]">
-                          {propia ? 'Tú' : 'Cliente'}
-                        </Badge>
-                        <span className="min-w-0 flex-1 break-words">
-                          {propia ? textoSinMarca(texto) : texto}
-                        </span>
-                      </span>
-                    );
-                  })}
+                  {mensajesDelExcerpt(f.excerpt_texto).map((m, j) => (
+                    <span key={j} className="flex flex-wrap items-center gap-1">
+                      <Badge variant={m.propia ? 'default' : 'secondary'} className="text-[10px]">
+                        {m.propia ? 'Tú' : 'Cliente'}
+                      </Badge>
+                      <span className="min-w-0 flex-1 break-words">{m.texto}</span>
+                    </span>
+                  ))}
                 </span>
               )}
               <span className="mt-1 block">{f.respuesta}</span>
