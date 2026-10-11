@@ -61,6 +61,17 @@ export function listarChats({
   return apiFetch<PaginaChats>(`/api/admin/marketplace/chats?${q.toString()}`);
 }
 
+/* [10AA-24] Long-poll del panel: el backend responde en cuanto cambia algo (chat
+ * nuevo, texto nuevo, borrado) o a los ~25 s con la misma versión. `desde`
+ * ausente = primera petición (responde al instante con la versión vigente). */
+export function esperarCambiosChats(
+  desde: number | undefined,
+  signal: AbortSignal,
+): Promise<{ version: number }> {
+  const q = desde === undefined ? '' : `?desde=${desde}`;
+  return apiFetch<{ version: number }>(`/api/admin/marketplace/chats/cambios${q}`, { signal });
+}
+
 export function leerChat(thread: string): Promise<ChatFila[]> {
   return apiFetch<ChatFila[]>(`/api/admin/marketplace/chats/${encodeURIComponent(thread)}`);
 }

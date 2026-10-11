@@ -225,3 +225,38 @@ pub async fn version_borradores(_auth: MpAuth) -> Result<Response, AppError> {
     )
         .into_response())
 }
+
+/// [10AA-24] `desde`: última versión que el panel ya pintó (ausente en la primera petición).
+#[derive(Debug, Clone, Deserialize, IntoParams)]
+pub struct CambiosQuery {
+    pub desde: Option<u64>,
+}
+
+/// [10AA-24] Long-poll del panel de chats: responde en cuanto algo cambia
+/// (chat nuevo, texto nuevo, borrado, archivado) o a los 25 s con la misma
+/// versión. El panel refresca lista y detalle cuando `version` difiere de la
+/// que tenía, y vuelve a preguntar. Solo JWT admin.
+#[utoipa::path(
+    get,
+    path = "/api/admin/marketplace/chats/cambios",
+    params(CambiosQuery),
+    responses(
+        (status = 200, description = "Versión actual del panel de chats"),
+        (status = 401, description = "Sin sesión admin", body = crate::errors::ErrorResponse)
+    )
+)]
+pub async fn cambios_chats(
+    _auth: AuthUser,
+    Query(q): Query<CambiosQuery>,
+) -> Result<Response, AppError> {
+    let version = crate::services::marketplace::cambios::esperar_cambio(
+        q.desde,
+        crate::services::marketplace::cambios::ESPERA_MAX,
+    )
+    .await;
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({"version": version})),
+    )
+        .into_response())
+}

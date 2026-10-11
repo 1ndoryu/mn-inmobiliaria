@@ -6,8 +6,10 @@ import { useTema } from '@/hooks/app/use-tema';
 import { useAside } from '@/hooks/app/use-aside';
 import type { Tema } from '@/app/tema';
 import type { ResumenConexionIA } from '@/domain/ia';
+import type { ResumenLab } from '@/domain/lab';
 import { cn } from '@/lib/utils';
 import { IndicadorIA } from './indicador-ia';
+import { IndicadorLab } from './indicador-lab';
 
 function ItemNav({
   icono,
@@ -114,6 +116,7 @@ export function Layout({
   temaExterno,
   alCiclarTemaExterno,
   iaResumen,
+  labResumen,
 }: {
   children: ReactNode;
   vista?: VistaApp;
@@ -122,6 +125,7 @@ export function Layout({
   temaExterno?: Tema;
   alCiclarTemaExterno?: () => void;
   iaResumen?: ResumenConexionIA;
+  labResumen?: ResumenLab;
 }) {
   const interno = useTema();
   const tema = temaExterno ?? interno.tema;
@@ -201,12 +205,14 @@ export function Layout({
         {!contraido && (
           <div className="mt-auto flex flex-col gap-1 px-1">
             {iaResumen && <IndicadorIA resumen={iaResumen} />}
+            {labResumen && <IndicadorLab resumen={labResumen} />}
             <p className="text-xs text-muted-foreground">Panel admin · API</p>
           </div>
         )}
         <div className={cn('flex items-center justify-between px-1 pt-1', contraido && 'mt-auto flex-col gap-1')}>
           {!contraido && <span className="text-xs text-muted-foreground">{TEXTO_TEMA[tema]}</span>}
           {contraido && iaResumen && <IndicadorIA resumen={iaResumen} punto />}
+          {contraido && labResumen && <IndicadorLab resumen={labResumen} punto />}
           <BotonTema tema={tema} alCambiar={ciclar} />
         </div>
       </aside>
@@ -221,6 +227,7 @@ export function Layout({
             {(vista ?? 'inmuebles') === 'imagenes' ? 'Imágenes' : vista === 'mensajes' ? 'Mensajes' : vista === 'publicidad' ? 'Publicidad' : 'Inmuebles'}
           </Badge>
           {iaResumen && <IndicadorIA resumen={iaResumen} punto />}
+          {labResumen && <IndicadorLab resumen={labResumen} punto />}
           {alAbrirConfig && (
             <Button variant="ghost" size="icon" title="Configuración" aria-label="Abrir configuración" onClick={alAbrirConfig}>
               <Settings2 />

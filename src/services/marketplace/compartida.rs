@@ -257,6 +257,7 @@ pub async fn vincular_hilo_compartido(
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
+    super::cambios::notificar();
     Ok(())
 }
 

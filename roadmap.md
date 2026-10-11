@@ -31,6 +31,9 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   - Promoción del lab a `opencode-propio` (`marketplace-service.ts`, `marketplace-float.ts`, `marketplace-nucleo.ts` difieren de su copia). **Pregunta:** ¿autoriza la fusión manual? Recomendado: sí, con diff primero y reinicio + prueba viva.
   - Abierto: `floatDraftCache` de main no se invalida al borrar en MN (cubierto por `force`).
   - Seguridad: `GEMINI_PSID`/`GEMINI_PSIDTS` están en claro en `.env` (no commiteado). Recomendado: rotarlos.
+- **Chats en tiempo real, continuación y dos opciones (10AA-24/25/26, cerrado en código 2026-10-10; detalle en `Agente/completados/tareas-2026-10-10.md`):**
+  - Prueba viva pendiente (necesita Facebook y sesión admin): abrir un chat nuevo en el lab y verlo en el admin en < 2 s; que el cliente escriba de nuevo en un hilo con respuesta previa de la dueña y salga un borrador IA breve (log `[mp-float] mensaje nuevo, IA`); ver plantilla + IA como 2 opciones en la burbuja. El lab ya corre con el código nuevo (:9333).
+  - Abierto: el lab procesa las ventanas en serie, así que varios chats simultáneos esperan la IA uno tras otro (paralelizarlo si molesta).
 - **Decisiones de la usuaria: ramas y BD sueltas (2026-10-10, cierre de 10AA-13):**
   - `fix/08AA-26-hallazgos-sentinel`: fusionada en `main` (merge `3fe28f9e`), `main` publicada (`398a3097`), worktree y directorio sobrante borrados. Su worktree no tenía trabajo sin commitear: `frontend/src` idéntico a `main` salvo fin de línea CRLF.
   - **Alertas Dependabot (10AA-18, 2026-10-10):** resueltas en código: `rand` 0.8.6 y `source-map-js` 1.2.2. El salto de `jsonwebtoken` 9→10 quedó superado y se retiró en 10AA-19. Se cierran en GitHub al llegar a `main`. Tablero `gate/vulnerabilidades`: solo queda `rsa` (baja).

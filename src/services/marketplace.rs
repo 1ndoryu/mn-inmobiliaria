@@ -15,7 +15,9 @@ use crate::repositories::InmuebleRepository;
 
 pub(crate) mod burbujas;
 pub(crate) mod cabecera;
+pub(crate) mod cambios;
 pub(crate) mod compartida;
+pub(crate) mod continuacion;
 pub(crate) mod texto;
 pub(crate) mod vuelo;
 
@@ -828,6 +830,7 @@ pub async fn borrar_todo_cache(pool: &sqlx::PgPool) -> Result<u64, AppError> {
         .await?;
     if r.rows_affected() > 0 {
         VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
+        cambios::notificar();
     }
     Ok(r.rows_affected())
 }
@@ -850,6 +853,7 @@ pub async fn borrar_hilo_no_corregidas(
         .await?;
     if r.rows_affected() > 0 {
         VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
+        cambios::notificar();
     }
     Ok(r.rows_affected())
 }
@@ -864,6 +868,7 @@ pub async fn archivar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<()
     )
     .execute(pool)
     .await?;
+    cambios::notificar();
     Ok(())
 }
 
@@ -881,6 +886,7 @@ pub async fn borrar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<u64,
     tx.commit().await?;
     if r.rows_affected() > 0 {
         VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
+        cambios::notificar();
     }
     Ok(r.rows_affected())
 }
@@ -938,6 +944,7 @@ pub async fn borrar_borrador_hilo(
     tx.commit().await?;
     if r.rows_affected() > 0 {
         VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
+        cambios::notificar();
     }
     Ok(r.rows_affected())
 }
@@ -1489,6 +1496,7 @@ pub async fn guardar_cache(
     )
     .execute(pool)
     .await?;
+    cambios::notificar();
     Ok(())
 }
 
@@ -1528,6 +1536,7 @@ pub async fn reemplazar_cache(
     )
     .execute(pool)
     .await?;
+    cambios::notificar();
     Ok(())
 }
 
@@ -1596,6 +1605,10 @@ pub async fn releer_foto(
     .await?
     .rows_affected();
     if tocadas > 0 {
+        // Solo avisa si el texto cambió: un releer idéntico no debe refrescar el panel.
+        if vieja.as_ref().is_none_or(|(v,)| *v != combinada) {
+            cambios::notificar();
+        }
         return Ok((true, false));
     }
     let firma = sha_hex(&format!("releer-sin-borrador|{hilo}"));
@@ -1611,6 +1624,7 @@ pub async fn releer_foto(
     )
     .execute(pool)
     .await?;
+    cambios::notificar();
     Ok((true, true))
 }
 
@@ -1630,6 +1644,7 @@ pub async fn borrar_cache(
     )
     .execute(pool)
     .await?;
+    cambios::notificar();
     Ok(())
 }
 
@@ -1661,6 +1676,7 @@ pub async fn corregir_cache(
     )
     .execute(pool)
     .await?;
+    cambios::notificar();
     Ok(())
 }
 

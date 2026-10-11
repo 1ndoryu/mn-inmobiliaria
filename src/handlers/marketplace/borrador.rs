@@ -3,6 +3,7 @@
 // Mismos imports que la cabecera del hub (marketplace.rs); el glob es intencional.
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::services::marketplace::continuacion;
 
 pub(super) const TOPE_BORRADOR_MINUTO: i64 = 30;
 
@@ -332,11 +333,7 @@ pub(super) async fn datos_y_ya_dicho(
 /// Prompt de sistema del borrador: tono, datos del inmueble, hora, saludo y forma del mensaje.
 pub(super) fn sistema_borrador(r: &BorradorRequest, aviso: &str, datos: &str, ya_dicho: &str) -> String {
     use crate::services::marketplace::{CONTACTO_TEL, CONTACTO_WA};
-    let tono = r.extras.as_ref().map_or("amable", |e| match e.tono {
-        crate::services::marketplace::Tono::Corto => "corto",
-        crate::services::marketplace::Tono::Amable => "amable",
-        crate::services::marketplace::Tono::Formal => "formal",
-    });
+    let tono = crate::services::marketplace::continuacion::tono_de(r);
     /* [07AA-10] Saludo primero y por su nombre: el hilo trae `nombre|aviso`.
      * El precio según operación ([08AA-25]: un alquiler presentado como
      * venta rompe la confianza — testigo Townhouse Arivana, hilo cristo);
@@ -427,7 +424,14 @@ pub(super) async fn generar_borrador(
      * contexto aproximado para abrir con la ficha breve en el piloto. */
     let aviso = aviso_fb_de_thread(r.thread_id.trim()).unwrap_or_else(|| "desconocido".to_string());
     let (datos, ya_dicho) = datos_y_ya_dicho(r, seguro, &aviso, pool).await;
-    let sistema = sistema_borrador(r, &aviso, &datos, &ya_dicho);
+    /* [10AA-25] La dueña ya contestó y el último mensaje es del cliente: se
+     * responde solo a ese mensaje, sin molde de apertura ni contacto fijo. */
+    let cont = continuacion::es_continuacion(&r.excerpt.texto);
+    let sistema = if cont {
+        continuacion::sistema_continuacion(continuacion::tono_de(r), &aviso, &datos, &ya_dicho)
+    } else {
+        sistema_borrador(r, &aviso, &datos, &ya_dicho)
+    };
     /* [09AA-4] Sesión estable por hilo (hash, jamás PII en claro): el relay
      * exige `x-opencode-session` y premia la estabilidad con ruteo afin y
      * prompt caching. */
@@ -449,10 +453,15 @@ pub(super) async fn generar_borrador(
         Ok((t, _, uso)) => (t, uso),
         Err(e) => {
             tracing::warn!("borrador mp: IA caída ({e}), va fallback");
-            return Generado {
-                texto: formatear_parrafos(&crate::services::marketplace::asegurar_contacto(
+            let texto = if cont {
+                continuacion::FALLBACK_CONTINUACION.to_string()
+            } else {
+                formatear_parrafos(&crate::services::marketplace::asegurar_contacto(
                     FALLBACK_BORRADOR,
-                )),
+                ))
+            };
+            return Generado {
+                texto,
                 fuente: "reserva".to_string(),
                 coste: crate::services::marketplace::Coste::default(),
             };
@@ -465,11 +474,16 @@ pub(super) async fn generar_borrador(
     };
     /* [09AA-2] La invariante de forma la impone Rust: el texto de la IA
      * pasa por `imponer_forma_borrador` (poda de relleno + final canónico)
-     * antes de garantizar el contacto. */
-    Generado {
-        texto: formatear_parrafos(&crate::services::marketplace::asegurar_contacto(
+     * antes de garantizar el contacto. La continuación no lleva ninguno. */
+    let texto = if cont {
+        continuacion::dar_forma_continuacion(&texto)
+    } else {
+        formatear_parrafos(&crate::services::marketplace::asegurar_contacto(
             &crate::services::marketplace::imponer_forma_borrador(&formatear_parrafos(&texto)),
-        )),
+        ))
+    };
+    Generado {
+        texto,
         fuente: "ia".to_string(),
         coste,
     }

@@ -50,6 +50,7 @@ pub use token::{
 use logs::{hilo8, log_borrador_cache, log_borrador_ia, mp_log, LogNivel};
 
 pub(crate) mod estructuradas;
+pub(crate) mod lab_estado;
 pub(crate) mod logs;
 pub(crate) mod token;
 
@@ -143,6 +144,8 @@ pub fn routes() -> Router<AppState> {
             "/marketplace/chats",
             get(chats_admin::chats).delete(chats_admin::borrar_todo),
         )
+        /* [10AA-24] Long-poll de cambios. Ruta estática: matchit la prefiere a `:thread`. */
+        .route("/marketplace/chats/cambios", get(chats_admin::cambios_chats))
         .route(
             "/marketplace/chats/:thread",
             get(chats_admin::chat_detalle).delete(chats_admin::borrar_chat),
@@ -161,6 +164,8 @@ pub fn routes() -> Router<AppState> {
         )
         /* [09AA-5] Tab de Logs: eventos del puente, recientes-primero. */
         .route("/marketplace/logs", get(logs::logs))
+        /* [10AA-23] Indicador «Lab» de la cabecera: latido del token CLI. */
+        .route("/marketplace/lab/estado", get(lab_estado::estado_lab))
 }
 
 /// [03AA-3 M2] Dashboard agregado para el panel: conteos por día y evento de

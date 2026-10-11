@@ -58,6 +58,14 @@ flotante (shadow-DOM). Sin IA: motor local de plantillas, cero tokens.
   instantáneo, determinista y vive dentro de Facebook; el script es
   con-IA y por terminal. La clave admin viaja solo por `MN_ADMIN_CLAVE`.
 
+## Chats en tiempo real y continuación [10AA-24/25/26]
+
+- **Aparición al abrir.** El lab llama a `POST /releer` en la primera vista de cada ventana (log `[mp-float] primera vista, releer`), sin esperar a la IA: el chat sale en el panel admin aunque la IA falle.
+- **Panel admin en vivo.** `GET /api/admin/marketplace/chats/cambios?desde=N` (JWT admin) es un long-poll de ≤25 s sobre `services/marketplace/cambios.rs` (`tokio::sync::watch`); cada escritura visible en `mp_respuestas_cache` llama a `cambios::notificar()`. El front (`use-cambios-chats.ts`) agrupa avisos 400 ms, pausa con la pestaña oculta y reintenta con retroceso; `use-chats-marketplace.ts` repone lista (con las páginas ya cargadas) y detalle abierto sin spinner. Es independiente de `VERSION_BORRADORES_BORRADOS`.
+- **Continuación.** `services/marketplace/continuacion.rs`: si el extracto trae marcas `Dueña:` y el último turno es `Cliente:`, el borrador usa un prompt breve (contesta lo último, sigue el hilo, ≤320 caracteres, sin saludo de apertura ni bloque de contacto, fallback «Lo reviso y te escribo por aquí»). Sin turno previo de la dueña se mantiene la apertura de siempre.
+- **Regeneración sola.** El lab compara el texto del último mensaje del cliente (`continuarConIA`, mín. 15 s entre intentos): si cambia, pide IA sin pulsar Regenerar (log `mensaje nuevo, IA`).
+- **Dos opciones.** `combinarOpciones`: el globo pinta la plantilla local al instante y, al llegar, la IA/caché/reserva arriba y la plantilla como segunda opción (no se duplica si coincide).
+
 ## Gotchas
 
 - El ancla del chat depende del `aria-label` de Facebook; si Meta lo

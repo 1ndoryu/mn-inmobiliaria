@@ -18,6 +18,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use super::lab_estado;
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
 use crate::repositories::marketplace::token_vigente;
@@ -45,38 +46,63 @@ impl FromRequestParts<AppState> for MpAuth {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let token = parts
+        /* [10AA-23] Latido del lab para el indicador del panel: solo cuenta el
+         * token atado a máquina (`mid`, el del lab); un rechazo cuenta si
+         * llegó una cabecera Bearer (sin cabecera es ruido, no el lab). */
+        let con_bearer = parts
             .headers
             .get("Authorization")
             .and_then(|v| v.to_str().ok())
-            .and_then(|h| h.strip_prefix("Bearer "))
-            .ok_or(AppError::Unauthorized)?;
-        let claims: MpClaims = jwt::verificar(
-            token,
-            state.jwt_secret.as_bytes(),
-            Some(ISS),
-            Some(AUD),
-        )
-        .map_err(|_| AppError::Unauthorized)?;
-        if claims.scope != SCOPE {
-            return Err(AppError::Forbidden("alcance insuficiente".to_string()));
+            .is_some_and(|h| h.starts_with("Bearer "));
+        match autenticar(parts, state).await {
+            Ok(claims) => {
+                if claims.mid.is_some() {
+                    lab_estado::registrar_ok();
+                }
+                Ok(Self { sub: claims.sub })
+            }
+            Err(e) => {
+                if con_bearer {
+                    lab_estado::registrar_fallo();
+                }
+                Err(e)
+            }
         }
-        let vigente: Option<bool> = token_vigente(&state.pool, &claims.jti).await?;
-        if vigente != Some(true) {
-            return Err(AppError::Unauthorized);
-        }
-        /* E3: token CLI atado a máquina: exige `X-MP-Maquina` igual al `mid`
-         * del token. Sin `mid` (panel) no se pide nada. Fallo = 401 seco,
-         * sin decir si fue máquina o token (sin oráculo). */
-        let maquina = parts
-            .headers
-            .get("x-mp-maquina")
-            .and_then(|v| v.to_str().ok());
-        if !crate::services::marketplace::maquina_autorizada(claims.mid.as_deref(), maquina) {
-            return Err(AppError::Unauthorized);
-        }
-        Ok(Self { sub: claims.sub })
     }
+}
+
+async fn autenticar(parts: &Parts, state: &AppState) -> Result<MpClaims, AppError> {
+    let token = parts
+        .headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or(AppError::Unauthorized)?;
+    let claims: MpClaims = jwt::verificar(
+        token,
+        state.jwt_secret.as_bytes(),
+        Some(ISS),
+        Some(AUD),
+    )
+    .map_err(|_| AppError::Unauthorized)?;
+    if claims.scope != SCOPE {
+        return Err(AppError::Forbidden("alcance insuficiente".to_string()));
+    }
+    let vigente: Option<bool> = token_vigente(&state.pool, &claims.jti).await?;
+    if vigente != Some(true) {
+        return Err(AppError::Unauthorized);
+    }
+    /* E3: token CLI atado a máquina: exige `X-MP-Maquina` igual al `mid`
+     * del token. Sin `mid` (panel) no se pide nada. Fallo = 401 seco,
+     * sin decir si fue máquina o token (sin oráculo). */
+    let maquina = parts
+        .headers
+        .get("x-mp-maquina")
+        .and_then(|v| v.to_str().ok());
+    if !crate::services::marketplace::maquina_autorizada(claims.mid.as_deref(), maquina) {
+        return Err(AppError::Unauthorized);
+    }
+    Ok(claims)
 }
 
 /// 429 con `Retry-After` (no cabe en `AppError`, que no lleva headers).
