@@ -22,6 +22,25 @@
         "refs/tags/v*"
       ],
       "cli": "out/cli/index.js"
+    },
+    "varsense": {
+      "repository": "https://github.com/1ndoryu/varsense.git",
+      "sourcePath": "../.quality-tools/varsense",
+      "provisionPath": "../.quality-tools/varsense",
+      "commit": "8f5eac20e30c74989352885cc255075bf94e5bf8",
+      "version": "2.2.9",
+      "outputSchemaVersion": "1",
+      "buildScript": "compile",
+      "cli": "dist/cli/index.js",
+      "testScript": "smoke:lsp",
+      "releaseRefs": [
+        "refs/remotes/origin/main",
+        "refs/tags/v*"
+      ],
+      "capabilities": {
+        "filesFrom": true,
+        "persistentIndex": true
+      }
     }
   }
 }

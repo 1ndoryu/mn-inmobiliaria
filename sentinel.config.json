@@ -56,6 +56,11 @@
           "**/.git/**"
         ]
       }
+    },
+    "varsense": {
+      "enabled": true,
+      "profile": "project-default",
+      "config": "varsense.config.json"
     }
   },
   "runtime": {

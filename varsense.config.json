@@ -1,0 +1,49 @@
+{
+  "variableFiles": [
+    "frontend/src/index.css"
+  ],
+  "includePatterns": [
+    "frontend/src/**/*.css",
+    "frontend/src/**/*.ts",
+    "frontend/src/**/*.tsx",
+    "glory-rs/frontend/estilos/**/*.css"
+  ],
+  "excludePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.quality-tools/**",
+    "**/.quality-reports/**",
+    "**/.sentinel/**"
+  ],
+  "scanAllFiles": false,
+  "hardcodedDetection": {
+    "enabled": true,
+    "severity": "warning"
+  },
+  "inlineDetection": {
+    "enabled": true,
+    "severity": "information"
+  },
+  "tokenDetection": {
+    "duplicate": {
+      "enabled": false,
+      "severity": "warning"
+    },
+    "unused": {
+      "enabled": true,
+      "severity": "hint"
+    }
+  },
+  "bannedProperties": {
+    "enabled": true,
+    "severity": "warning",
+    "properties": [
+      "box-shadow"
+    ]
+  },
+  "orphanClassDetection": {
+    "minClassLength": 3,
+    "excludeClassPatterns": ["texto-publica", "fases-presentacion", "parpadeo-cursor"]
+  }
+}

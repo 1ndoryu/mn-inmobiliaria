@@ -99,11 +99,6 @@ html {
   from { opacity: 1; }
   to { opacity: 0; }
 }
-.desvanecer-presentacion {
-  animation: desvanecer-presentacion linear both;
-  animation-timeline: scroll();
-  animation-range: 0 calc(100dvh - 107px);
-}
 /* Presentación en 3 fases (pista de 130dvh con escenario fijo): de pantalla
  * completa sin márgenes a caja (16px + tope bajo cabecera + 1120 máx), y
  * fundido que se solapa con la llegada de la hoja (la cubre al subir,
@@ -133,9 +128,6 @@ html {
   animation-range: 0 15dvh, 12dvh 90dvh;
 }
 @media (prefers-reduced-motion: reduce) {
-  .desvanecer-presentacion {
-    animation: none;
-  }
   .parpadeo-cursor {
     animation: none;
   }
