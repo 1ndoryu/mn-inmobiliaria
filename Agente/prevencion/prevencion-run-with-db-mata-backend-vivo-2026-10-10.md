@@ -12,10 +12,11 @@
 - Hoy: solo un aviso en la consola del wrapper (`[db] Paro procesos vivos de esta rama que bloquean el build: PID …`). No basta, porque el backend ya está parado cuando se ve.
 - Esperado: no parar un proceso que sirve sin comprobar que bloquea el relink.
 
-## Corrección propuesta (no aplicada)
-- Parar solo si el build falla con `os error 5` y reintentar una vez.
-- Nunca parar un proceso con puerto en escucha; avisar y dejar que la usuaria decida.
+## Corrección aplicada (10AA-30, 2026-10-10)
+- `liberarBinariosDeLaRama` nunca para un proceso con puerto en escucha: lo deja vivo y avisa con su PID. Solo para los `glory-backend.exe` de la rama sin listener.
+- Si el relink falla con `os error 5` por un backend vivo, la decisión de parar es de la usuaria.
 
 ## Estado
-- Abierta. Va al roadmap como tarea aparte. Mientras tanto: con el backend arriba, usar `cargo` directo con `DATABASE_URL` de la rama y `CARGO_TARGET_DIR` alterno, no el wrapper.
+- Resuelta (10AA-30). Verificada: `node --check` OK; filtro en solo lectura marca VIVO al PID del backend de `glory_backend_main`; `node scripts/run-with-db.mjs --version` exit 0 con el backend arriba, que sigue respondiendo 200 en `:3110`.
+- Límite: no se probó un relink real con un backend bloqueante; el caso de `os error 5` sigue dependiendo de la decisión de la usuaria.
 - Relacionada: `prevencion-os-error-5-binario-rama-2026-10-10.md` (10AA-11, origen de la función).

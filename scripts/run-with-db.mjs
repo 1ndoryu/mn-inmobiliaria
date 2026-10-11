@@ -16,18 +16,26 @@ function cargoCommand() {
  * el relink de cargo (`Acceso denegado (os error 5)`). Solo se paran procesos
  * `glory-backend.exe` cuyo ejecutable cuelga de este CARGO_TARGET_DIR (la
  * rama): nunca otros proyectos ni opencode. El prefijo lleva `\` final para no
- * casar con `..._otra_rama`. */
+ * casar con `..._otra_rama`.
+ * [10AA-30] Nunca se para un proceso con puerto en escucha: ese es un backend
+ * que sirve (admin de la usuaria). Se deja vivo y se avisa; si el relink falla
+ * por ello, la decisión de parar es de la usuaria. */
 function liberarBinariosDeLaRama(targetDir) {
   if (process.platform !== 'win32') return;
   const prefijo = `${path.win32.resolve(targetDir)}\\`;
-  const ps = "Get-CimInstance Win32_Process -Filter \"Name='glory-backend.exe'\" | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($env:RAMA_PREFIJO, [StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; $_.ProcessId }";
+  const ps = "Get-CimInstance Win32_Process -Filter \"Name='glory-backend.exe'\" | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($env:RAMA_PREFIJO, [StringComparison]::OrdinalIgnoreCase) } | ForEach-Object { $escucha = @(Get-NetTCPConnection -State Listen -OwningProcess $_.ProcessId -ErrorAction SilentlyContinue).Count -gt 0; if ($escucha) { 'VIVO ' + $_.ProcessId } else { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; 'PARADO ' + $_.ProcessId } }";
   const res = spawnSync('powershell.exe', ['-NoProfile', '-Command', ps], {
     encoding: 'utf8',
     env: { ...process.env, RAMA_PREFIJO: prefijo },
   });
-  const pids = (res.stdout || '').split(/\s+/).filter(Boolean);
-  if (pids.length > 0) {
-    console.warn(`[db] Paro procesos vivos de esta rama que bloquean el build: PID ${pids.join(', ')}`);
+  const lineas = (res.stdout || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const paradas = lineas.filter((l) => l.startsWith('PARADO ')).map((l) => l.slice(7));
+  const vivos = lineas.filter((l) => l.startsWith('VIVO ')).map((l) => l.slice(5));
+  if (paradas.length > 0) {
+    console.warn(`[db] Paro procesos vivos de esta rama que bloquean el build: PID ${paradas.join(', ')}`);
+  }
+  if (vivos.length > 0) {
+    console.warn(`[db] No paro procesos de esta rama con puerto en escucha (sirven): PID ${vivos.join(', ')}. Si el build falla con \`os error 5\`, decide tú si los paro.`);
   }
 }
 
