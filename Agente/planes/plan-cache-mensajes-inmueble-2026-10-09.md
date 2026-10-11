@@ -68,8 +68,9 @@ en urbanización villa icabarú, puerto ordaz.`)
     distintos = miss honesto (ya existe). Regenerar explícito pisa.
   - Migración: columna `inmueble_id` nullable + índice; filas viejas
     conviven (hit solo por la clave nueva); purga por TTL 90 d existente.
-  - Decisión pendiente de ella: ¿mismo mensaje de dos compradores comparte
-    respuesta? (ahorro de IA) vs. personalización por hilo.
+  - Decidido (ella, 2026-10-11): la caché es a nivel de inmueble. Mismo
+    mensaje de dos compradores comparte respuesta; el nombre se rellena al
+    servir (ver `plan-cache-inmueble-automatica-2026-10-09.md`, punto 4).
 - **F4 — Implementar la caché por inmueble** (tras F1–F3 y su visto bueno).
 
 ## Estado

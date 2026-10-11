@@ -84,8 +84,9 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   Ella quiere detección exacta porque la caché será **a nivel de inmueble**.
   Plan: `Agente/planes/plan-cache-mensajes-inmueble-2026-10-09.md` (F1
   extracción, F2 fallback de ficha, F3 diseño caché; F4 implementarla, con su
-  visto bueno). Decisión pendiente de ella: ¿dos compradores comparten la
-  misma respuesta cacheada (plantilla con nombre) o se personaliza por hilo?
+  visto bueno). **Decidido (ella, 2026-10-11): caché a nivel de inmueble;**
+  dos compradores con el mismo mensaje comparten respuesta y el nombre se
+  rellena al servir (ver `plan-cache-inmueble-automatica-2026-10-09.md`, punto 4).
   **Estado:** F1+F2 implementadas; gate Rust y Sentinel OK (ver plan). Abierto:
   retest vivo, commit (destino a confirmar: rama nueva, no `main`) y cierre.
   Lab F1 sin git. Rama numérica de `titulo_vinculado_del_hilo` sin fallback por
