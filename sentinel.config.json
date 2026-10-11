@@ -15,18 +15,21 @@
       "npxTools": [
         "eslint",
         "tsc",
-        "typescript"
+        "typescript",
+        "vitest"
       ],
       "cargoSubcommands": [
         "check",
         "test",
         "clippy",
-        "fmt"
+        "fmt",
+        "bench",
+        "nextest"
       ],
       "tools": [
-        "git",
-        "python",
-        "pip"
+        "tsc",
+        "vitest",
+        "eslint"
       ]
     }
   },
