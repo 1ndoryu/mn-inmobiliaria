@@ -32,7 +32,12 @@
     },
     "unused": {
       "enabled": true,
-      "severity": "hint"
+      "severity": "hint",
+      "excludeTokens": [
+        "--color-card-foreground",
+        "--color-destructive-foreground",
+        "--radius-sm"
+      ]
     }
   },
   "bannedProperties": {
@@ -44,6 +49,6 @@
   },
   "orphanClassDetection": {
     "minClassLength": 3,
-    "excludeClassPatterns": ["texto-publica", "fases-presentacion", "parpadeo-cursor"]
+    "excludeClassPatterns": ["fases-presentacion", "parpadeo-cursor"]
   }
 }
