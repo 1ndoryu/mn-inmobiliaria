@@ -91,7 +91,7 @@ function quoteSqlIdentifier(value) {
 
 /* Ejecuta SQL contra la BD de `dbUrl` con psql (salida sin cabecera ni
  * alineado). Las filas salen separadas por `\n` y los campos por `|`. */
-function consultaPsql(dbUrl) {
+export function consultaPsql(dbUrl) {
   const psqlBin = findPsql();
   const match = dbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
   if (!match) {

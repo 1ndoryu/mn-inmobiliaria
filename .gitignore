@@ -46,6 +46,7 @@ desktop.ini
 /scripts/*
 !/scripts/branch-db.mjs
 !/scripts/run-with-db.mjs
+!/scripts/clave-dev.mjs
 !/scripts/datos/
 /scripts/datos/*
 !/scripts/datos/importar-rescate.mjs
@@ -54,6 +55,7 @@ desktop.ini
 !/scripts/calidad/
 /scripts/calidad/*
 !/scripts/calidad/guardia-migraciones.test.mjs
+!/scripts/calidad/clave-dev.test.mjs
 !/scripts/calidad/check-roadmap.mjs
 !/scripts/calidad/self-check.ps1
 !/scripts/dev/

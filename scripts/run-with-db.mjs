@@ -6,6 +6,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { checksumsDivergentes, getBranchDbContext, versionesAjenas } from './branch-db.mjs';
+import { sincronizarClaveDevSilencioso } from './clave-dev.mjs';
 
 function cargoCommand() {
   return process.platform === 'win32' ? 'cargo.exe' : 'cargo';
@@ -85,6 +86,9 @@ if (divergentes.length > 0) {
   process.exit(1);
 }
 migrarBdRama(dbUrl);
+/* [10AA-27] Solo al arrancar el backend: deja el admin local con la clave de
+ * `frontend/.env.local` para que la auto-entrada del panel no dé 401. */
+if (cargoArgs[0] === 'run') sincronizarClaveDevSilencioso(dbUrl);
 liberarBinariosDeLaRama(cargoTargetDir);
 
 const child = spawn(cargoCommand(), cargoArgs, {
