@@ -32,12 +32,7 @@
     },
     "unused": {
       "enabled": true,
-      "severity": "hint",
-      "excludeTokens": [
-        "--color-card-foreground",
-        "--color-destructive-foreground",
-        "--radius-sm"
-      ]
+      "severity": "hint"
     }
   },
   "bannedProperties": {
