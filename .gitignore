@@ -85,3 +85,6 @@ glory-rust-template.code-workspace
 
 # Reportes locales de calidad (los genera el tablero/extensiones; no versionar)
 /.quality-reports/
+
+# Evidencia local del release de sentinel (la genera el setup; no versionar)
+/.sentinel/
