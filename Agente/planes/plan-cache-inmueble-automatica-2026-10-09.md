@@ -66,6 +66,9 @@
 - **F1 — Detección (lab).** Firma por burbujas sin depender del foco; auto-releer en el tick. Tests: (a) sin foco, misma conversación → cero cambios de firma; (b) mensaje nuevo del cliente → un releer; (c) mensaje de la dueña → un releer; (d) sin cambios → cero llamadas. Estado: hecha en el lab (111 tests `bun test` en verde, tsgo 0); falta el retest vivo.
 - **F2 — Caché compartida por inmueble (backend).** Estado: código escrito (migración, `marketplace_compartida.rs`, handlers `borrador`/`regenerar_uno`/`corregir`); sin compilar ni probar. Tests (DB, `#[tokio::test]`, se saltan sin `DATABASE_URL`): (a) dos hilos del mismo inmueble, mismo mensaje (1–2 del cliente) → una llamada IA y nombre correcto en cada uno; (b) con 3 mensajes del cliente → no comparte; (c) corrección en hilo A → hilo B la recibe con su nombre; (d) precio cambia → miss; (e) hilo sin nombre o aviso desconocido → no comparte.
 - **F3 — Borrador automático en miss.** Disparo desde el float al llegar mensaje del cliente sin caché; single-flight por clave.
+  - **Pendiente de verificar (revisión 2026-10-11, no cerrada).** El disparo del float (`syncFloatGuest` → `draftDecision`) no se localizó en el área de trabajo: el lab no está en este repo. Antes de marcar F3 como hecha, comprobarlo allí. Backend: el vuelo es single-flight por `clave_vuelo` (`src/handlers/marketplace/borrador.rs:124–125`).
+  - **Decidido:** la clave de vuelo conserva `huella_idem` y no se unifica entre hilos. Motivo: el nombre queda horneado en el texto (`src/handlers/marketplace/borrador.rs:282–298`); un seguidor de otro hilo recibiría el nombre del líder. Coste: una llamada IA extra en una carrera rara.
+  - **Decidido:** no se quita `huella_idem` ni se añade cancelación. Riesgos reales (no de F3) registrados en 09AA-36: `src/services/marketplace/vuelo.rs:70` (`mapa.remove` sin `Drop`), y `force` con carrera en `src/handlers/marketplace/borrador.rs:231–232` (`reemplazar_cache`, definido en `src/services/marketplace.rs:1519`).
 - **F4 — Admin.** Badges, contador corregido, «compartida por N hilos», `ultimo_mensaje_en`.
 - Orden: F0 → F1 → F2 → F3 → F4. F2 va antes que F3: sin caché compartida, el automático gastaría IA en cada mensaje dentro de ventana.
 
@@ -85,7 +88,7 @@
 - Commit en rama, documentación actualizada, lección si aplica.
 
 ## Estado
-Ejecutando. Decisiones tomadas 2026-10-09 (regla de 2 mensajes, sin ventana de tiempo; `regenerar_todo` retirado). F0 backend hecho. F1 hecha en lab (pendiente retest vivo). F2 hecha (archivar/borrar/borrar borrador), gate Rust verde (2026-10-10). F3–F4 pendientes.
+Ejecutando. Decisiones tomadas 2026-10-09 (regla de 2 mensajes, sin ventana de tiempo; `regenerar_todo` retirado). F0 backend hecho. F1 hecha en lab (pendiente retest vivo). F2 hecha (archivar/borrar/borrar borrador), gate Rust verde (2026-10-10). F3 pendiente de verificar en el lab (2026-10-11; ver F3). F4 pendiente. DoD vivo pendiente de la usuaria.
 
 **Gate Rust 09AA-31 (2026-10-10, BD `glory_backend_inmobiliaria_test`):** migraciones OK, fmt OK, clippy `-D warnings` OK, tests 201/201 (2 ignorados en `tests/chat_humo.rs`), `tsc` app 0. Sentinel: error 0, warning 468 (`sentinel4.json`).
 

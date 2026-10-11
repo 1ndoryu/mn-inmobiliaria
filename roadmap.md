@@ -106,7 +106,19 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   (migración 35, origen y coste por fila, tokens y ms en `BorradorResponse`);
   F1 en lab (111 tests verdes, falta retest vivo); F2 escrita en backend
   (migración 36, `marketplace_compartida.rs`, `borrador`/`regenerar_uno`/
-  `corregir`), con gate Rust verde (09AA-31). F3–F4 pendientes.
+  `corregir`), con gate Rust verde (09AA-31). F3 pendiente de verificar en el
+  lab (2026-10-11; clave de vuelo con `huella_idem` conservada, motivo en el
+  plan). F4 pendiente.
+
+- **09AA-36 — Riesgos del backend de borradores (sin pedido; detectado
+  2026-10-11 al revisar 09AA-30 F3):** (a) `src/services/marketplace/vuelo.rs:70`
+  quita la entrada del vuelo sin `Drop`: si el líder se cancela, un seguidor
+  puede quedar esperando; (b) `force` en `src/handlers/marketplace/borrador.rs:231–232`
+  (`reemplazar_cache`) puede pisar una corrección en curso; (c) los tests de BD
+  (`src/handlers/marketplace/pruebas_regenerar_force.rs:45`,
+  `src/services/marketplace/compartida.rs:384`) pasan en silencio sin
+  `DATABASE_URL` (patrón `pool_si_hay() else { return }`). Tarea aparte: caso
+  mínimo por cada uno y arreglo con test que falle antes.
 
 - **09AA-23 — Vínculo visible en chats (pedido por ella 2026-10-09, ACTIVA):**
   vio en el admin el borrador de `salazar|VEF0 apartamento residencias rio
