@@ -67,8 +67,9 @@ Cadena: `POST :3122/api/mejora {fotoId, original:dataURL, prompt}` + polling
 Salud: `GET :3122/api/salud → {listo, detalle, ...}` (`mejora.mjs:569-582`).
 Requiere `server:mejora` corriendo (`frontend/`, `MEJORA_PORT` default 3122).
 
-Token `GEMINI_PSID` (`frontend/.env.local`, gitignored, recarga en caliente):
-cada lote empieza con salud; si `listo:false` → si no hay puerto `:9223`, el
+Token `GEMINI_PSID` (`frontend/.env.local`, gitignored, recarga en caliente).
+`GEMINI_PSID`/`GEMINI_PSIDTS` son cookies de sesión efímeras que se renuevan
+solas: no se rotan aunque salgan en claro (decisión de ella, 2026-10-10). Cada lote empieza con salud; si `listo:false` → si no hay puerto `:9223`, el
 propio CLI abre el Chrome dedicado (`chrome.exe --remote-debugging-port=9223
 --user-data-dir=%LOCALAPPDATA%\ChromeHoracioDebug`); luego corre
 `node frontend/scripts/renovar-cookies.mjs`. Códigos: 0 seguir sin
