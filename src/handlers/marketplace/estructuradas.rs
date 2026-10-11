@@ -12,7 +12,7 @@ use axum::response::Response;
 
 use crate::errors::AppError;
 use crate::services::marketplace::{
-    buscar_cache, clave_hilo, estructuradas_apagadas, llave_esperada, mensaje_clave_de,
+    clave_hilo, estructuradas_apagadas, llave_esperada, mensaje_clave_de,
     normalizar_excerpt_hilo, sha_hex, texto_para_prompt, validar_conversacion,
     validar_idempotency_key, BorradorRequest, ConversacionValidada, ErrorEstructurado, LadoUtil,
     CODIGO_IDEMPOTENCIA, FIRMA_VERSION_V2,
@@ -23,17 +23,15 @@ use super::logs::{hilo8, mp_log, LogNivel};
 /* [09AA-20] F0: de qué conversación hablamos. La estructurada (`Some` +
  * kill-switch encendido) se valida, se firma v2 y se renderiza a
  * `excerpt.texto`; el resto del flujo (caché, vuelo, IA) no distingue.
- * `firma_cache` es la llave de caché/dedup; `crudo` lo que se guarda para
- * calibrar. Sin PII en logs: solo conteos y códigos. */
-/* [09AA-22] F3: `firma_legacy` es la `firma` del body (compat del flotante),
- * ignorada como llave principal pero reutilizada como fallback de lectura
- * durante la transición v1→v2 (ver `buscar_cache_convivencia`). */
+ * `firma` es la firma del hilo sin nombre (v2, o la del body en texto plano);
+ * la llave de caché la compone `clave_cache_hilo` con el nombre del comprador.
+ * `crudo` lo que se guarda para calibrar. Sin PII en logs: solo conteos y
+ * códigos. */
 #[derive(Debug)]
 pub(crate) struct FuenteBorrador {
-    pub(crate) firma_cache: String,
+    pub(crate) firma: String,
     pub(crate) firma_version: String,
     pub(crate) crudo: String,
-    pub(crate) firma_legacy: Option<String>,
     /* [09AA-30 F2] Clave de la caché compartida por inmueble. `None` fuera de
      * v2 o con más de 2 mensajes del cliente: esos hilos no comparten. */
     pub(crate) mensaje_clave: Option<String>,
@@ -87,11 +85,8 @@ pub(crate) fn resolver_fuente(r: &mut BorradorRequest) -> Result<FuenteBorrador,
                     );
                     let crudo =
                         serde_json::to_string(c).unwrap_or_else(|_| "{\"v\":1}".to_string());
-                    /* La firma legacy del body viaja por compat; no manda,
-                     * pero se arrastra para el fallback de lectura (F3). */
-                    let legacy = r.firma.clone();
                     r.excerpt.texto = texto_para_prompt(&val);
-                    return Ok(fuente_v2(&val, crudo, legacy));
+                    return Ok(fuente_v2(&val, crudo));
                 }
                 Err(e) => {
                     mp_log(
@@ -115,18 +110,11 @@ pub(crate) fn resolver_fuente(r: &mut BorradorRequest) -> Result<FuenteBorrador,
 
 /// F0 aceptada: la firma v2 manda sobre la `firma` del body (el flotante la
 /// manda igual por compat, pero la llave real es la calculada aquí).
-/* [09AA-22] F3: la legacy se conserva aparte para `buscar_cache_convivencia`
- * (fallback de lectura, jamás llave principal ni parte de la firma). */
-pub(crate) fn fuente_v2(
-    val: &ConversacionValidada,
-    crudo: String,
-    legacy: String,
-) -> FuenteBorrador {
+pub(crate) fn fuente_v2(val: &ConversacionValidada, crudo: String) -> FuenteBorrador {
     FuenteBorrador {
-        firma_cache: val.firma_v2.clone(),
+        firma: val.firma_v2.clone(),
         firma_version: FIRMA_VERSION_V2.to_string(),
         crudo,
-        firma_legacy: Some(legacy),
         mensaje_clave: mensaje_clave_v2(val),
     }
 }
@@ -154,10 +142,9 @@ pub(crate) fn fuente_v1(r: &mut BorradorRequest) -> FuenteBorrador {
         r.excerpt.texto = limpio;
     }
     FuenteBorrador {
-        firma_cache: r.firma.clone(),
+        firma: r.firma.clone(),
         firma_version: "firma-v1".to_string(),
         crudo,
-        firma_legacy: None,
         mensaje_clave: None,
     }
 }
@@ -183,7 +170,7 @@ pub(crate) fn verificar_idempotencia_conversacion(
     let Some(k) = clave else {
         return Ok(());
     };
-    let esperada = llave_esperada(c.hilo_hint.trim(), &fuente.firma_cache);
+    let esperada = llave_esperada(c.hilo_hint.trim(), &fuente.firma);
     if k != &esperada {
         mp_log(
             LogNivel::Warn,
@@ -202,38 +189,6 @@ pub(crate) fn verificar_idempotencia_conversacion(
         .into());
     }
     Ok(())
-}
-
-/* [09AA-22] F3: convivencia v1→v2 en lectura. La llave principal es la v2;
- * si falla y el body traía firma legacy distinta, se reintenta con ella
- * para no regenerar (y re-gastar IA) lo que ya se resolvió en texto plano.
- * La respuesta sigue marcada con la versión pedida (v2); el hit legacy
- * solo se anota en logs para medir la transición. */
-pub(crate) async fn buscar_cache_convivencia(
-    pool: &sqlx::PgPool,
-    firma_v2: &str,
-    firma_legacy: Option<&str>,
-    precio_hash: &str,
-    catalog_hash: &str,
-) -> Result<Option<(String, bool)>, AppError> {
-    if let Some(hit) = buscar_cache(pool, firma_v2, precio_hash, catalog_hash).await? {
-        return Ok(Some(hit));
-    }
-    if let Some(legacy) = firma_legacy {
-        if !legacy.is_empty() && legacy != firma_v2 {
-            if let Some(hit) = buscar_cache(pool, legacy, precio_hash, catalog_hash).await? {
-                mp_log(
-                    LogNivel::Info,
-                    "borrador.cache",
-                    "legacy-hit",
-                    "hit por firma-v1 de transición".to_string(),
-                    &[("llave", serde_json::json!("v1"))],
-                );
-                return Ok(Some(hit));
-            }
-        }
-    }
-    Ok(None)
 }
 
 /// `Idempotency-Key` opcional: si viene se valida (422 si es basura) y se
@@ -362,13 +317,9 @@ mod pruebas_f3 {
         /* Firma pinneada a la canónica (`v1` + `lado:texto` por línea):
          * sha256 exacto, no solo longitud. */
         let firma_esperada = sha_hex(&format!("v1\ncliente:{CLI}\nduena:{DUE}"));
-        assert_eq!(fuente.firma_cache, firma_esperada);
-        assert_eq!(fuente.firma_cache.len(), 64);
-        assert!(fuente.firma_cache.chars().all(|c| c.is_ascii_hexdigit()));
-        assert_eq!(
-            fuente.firma_legacy.as_deref(),
-            Some("ab".repeat(32).as_str())
-        );
+        assert_eq!(fuente.firma, firma_esperada);
+        assert_eq!(fuente.firma.len(), 64);
+        assert!(fuente.firma.chars().all(|c| c.is_ascii_hexdigit()));
     }
 
     #[test]
@@ -379,8 +330,7 @@ mod pruebas_f3 {
         req.firma = firma.clone();
         let fuente = resolver_fuente(&mut req).expect("plano válido");
         assert_eq!(fuente.firma_version, "firma-v1");
-        assert_eq!(fuente.firma_cache, firma);
-        assert!(fuente.firma_legacy.is_none());
+        assert_eq!(fuente.firma, firma);
         assert_eq!(req.excerpt.texto, "texto plano original");
     }
 
@@ -449,8 +399,7 @@ mod pruebas_f3 {
         let mut req = peticion(Some(base_ok(HINT_A)));
         let fuente = resolver_fuente(&mut req).expect("con kill-switch va por plano");
         assert_eq!(fuente.firma_version, "firma-v1");
-        assert_eq!(fuente.firma_cache, "ab".repeat(32));
-        assert!(fuente.firma_legacy.is_none());
+        assert_eq!(fuente.firma, "ab".repeat(32));
         assert!(
             !req.excerpt.texto.contains("Cliente:"),
             "la estructurada se ignora: {}",
@@ -463,13 +412,13 @@ mod pruebas_f3 {
         let _g = candado();
         let mut req = peticion(Some(base_ok(HINT_A)));
         let fuente = resolver_fuente(&mut req).expect("válida");
-        let buena = llave_esperada(HINT_A, &fuente.firma_cache);
+        let buena = llave_esperada(HINT_A, &fuente.firma);
         assert_eq!(buena.len(), 64);
         assert!(buena.chars().all(|c| c.is_ascii_hexdigit()));
         verificar_idempotencia_conversacion(&req, &fuente, Some(&buena)).expect("llave propia ok");
         verificar_idempotencia_conversacion(&req, &fuente, None).expect("sin llave ok");
         /* Llave de otro hilo con la misma firma: 422 (test con 2 hilos). */
-        let ajena = llave_esperada(HINT_B, &fuente.firma_cache);
+        let ajena = llave_esperada(HINT_B, &fuente.firma);
         assert_ne!(buena, ajena);
         match verificar_idempotencia_conversacion(&req, &fuente, Some(&ajena)) {
             Err(AppError::Validation(m)) => assert!(
@@ -487,11 +436,11 @@ mod pruebas_f3 {
         let mut rb = peticion(Some(base_ok(HINT_B)));
         let fa = resolver_fuente(&mut ra).expect("a");
         let fb = resolver_fuente(&mut rb).expect("b");
-        assert_eq!(fa.firma_cache, fb.firma_cache);
+        assert_eq!(fa.firma, fb.firma);
         assert_eq!(ra.excerpt.texto, rb.excerpt.texto);
         assert_ne!(
-            llave_esperada(HINT_A, &fa.firma_cache),
-            llave_esperada(HINT_B, &fb.firma_cache)
+            llave_esperada(HINT_A, &fa.firma),
+            llave_esperada(HINT_B, &fb.firma)
         );
     }
 }

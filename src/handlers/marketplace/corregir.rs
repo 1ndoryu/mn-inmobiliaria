@@ -100,6 +100,10 @@ pub struct CorregirRequest {
     pub firma_version: String,
     #[serde(rename = "avisoId")]
     pub aviso_id: Option<String>,
+    /* [11AA] La corrección es por hilo: la fila lleva el nombre del comprador en
+     * su llave (`clave_cache_hilo`), así que sin `threadId` no hay dónde guardarla. */
+    #[serde(rename = "threadId")]
+    pub thread_id: Option<String>,
     pub texto: String,
 }
 
@@ -117,7 +121,7 @@ pub struct CorregirResponse {
     request_body = CorregirRequest,
     responses(
         (status = 200, description = "Corrección guardada", body = CorregirResponse),
-        (status = 422, description = "Texto inválido o con contacto", body = crate::errors::ErrorResponse),
+        (status = 422, description = "Texto inválido, con contacto o sin threadId", body = crate::errors::ErrorResponse),
         (status = 429, description = "Tope por sub", body = crate::errors::ErrorResponse)
     )
 )]
@@ -145,13 +149,25 @@ pub async fn corregir(
             "firma_version debe ser firma-v1 o firma-v2".to_string(),
         ));
     }
+    let hilo = r
+        .thread_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| {
+            AppError::Validation(
+                "threadId requerido: la corrección es por hilo (nombre del saludo)".to_string(),
+            )
+        })?;
+    /* [11AA] Misma llave que `borrador`/`regenerar`: firma + nombre del comprador. */
+    let clave_firma = clave_cache_hilo(&r.firma, nombre_de_thread(hilo).as_deref().unwrap_or(""));
     let (_, precio_hash, catalog_hash, _) =
         claves_cache(&state.pool, r.aviso_id.as_deref(), None).await?;
-    corregir_cache(&state.pool, &r.firma, &precio_hash, &catalog_hash, &r.texto).await?;
+    corregir_cache(&state.pool, &clave_firma, &precio_hash, &catalog_hash, &r.texto).await?;
     /* [09AA-30 F2] La corrección de la dueña vale para todo el inmueble: se
      * aplica a la respuesta compartida con el nombre del hilo que la corrige. */
     if let Some((thread, mensaje)) =
-        vinculo_compartido(&state.pool, &r.firma, &precio_hash, &catalog_hash).await?
+        vinculo_compartido(&state.pool, &clave_firma, &precio_hash, &catalog_hash).await?
     {
         if let Some(n) = nombre_de_thread(&thread) {
             let clave = ClaveCompartida {

@@ -512,6 +512,17 @@ pub fn clave_hilo(thread_id: &str) -> String {
     format!("{}|{}", nombre.trim(), tras_cifra.trim_start())
 }
 
+/// [11AA] Llave de la fila de caché de un hilo: la firma más el nombre del
+/// comprador. La respuesta lleva el saludo con ese nombre horneado; sin el
+/// nombre en la llave, otro comprador con la misma firma recibía el saludo
+/// ajeno. El nombre se recorta pero no se pasa a minúsculas: el saludo lo
+/// muestra con mayúsculas. Sin nombre, la llave es propia (`""`), distinta de
+/// la firma plana.
+#[must_use]
+pub fn clave_cache_hilo(firma: &str, nombre: &str) -> String {
+    sha_hex(&format!("{firma}\n{}", nombre.trim()))
+}
+
 /// [08AA-16] Normaliza el excerpt con contexto del hilo: nombre del
 /// comprador y título del aviso salen del `thread_id`
 /// (`comprador|aviso`). Lo usan `borrador`, `regenerar` y `releer` para

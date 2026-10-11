@@ -52,7 +52,6 @@ async fn guardar_generado_pisar_reemplaza_la_fila_y_sin_pisar_la_conserva() {
     };
     let cl = ClavesBorrador {
         firma_cache: &firma,
-        firma_legacy: None,
         precio_hash: &ph,
         catalog_hash: &ch,
     };

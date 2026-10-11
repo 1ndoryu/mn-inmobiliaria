@@ -78,6 +78,36 @@ async fn cache_miss_si_cambia_precio_o_catalogo() {
     borrar_cache(&pool, &firma, &ph, &ch).await.expect("limpia");
 }
 
+/* [11AA] El saludo lleva el nombre horneado en `respuesta`: dos compradores con
+ * la misma firma no comparten fila. Antes, un hit servía el nombre de otro. */
+#[tokio::test]
+async fn cache_separa_por_comprador_con_la_misma_firma() {
+    let Some(pool) = pool_si_hay() else { return };
+    let (firma, ph, ch) = (clave_azar(), clave_azar(), clave_azar());
+    let ana = crate::services::marketplace::clave_cache_hilo(&firma, "Ana");
+    let luis = crate::services::marketplace::clave_cache_hilo(&firma, "Luis");
+    guardar_cache(
+        &pool,
+        &ana,
+        &ph,
+        &ch,
+        "Hola Ana",
+        &foto_prueba("hilo-ana", "x", "crudo-x"),
+        Coste::default(),
+    )
+    .await
+    .expect("guarda");
+    assert_eq!(
+        buscar_cache(&pool, &ana, &ph, &ch).await.expect("busca"),
+        Some(("Hola Ana".to_string(), false))
+    );
+    assert!(buscar_cache(&pool, &luis, &ph, &ch)
+        .await
+        .expect("busca")
+        .is_none());
+    borrar_cache(&pool, &ana, &ph, &ch).await.expect("limpia");
+}
+
 #[tokio::test]
 async fn cache_vencida_no_devuelve_y_purga_limpia() {
     let Some(pool) = pool_si_hay() else { return };

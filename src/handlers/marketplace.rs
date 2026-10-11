@@ -20,7 +20,8 @@ use crate::repositories::marketplace::registrar_auditoria;
 use crate::repositories::InmuebleRepository;
 use crate::services::marketplace::{
     archivar_hilo, aviso_fb_de_thread, borrar_borrador_hilo, borrar_hilo,
-    borrar_hilo_no_corregidas, borrar_todo_cache, buscar_compartida, clave_hilo, consumir_minuto,
+    borrar_hilo_no_corregidas, borrar_todo_cache, buscar_cache, buscar_compartida,
+    clave_cache_hilo, clave_hilo, consumir_minuto,
     corregir_cache, corregir_compartida, detalle_chat, enlazar_compartida, formatear_parrafos,
     guardar_cache, hash_ficha, nombre_de_thread, normalizar_excerpt_hilo, ocurrencias_nombre,
     plantilla_de_nombre, precio_hash_seguro, reemplazar_cache, releer_foto, rellenar_nombre,
@@ -33,10 +34,10 @@ use crate::AppState;
 /* F0 estructuradas/idempotencia vive en `marketplace_estructuradas.rs`
  * (split god-object): aquí solo el wiring para `borrador`/`regenerar`. */
 /* [09AA-22] F3 suma al wiring: verificación de la llave contra hint+firma
- * + lectura con convivencia v2→v1 (lógica en el módulo, aquí llamadas). */
+ * (lógica en el módulo, aquí llamadas). */
 use estructuradas::{
-    buscar_cache_convivencia, clave_idempotencia, con_idempotencia, resolver_fuente,
-    verificar_idempotencia_conversacion, FuenteBorrador,
+    clave_idempotencia, con_idempotencia, resolver_fuente, verificar_idempotencia_conversacion,
+    FuenteBorrador,
 };
 
 /* [08AA-8] Token mp (extractor + emisión) vive en `marketplace_token.rs`

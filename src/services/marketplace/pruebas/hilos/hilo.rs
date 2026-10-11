@@ -274,6 +274,19 @@ fn clave_hilo_deshace_precio_inyectado_y_respeta_lo_demas() {
 }
 
 #[test]
+fn clave_cache_hilo_separa_por_nombre() {
+    /* [11AA] El saludo con el nombre va horneado en la respuesta: la misma
+     * firma con otro comprador no puede compartir fila. */
+    let firma = "ab".repeat(32);
+    assert_ne!(clave_cache_hilo(&firma, "Ana"), clave_cache_hilo(&firma, "Pedro"));
+    assert_ne!(clave_cache_hilo(&firma, "Ana"), clave_cache_hilo(&firma, "ana"));
+    assert_eq!(clave_cache_hilo(&firma, "Ana"), clave_cache_hilo(&firma, "  Ana  "));
+    /* Sin nombre es una clave propia, distinta de la firma plana. */
+    assert_ne!(clave_cache_hilo(&firma, ""), firma);
+    assert_eq!(clave_cache_hilo(&firma, "Ana").len(), 64);
+}
+
+#[test]
 fn precio_del_aviso_extrae_moneda_antes_o_despues() {
     assert_eq!(
         precio_del_aviso("town house en venta en las peonías 125.000$"),

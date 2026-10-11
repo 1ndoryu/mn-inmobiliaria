@@ -64,15 +64,14 @@ pub async fn borrador(
      * plano sigue el camino de siempre (`fuente_v1`: limpia excerpt,
      * conserva el original si solo había ruido, crudo para calibrar).
      * [09AA-22] F3: la llave se verifica contra hint+firma (422 si es de
-     * otro hilo) y la lectura convive v2→v1 en transición. */
+     * otro hilo). */
     let clave_idem = clave_idempotencia(&headers)?;
     let fuente = resolver_fuente(&mut r)?;
     verificar_idempotencia_conversacion(&r, &fuente, clave_idem.as_ref())?;
     let FuenteBorrador {
-        firma_cache,
+        firma,
         firma_version,
         crudo,
-        firma_legacy,
         mensaje_clave,
     } = fuente;
     let titulo_fb = aviso_fb_de_thread(r.thread_id.trim());
@@ -85,6 +84,10 @@ pub async fn borrador(
      * hilo, la plantilla de otro hilo con el mismo primer mensaje no encaja
      * (y la continuación no debe publicarse como plantilla). */
     let nombre = nombre_de_thread(r.thread_id.trim());
+    /* [11AA] Caché por hilo y por comprador: el saludo lleva el nombre
+     * horneado en `respuesta`, así que la llave de la fila compone la firma
+     * con el nombre. Sin esto, un hit sirve el nombre de otro comprador. */
+    let clave_firma = clave_cache_hilo(&firma, nombre.as_deref().unwrap_or(""));
     let clave_compartida = mensaje_clave
         .as_deref()
         .filter(|_| conocido && nombre.is_some() && continuacion::es_apertura(&r.excerpt.texto))
@@ -100,8 +103,7 @@ pub async fn borrador(
         excerpt_crudo: &crudo,
     };
     let cl = ClavesBorrador {
-        firma_cache: &firma_cache,
-        firma_legacy: firma_legacy.as_deref(),
+        firma_cache: &clave_firma,
         precio_hash: &precio_hash,
         catalog_hash: &catalog_hash,
     };
@@ -122,7 +124,7 @@ pub async fn borrador(
      * llave de idempotencia entra al vuelo para que un reintento colapse
      * con el original en vez de disparar otra IA. */
     let huella_idem = clave_idem.as_deref().unwrap_or("sin-clave");
-    let clave_vuelo = format!("{firma_cache}:{precio_hash}:{catalog_hash}:{huella_idem}");
+    let clave_vuelo = format!("{clave_firma}:{precio_hash}:{catalog_hash}:{huella_idem}");
     /* [09AA-5] Latencia real de la pasada para la tab de Logs. */
     let inicio = std::time::Instant::now();
     let gen = state
@@ -174,11 +176,10 @@ fn respuesta_hit(texto: String, corregida: bool, conocido: bool, firma_version: 
         .into_response()
 }
 
-/// Claves de caché de una petición ya resueltas: firma del hilo (v2 y legacy)
-/// y hashes de precio y catálogo del aviso.
+/// Claves de caché de una petición ya resueltas: llave de la fila del hilo
+/// (`clave_cache_hilo`: firma más nombre) y hashes de precio y catálogo.
 pub(super) struct ClavesBorrador<'a> {
     pub(super) firma_cache: &'a str,
-    pub(super) firma_legacy: Option<&'a str>,
     pub(super) precio_hash: &'a str,
     pub(super) catalog_hash: &'a str,
 }
@@ -190,7 +191,7 @@ pub(super) fn aceptar_hit(hit: Option<(String, bool)>, force: bool) -> Option<(S
 }
 
 /// Lookup de caché de `borrador`: primero la respuesta compartida del inmueble
-/// (con `{{nombre}}` rellenado), luego la de convivencia del hilo y el aviso.
+/// (con `{{nombre}}` rellenado), luego la fila del hilo.
 pub(super) async fn buscar_hit(
     pool: &sqlx::PgPool,
     cl: &ClavesBorrador<'_>,
@@ -213,14 +214,7 @@ pub(super) async fn buscar_hit(
             }
         }
     }
-    buscar_cache_convivencia(
-        pool,
-        cl.firma_cache,
-        cl.firma_legacy,
-        cl.precio_hash,
-        cl.catalog_hash,
-    )
-    .await
+    buscar_cache(pool, cl.firma_cache, cl.precio_hash, cl.catalog_hash).await
 }
 
 /// Persiste un borrador de IA: caché del hilo y, si el nombre aparece a lo

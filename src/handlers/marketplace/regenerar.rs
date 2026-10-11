@@ -65,16 +65,17 @@ pub(super) async fn regenerar_uno(
     let fuente = resolver_fuente(&mut r)?;
     verificar_idempotencia_conversacion(&r, &fuente, clave)?;
     let FuenteBorrador {
-        firma_cache,
+        firma,
         firma_version,
         crudo,
-        firma_legacy: _legacy,
         mensaje_clave,
     } = fuente;
     let titulo_fb = aviso_fb_de_thread(r.thread_id.trim());
     let (seguro, precio_hash, catalog_hash, conocido) =
         claves_cache(pool, r.aviso_id.as_deref(), titulo_fb.as_deref()).await?;
     let nombre = nombre_de_thread(r.thread_id.trim());
+    /* [11AA] Misma llave por hilo y comprador que `borrador` (ver ahí). */
+    let clave_firma = clave_cache_hilo(&firma, nombre.as_deref().unwrap_or(""));
     /* [10AA-28] La plantilla compartida es de apertura: un hilo con respuesta de
      * la dueña no la consulta ni la publica (ver `borrador`). */
     let clave_compartida = mensaje_clave
@@ -123,7 +124,7 @@ pub(super) async fn regenerar_uno(
         };
         reemplazar_cache(
             pool,
-            &firma_cache,
+            &clave_firma,
             &precio_hash,
             &catalog_hash,
             &gen.texto,
@@ -137,7 +138,7 @@ pub(super) async fn regenerar_uno(
             if ocurrencias_nombre(&gen.texto, n) <= 1 {
                 enlazar_compartida(
                     pool,
-                    &firma_cache,
+                    &clave_firma,
                     clave,
                     &plantilla_de_nombre(&gen.texto, n),
                     gen.coste,
