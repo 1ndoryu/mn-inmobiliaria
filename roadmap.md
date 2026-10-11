@@ -437,8 +437,8 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   2026-10-08: ningún hallazgo nuevo de 08AA-1/3/4; el conteo incluso bajó 9).
   Por clases: `sqlx-query-sin-macro/as`, `handler-accede-bd-rs`,
   `html-nativo`, `ruta-post-sin-rate-limit` x21 (FP documentado, no reescribir),
-  `todo-prosa` front + 4 recomendaciones `sentinel.config.json` + `varsense
-  ausente` (declarar o eximir) + rsa residual sin parche. Abordar por clases,
+  `todo-prosa` front + 4 recomendaciones `sentinel.config.json` + rsa residual
+  sin parche (`varsense` ya declarado en 11AA-1). Abordar por clases,
   sin mezclar con frentes; `dev deriva 3102` es gateway parado normal (no
   arrancar sin QR/autorización) y `sinPush` era caché pre-push.
   Verificado 2026-10-08 ~22:40: re-escaneo gate forzado idéntico 26E/476W/7H
@@ -1114,3 +1114,8 @@ Siguiente: C1 (NUEVO 2026-10-07 [07AA-5]: cableado en opencode-propio —
   (repo + núcleo lector; a su vez bloqueado hasta E0). Nada de código antes.
 
 ## 05AA-1 — MN adopta `Resolver` del núcleo (cerrada 2026-10-05: ver `Agente/completados/tareas-2026-10-05.md`)
+
+## 11AA-2 — Calidad MN: follow-ups de varsense (abierta, prioridad baja)
+
+- Varsense no sigue constantes de cadena: `CLASE_TEXTO`, `TARJETA_PRESENTACION` y `CURSOR_MAQUINA` (`frontend/src/features/publica/disenno.ts`) obligan a eximir `texto-publica`, `fases-presentacion` y `parpadeo-cursor` con `excludeClassPatterns` en `varsense.config.json`. Decidido: exención por patrón en la config de MN; no se toca el checkout compartido `.quality-tools/varsense` (NAKOMI fija la misma versión). Criterio: arreglo en varsense y quitar la exención sin nuevos `claseHuerfana`.
+- MN no tiene script `quality:lock`: el lock se regenera desde la raíz de MN con `node "<area-trabajo>/workspace-manager/scripts/quality/lock-generator.mjs" --write`. Decidido: documentarlo en el README o añadir el script; nunca editar el lock a mano. Criterio: comando documentado o script que pase `--check`.
