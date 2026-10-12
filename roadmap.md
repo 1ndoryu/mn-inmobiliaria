@@ -65,7 +65,6 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 
 - **09AA-6 §8 — chat backend:**
   - **09AA-8** webhook fail-closed tras 12AA-1 (§2).
-  - **09AA-10** Decidido 2026-10-12: Rust manda. Falta alinear el espejo de `plugins-opencode` (hex mayúsculas y firma-v2; `src/nucleo/schema.ts:20,26`, `excerpt.ts:19`). Repo ajeno: delegado como tarea propia en `plugins-opencode` (chip `task_4ba862e9`). Decidido por la usuaria 2026-10-12: hacerlo ahora, desde ese chip. MN no lo ejecuta; se cierra al integrarse allí.
   - **09AA-11** F6a/F6b tras la prueba viva de 09AA-4 (§3). Pendiente: GloryAPI sin reintento (`src/handlers/ia/ia_proveedores.rs:102-153`) y `get("uso")` sin productor localizado.
   - **09AA-12** Decidido 2026-10-12: sin discrepancia reproducible; queda la prueba viva de QR y polling (§3).
 - **09AA-14** — scraper: fix en origen, `plugins-opencode/src/burbujas` (chip task_7d226a2c). Copia al lab con sha256 y prueba viva en Facebook (§3).
