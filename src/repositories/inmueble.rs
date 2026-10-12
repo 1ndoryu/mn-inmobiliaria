@@ -192,8 +192,7 @@ impl InmuebleRepository {
     /* [09AA-29] Ids de las fichas con ese título exacto. Los tests de caché
      * la usan para limpiar restos de una ejecución previa sin SQL en el handler. */
     pub async fn ids_por_titulo(pool: &PgPool, titulo: &str) -> Result<Vec<Uuid>, sqlx::Error> {
-        sqlx::query_scalar("SELECT id FROM inmuebles WHERE titulo = $1")
-            .bind(titulo)
+        sqlx::query_scalar!("SELECT id FROM inmuebles WHERE titulo = $1", titulo)
             .fetch_all(pool)
             .await
     }
