@@ -512,15 +512,80 @@ pub fn clave_hilo(thread_id: &str) -> String {
     format!("{}|{}", nombre.trim(), tras_cifra.trim_start())
 }
 
-/// [11AA] Llave de la fila de caché de un hilo: la firma más el nombre del
-/// comprador. La respuesta lleva el saludo con ese nombre horneado; sin el
-/// nombre en la llave, otro comprador con la misma firma recibía el saludo
-/// ajeno. El nombre se recorta pero no se pasa a minúsculas: el saludo lo
-/// muestra con mayúsculas. Sin nombre, la llave es propia (`""`), distinta de
-/// la firma plana.
+/// [11AA] Llave de la fila de caché de un hilo: la firma del mensaje, sin el
+/// nombre. La fila guarda solo el cuerpo (sin saludo ni nombre): el saludo lo
+/// añade `con_saludo` al servir, así que dos compradores con el mismo mensaje
+/// comparten fila. Versionada (`v2`): las filas previas, con el nombre en la
+/// llave y el saludo horneado, quedan huérfanas y no se sirven.
 #[must_use]
-pub fn clave_cache_hilo(firma: &str, nombre: &str) -> String {
-    sha_hex(&format!("{firma}\n{}", nombre.trim()))
+pub fn clave_cache_hilo(firma: &str) -> String {
+    sha_hex(&format!("v2\n{firma}"))
+}
+
+/// [11AA] Quita el saludo que la IA escribió al principio («Hola, Ana, buenas
+/// tardes. El…»): el saludo lo añade `servir_cuerpo` al servir y la caché guarda
+/// solo el cuerpo. El nombre se quita solo si es el del hilo. Si no hay saludo,
+/// o no queda cuerpo, devuelve el texto tal cual.
+#[must_use]
+pub fn quitar_saludo(texto: &str, nombre: Option<&str>) -> String {
+    let Some(mut resto) = quitar_palabra(
+        texto.trim_start_matches(|c: char| c.is_whitespace() || c == '¡'),
+        "hola",
+    ) else {
+        return texto.to_string();
+    };
+    resto = resto.trim_start_matches(es_separador);
+    if let Some(n) = nombre.map(str::trim).filter(|n| !n.is_empty()) {
+        if let Some(tras_nombre) = quitar_palabra(resto, n) {
+            resto = tras_nombre.trim_start_matches(es_separador);
+        }
+    }
+    for franja in ["buenos días", "buenas tardes", "buenas noches"] {
+        if let Some(tras_franja) = quitar_palabra(resto, franja) {
+            resto = tras_franja.trim_start_matches(es_separador);
+            break;
+        }
+    }
+    let mut chars = resto.trim().chars();
+    match chars.next() {
+        Some(primera) => format!("{}{}", primera.to_uppercase(), chars.as_str()),
+        None => texto.to_string(),
+    }
+}
+
+/// Separadores entre las piezas de un saludo: espacios y `, . ! ;`.
+fn es_separador(c: char) -> bool {
+    c.is_whitespace() || matches!(c, ',' | '.' | '!' | ';')
+}
+
+/// Minúsculas y sin tilde, para comparar saludos (`Días` → `dias`).
+fn plegar(c: char) -> char {
+    match c.to_lowercase().next().unwrap_or(c) {
+        'á' => 'a',
+        'é' => 'e',
+        'í' => 'i',
+        'ó' => 'o',
+        'ú' | 'ü' => 'u',
+        otro => otro,
+    }
+}
+
+/// Quita `palabra` al inicio de `texto` (sin distinguir mayúsculas ni tildes) y
+/// devuelve lo que sigue. Exige separador o fin detrás: «Holanda» no es «Hola».
+fn quitar_palabra<'a>(texto: &'a str, palabra: &str) -> Option<&'a str> {
+    let mut fin = 0;
+    let mut tramos = texto.char_indices();
+    for pc in palabra.chars() {
+        let (i, tc) = tramos.next()?;
+        if plegar(tc) != plegar(pc) {
+            return None;
+        }
+        fin = i + tc.len_utf8();
+    }
+    match texto[fin..].chars().next() {
+        Some(c) if !es_separador(c) => None,
+        _ => Some(&texto[fin..]),
+    }
 }
 
 /// [08AA-16] Normaliza el excerpt con contexto del hilo: nombre del

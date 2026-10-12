@@ -28,7 +28,7 @@ pub struct ClaveCompartida<'a> {
 /// mensajes: `["a b"]` y `["a", "b"]` no colisionan.
 #[must_use]
 pub fn mensaje_clave_de(textos: &[&str]) -> String {
-    let mut canon = String::from("v1\n");
+    let mut canon = String::from("v2\n");
     for (i, texto) in textos.iter().enumerate() {
         if i > 0 {
             canon.push('\n');

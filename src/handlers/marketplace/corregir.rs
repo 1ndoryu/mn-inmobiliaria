@@ -159,11 +159,14 @@ pub async fn corregir(
                 "threadId requerido: la corrección es por hilo (nombre del saludo)".to_string(),
             )
         })?;
-    /* [11AA] Misma llave que `borrador`/`regenerar`: firma + nombre del comprador. */
-    let clave_firma = clave_cache_hilo(&r.firma, nombre_de_thread(hilo).as_deref().unwrap_or(""));
+    /* [11AA] Misma llave que `borrador`/`regenerar`: solo la firma. La corrección
+     * se guarda sin saludo (cuerpo); el saludo lo añade `servir_cuerpo`. */
+    let clave_firma = clave_cache_hilo(&r.firma);
+    let nombre = nombre_de_thread(hilo);
+    let texto = crate::services::marketplace::quitar_saludo(&r.texto, nombre.as_deref());
     let (_, precio_hash, catalog_hash, _) =
         claves_cache(&state.pool, r.aviso_id.as_deref(), None).await?;
-    corregir_cache(&state.pool, &clave_firma, &precio_hash, &catalog_hash, &r.texto).await?;
+    corregir_cache(&state.pool, &clave_firma, &precio_hash, &catalog_hash, &texto).await?;
     /* [09AA-30 F2] La corrección de la dueña vale para todo el inmueble: se
      * aplica a la respuesta compartida con el nombre del hilo que la corrige. */
     if let Some((thread, mensaje)) =
@@ -175,7 +178,7 @@ pub async fn corregir(
                 precio_hash: &precio_hash,
                 mensaje_clave: &mensaje,
             };
-            corregir_compartida(&state.pool, &clave, &plantilla_de_nombre(&r.texto, &n)).await?;
+            corregir_compartida(&state.pool, &clave, &plantilla_de_nombre(&texto, &n)).await?;
         }
     }
     Ok((StatusCode::OK, Json(CorregirResponse { corregida: true })).into_response())

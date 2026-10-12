@@ -88,7 +88,8 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   dos compradores con el mismo mensaje comparten respuesta y el nombre se
   rellena al servir (ver `plan-cache-inmueble-automatica-2026-10-09.md`, punto 4).
   **Estado:** F1+F2 implementadas; gate Rust y Sentinel OK (ver plan). Abierto:
-  retest vivo, commit (destino a confirmar: rama nueva, no `main`) y cierre.
+  retest vivo y cierre. Commit en `main` por decisión de ella (2026-10-11),
+  contra la nota previa «rama nueva, no `main`».
   Lab F1 sin git. Rama numérica de `titulo_vinculado_del_hilo` sin fallback por
   título (decisión pendiente, documentada en `services/marketplace.rs`).
   F3/F4 de este plan se sustituyen por 09AA-30.

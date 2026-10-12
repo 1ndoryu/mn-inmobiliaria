@@ -74,8 +74,8 @@ pub(super) async fn regenerar_uno(
     let (seguro, precio_hash, catalog_hash, conocido) =
         claves_cache(pool, r.aviso_id.as_deref(), titulo_fb.as_deref()).await?;
     let nombre = nombre_de_thread(r.thread_id.trim());
-    /* [11AA] Misma llave por hilo y comprador que `borrador` (ver ahí). */
-    let clave_firma = clave_cache_hilo(&firma, nombre.as_deref().unwrap_or(""));
+    /* [11AA] Misma llave por hilo que `borrador` (ver ahí). */
+    let clave_firma = clave_cache_hilo(&firma);
     /* [10AA-28] La plantilla compartida es de apertura: un hilo con respuesta de
      * la dueña no la consulta ni la publica (ver `borrador`). */
     let clave_compartida = mensaje_clave
@@ -149,7 +149,11 @@ pub(super) async fn regenerar_uno(
         }
     }
     Ok(BorradorResponse {
-        borrador: gen.texto,
+        borrador: if gen.fuente == "ia" {
+            servir_cuerpo(&gen.texto, &r)
+        } else {
+            gen.texto
+        },
         fuente: gen.fuente,
         aviso_conocido: conocido,
         firma_version,

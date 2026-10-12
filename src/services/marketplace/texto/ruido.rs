@@ -190,7 +190,7 @@ fn es_cierre_propio(linea: &str) -> bool {
  * edgarluis en BD: la burbuja de las 12:59am trae `por Edgarluis:` + el
  * tip + NUESTRO borrador, y el pelado de la atribución lo deja como
  * supuesto Cliente). Sin marca de rol, los cierres canónicos y el
- * saludo `Hola, {nombre},` (fórmula de `saludo_y_regla`: el comprador
+ * saludo `Hola, {nombre},` (fórmula de `con_saludo`: el comprador
  * nunca se saluda a sí mismo por su nombre) solo pueden ser eco propio.
  * Lo marcado (`Cliente:`/`Dueña:`/`Tú:`) se conserva siempre: la marca
  * es atribución explícita del visor. */

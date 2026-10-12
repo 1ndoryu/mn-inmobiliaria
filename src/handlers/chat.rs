@@ -40,7 +40,7 @@ fn contacto_defecto() -> String {
  * no recibe reloj y el saludo salía no determinista (Fase 1: "buenos días"
  * y "buenas tardes" a las 23:35). Se inyecta la hora real en el prompt y
  * el saludo queda atado a ella. Pura para testear los bordes. */
-fn periodo_venezuela(hora: u32) -> (&'static str, &'static str) {
+pub(crate) fn periodo_venezuela(hora: u32) -> (&'static str, &'static str) {
     match hora {
         5..=11 => ("de mañana", "buenos días"),
         12..=18 => ("de tarde", "buenas tardes"),

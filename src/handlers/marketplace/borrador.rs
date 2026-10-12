@@ -4,6 +4,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::services::marketplace::continuacion;
+use chrono::Timelike as _;
 
 pub(super) const TOPE_BORRADOR_MINUTO: i64 = 30;
 
@@ -84,10 +85,9 @@ pub async fn borrador(
      * hilo, la plantilla de otro hilo con el mismo primer mensaje no encaja
      * (y la continuación no debe publicarse como plantilla). */
     let nombre = nombre_de_thread(r.thread_id.trim());
-    /* [11AA] Caché por hilo y por comprador: el saludo lleva el nombre
-     * horneado en `respuesta`, así que la llave de la fila compone la firma
-     * con el nombre. Sin esto, un hit sirve el nombre de otro comprador. */
-    let clave_firma = clave_cache_hilo(&firma, nombre.as_deref().unwrap_or(""));
+    /* [11AA] Caché por firma, sin nombre: la fila guarda solo el cuerpo y el
+     * saludo (con el nombre de este hilo) se añade al servir (`servir_cuerpo`). */
+    let clave_firma = clave_cache_hilo(&firma);
     let clave_compartida = mensaje_clave
         .as_deref()
         .filter(|_| conocido && nombre.is_some() && continuacion::es_apertura(&r.excerpt.texto))
@@ -117,7 +117,7 @@ pub async fn borrador(
         /* Hit: el plugin audita `hit`; aquí no se audita nada (el conteo de
          * usos ya subió en la misma sentencia del `UPDATE ... RETURNING`). */
         log_borrador_cache(r.thread_id.trim(), corregida);
-        let resp = respuesta_hit(texto, corregida, conocido, &firma_version);
+        let resp = respuesta_hit(servir_cuerpo(&texto, &r), corregida, conocido, &firma_version);
         return Ok(con_idempotencia(resp, clave_idem.as_ref()));
     }
     /* Miss (el plugin audita `miss`): una sola IA por clave en vuelo. La
@@ -148,7 +148,11 @@ pub async fn borrador(
     let resp = (
         StatusCode::OK,
         Json(BorradorResponse {
-            borrador: gen.texto.clone(),
+            borrador: if gen.fuente == "ia" {
+                servir_cuerpo(&gen.texto, &r)
+            } else {
+                gen.texto.clone()
+            },
             fuente: gen.fuente.clone(),
             aviso_conocido: conocido,
             firma_version,
@@ -177,7 +181,7 @@ fn respuesta_hit(texto: String, corregida: bool, conocido: bool, firma_version: 
 }
 
 /// Claves de caché de una petición ya resueltas: llave de la fila del hilo
-/// (`clave_cache_hilo`: firma más nombre) y hashes de precio y catálogo.
+/// (`clave_cache_hilo`: solo la firma) y hashes de precio y catálogo.
 pub(super) struct ClavesBorrador<'a> {
     pub(super) firma_cache: &'a str,
     pub(super) precio_hash: &'a str,
@@ -271,26 +275,42 @@ pub(super) async fn guardar_generado(
     Ok(())
 }
 
-/* [08AA-37] Saludo + regla de nombre fuera de `generar_borrador` (clippy
- * `too_many_lines` 108/100): el nombre del hilo es el único válido. */
-pub(super) fn saludo_y_regla(thread_id: &str) -> (String, String) {
-    let nombre_hilo = nombre_de_thread(thread_id.trim());
-    let saludo = match nombre_hilo.as_deref() {
-        Some(n) => format!("salúdalo por su nombre («Hola, {n}, ...»)"),
-        None => "salúdalo sin nombre (solo «Hola, ...»)".to_string(),
-    };
-    let regla = match nombre_hilo.as_deref() {
-        Some(n) => format!(
-            "El cliente se llama «{n}»: es el único nombre permitido para \
-            dirigirte a él; ignora cualquier otro nombre, apellido o lugar \
-            que aparezca en la conversación (p. ej. «Ordaz» de Puerto Ordaz): \
-            jamás saludes con un nombre distinto ni inventes apellidos"
-        ),
-        None => "No sabes su nombre: saluda solo con «Hola» y jamás uses \
-            ningún nombre propio para dirigirte a él"
-            .to_string(),
-    };
-    (saludo, regla)
+/// [11AA] Franja del saludo según la hora del mensaje, en Venezuela (UTC-4).
+/// `None` si la hora no se puede leer: el saludo sale sin franja.
+fn franja_de(hora: &str) -> Option<&'static str> {
+    let ven = chrono::FixedOffset::west_opt(4 * 3600)?;
+    let local = chrono::DateTime::parse_from_rfc3339(hora.trim())
+        .ok()?
+        .with_timezone(&ven);
+    Some(crate::handlers::chat::periodo_venezuela(local.hour()).1)
+}
+
+/// [11AA] Antepone «Hola, <nombre>, <franja>.» al cuerpo. El saludo no pasa por
+/// el modelo: depende del hilo (nombre) y de la hora del mensaje, así que no
+/// puede vivir en la caché compartida por firma.
+pub(super) fn con_saludo(cuerpo: &str, nombre: Option<&str>, hora: &str) -> String {
+    let mut saludo = String::from("Hola");
+    if let Some(n) = nombre.map(str::trim).filter(|n| !n.is_empty()) {
+        saludo.push_str(", ");
+        saludo.push_str(n);
+    }
+    if let Some(franja) = franja_de(hora) {
+        saludo.push_str(", ");
+        saludo.push_str(franja);
+    }
+    format!("{saludo}. {cuerpo}")
+}
+
+/// [11AA] Lo que recibe la dueña: el cuerpo cacheado con el saludo de este
+/// hilo. Quita antes cualquier saludo que traiga (filas viejas lo llevaban).
+/// Las continuaciones nunca llevan saludo.
+pub(super) fn servir_cuerpo(cuerpo: &str, r: &BorradorRequest) -> String {
+    if continuacion::es_continuacion(&r.excerpt.texto) {
+        return cuerpo.to_string();
+    }
+    let nombre = nombre_de_thread(r.thread_id.trim());
+    let sin_saludo = crate::services::marketplace::quitar_saludo(cuerpo, nombre.as_deref());
+    con_saludo(&sin_saludo, nombre.as_deref(), &r.excerpt.hora)
 }
 
 /// Ficha o precio del aviso y lo ya dicho en el hilo: el contexto de datos del prompt.
@@ -327,7 +347,7 @@ pub(super) async fn datos_y_ya_dicho(
     (datos, ya_dicho)
 }
 
-/// Prompt de sistema del borrador: tono, datos del inmueble, hora, saludo y forma del mensaje.
+/// Prompt de sistema del borrador: tono, datos del inmueble y forma del mensaje (sin saludo).
 pub(super) fn sistema_borrador(r: &BorradorRequest, aviso: &str, datos: &str, ya_dicho: &str) -> String {
     use crate::services::marketplace::{CONTACTO_TEL, CONTACTO_WA};
     let tono = crate::services::marketplace::continuacion::tono_de(r);
@@ -371,7 +391,6 @@ pub(super) fn sistema_borrador(r: &BorradorRequest, aviso: &str, datos: &str, ya
      * comentarios [08AA-*] nunca viajan al modelo. Ahora: formato de DOS
      * bloques + excepción de una línea, y la invariante la impone
      * `imponer_forma_borrador` en Rust aunque el modelo desobedezca. */
-    let (saludo, regla_nombre) = saludo_y_regla(&r.thread_id);
     format!(
         "Eres el asistente de MN Inmobiliaria respondiendo en Marketplace. \
          Tono {tono}, BREVE: el mensaje son DOS párrafos (primero + final) \
@@ -380,15 +399,15 @@ pub(super) fn sistema_borrador(r: &BorradorRequest, aviso: &str, datos: &str, ya
          (nada de líneas sueltas). \
          Datos del inmueble: {datos}. \
          Aviso en Facebook: {aviso}. \
-         Hora del mensaje: {hora}: saluda con buenos días, buenas tardes o \
-         buenas noches según corresponda. \
+         Sin saludo: no escribas «Hola», «buenos días», «buenas tardes» ni \
+         «buenas noches», ni el nombre del cliente; el sistema antepone el \
+         saludo. \
          La conversación trae marcas: `Cliente:` es el comprador, `Dueña:` \
           es la dueña (tú no eres la dueña: no repitas lo que ella ya dijo). \
            Formato obligatorio, en este orden exacto: primer párrafo = UNA sola \
-          frase con el molde «Hola, <nombre>, <buenos días|buenas tardes|buenas \
-          noches>, el <tipo> en <residencia> sigue disponible en <precio>$ \
-          negociable.» (forma de ejemplo: no copies sus palabras ni sus datos; \
-          saludo {saludo} ({regla_nombre})). Nombre corto del inmueble (tipo + \
+          frase con el molde «El <tipo> en <residencia> sigue disponible en \
+          <precio>$ negociable.» (forma de ejemplo: no copies sus palabras ni \
+          sus datos). Nombre corto del inmueble (tipo + \
           residencia, sin dirección ni zona duplicada). Sin «te hablo de», «sí \
           sigue» ni «te escribo»; sin visitas, coordinación ni confirmar nada con \
           la dueña. Precio exacto de los datos o del aviso, con la cifra y el $ \
@@ -405,9 +424,7 @@ pub(super) fn sistema_borrador(r: &BorradorRequest, aviso: &str, datos: &str, ya
           sin precio en datos ni aviso, no lo inventes; \
          si preguntan precio y no hay precio en los datos ni en el aviso, responde exactamente: {FALLBACK_BORRADOR} \
          (el sistema agrega el contacto y el enlace al final). \
-          Ya le dijiste (no lo repitas igual): {ya_dicho}",
-        hora = r.excerpt.hora,
-        regla_nombre = regla_nombre
+          Ya le dijiste (no lo repitas igual): {ya_dicho}"
     )
 }
 
@@ -472,17 +489,72 @@ pub(super) async fn generar_borrador(
     /* [09AA-2] La invariante de forma la impone Rust: el texto de la IA
      * pasa por `imponer_forma_borrador` (poda de relleno + final canónico)
      * antes de garantizar el contacto. La continuación no lleva ninguno. */
+    /* [11AA] La caché guarda solo el cuerpo: si la IA escribió igual un saludo,
+     * se quita aquí (`servir_cuerpo` lo añade de nuevo, con el nombre del hilo). */
+    let nombre = nombre_de_thread(r.thread_id.trim());
+    let sin_saludo = crate::services::marketplace::quitar_saludo(&texto, nombre.as_deref());
     let texto = if cont {
-        continuacion::dar_forma_continuacion(&texto)
+        continuacion::dar_forma_continuacion(&sin_saludo)
     } else {
         formatear_parrafos(&crate::services::marketplace::asegurar_contacto(
-            &crate::services::marketplace::imponer_forma_borrador(&formatear_parrafos(&texto)),
+            &crate::services::marketplace::imponer_forma_borrador(&formatear_parrafos(&sin_saludo)),
         ))
     };
     Generado {
         texto,
         fuente: "ia".to_string(),
         coste,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{con_saludo, franja_de};
+    use crate::services::marketplace::quitar_saludo;
+
+    #[test]
+    fn franja_sigue_la_hora_de_venezuela() {
+        assert_eq!(franja_de("2026-10-11T08:00:00-04:00"), Some("buenos días"));
+        assert_eq!(franja_de("2026-10-11T14:00:00-04:00"), Some("buenas tardes"));
+        assert_eq!(franja_de("2026-10-11T22:00:00-04:00"), Some("buenas noches"));
+        /* 12:30 UTC son las 08:30 en Venezuela: la franja sale de la hora local. */
+        assert_eq!(franja_de("2026-10-11T12:30:00+00:00"), Some("buenos días"));
+        assert_eq!(franja_de("sin-hora"), None);
+    }
+
+    #[test]
+    fn saludo_con_nombre_y_franja() {
+        assert_eq!(
+            con_saludo(
+                "El apartamento sigue disponible.",
+                Some("Ana"),
+                "2026-10-11T08:00:00-04:00"
+            ),
+            "Hola, Ana, buenos días. El apartamento sigue disponible."
+        );
+    }
+
+    #[test]
+    fn saludo_sin_nombre_ni_hora_legible() {
+        assert_eq!(con_saludo("Cuerpo.", None, "sin-hora"), "Hola. Cuerpo.");
+    }
+
+    #[test]
+    fn el_saludo_añadido_se_quita_al_releer() {
+        let cuerpo = "El apartamento sigue disponible.";
+        let servido = con_saludo(cuerpo, Some("Ana"), "2026-10-11T08:00:00-04:00");
+        assert_eq!(quitar_saludo(&servido, Some("Ana")), cuerpo);
+    }
+
+    #[test]
+    fn filas_viejas_con_saludo_se_limpian() {
+        assert_eq!(
+            quitar_saludo(
+                "Hola, Ana, buenas tardes. El apartamento sigue disponible.",
+                Some("Ana")
+            ),
+            "El apartamento sigue disponible."
+        );
     }
 }
 
