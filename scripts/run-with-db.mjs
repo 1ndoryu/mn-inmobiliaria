@@ -4,8 +4,10 @@
  * alineados a la rama/proyecto actual. */
 
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { checksumsDivergentes, getBranchDbContext, versionesAjenas } from './branch-db.mjs';
+import { fileURLToPath } from 'node:url';
+import { checksumsDivergentes, findPsql, getBranchDbContext, versionesAjenas } from './branch-db.mjs';
 import { sincronizarClaveDevSilencioso } from './clave-dev.mjs';
 
 function cargoCommand() {
@@ -58,6 +60,47 @@ function migrarBdRama(dbUrl) {
   }
 }
 
+const SEMILLA_TESTS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'seed-test-inmobiliaria.sql');
+
+/* [10AA-20] Datos que necesitan los tests de `handlers::chat::tools::pruebas`
+ * (sin ellos: `RowNotFound`). Solo en BD de rama: en main, la BD es la de
+ * desarrollo de la usuaria. Idempotente (ON CONFLICT), se aplica tras migrar. */
+function sembrarBdRama(dbUrl) {
+  if (!existsSync(SEMILLA_TESTS)) {
+    console.warn(`[db] Aviso: falta ${SEMILLA_TESTS}; los tests de chat_tools fallaran con RowNotFound.`);
+    return;
+  }
+  const psqlBin = findPsql();
+  if (!psqlBin) {
+    console.warn('[db] Aviso: psql no disponible; omito la semilla de tests.');
+    return;
+  }
+  const match = dbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
+  const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
+  const conexion = ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName];
+  const entorno = { ...process.env, PGPASSWORD: dbPass };
+  /* Sin esquema (migraciones no aplicadas: `cargo sqlx` ausente) no hay nada
+   * que sembrar; la semilla se aplicará en la siguiente pasada. */
+  const esquema = spawnSync(psqlBin, [...conexion, '-t', '-A', '-c', "SELECT to_regclass('public.inmuebles') IS NOT NULL"], { encoding: 'utf8', env: entorno, shell: false });
+  if (esquema.status !== 0) {
+    console.error(`[db] No consulto el esquema de ${dbName}: ${(esquema.stderr || '').trim()}`);
+    process.exit(esquema.status ?? 1);
+  }
+  if (esquema.stdout.trim() !== 't') {
+    console.warn(`[db] Aviso: ${dbName} aun sin tabla inmuebles; semilla de tests omitida.`);
+    return;
+  }
+  const siembra = spawnSync(psqlBin, [...conexion, '-v', 'ON_ERROR_STOP=1', '-q', '-f', SEMILLA_TESTS], {
+    stdio: 'inherit',
+    env: entorno,
+    shell: false,
+  });
+  if (siembra.status !== 0) {
+    console.error(`[db] La semilla de tests fallo en ${dbName}; no compilo contra una BD a medias.`);
+    process.exit(siembra.status ?? 1);
+  }
+}
+
 const cargoArgs = process.argv.slice(2);
 if (cargoArgs.length === 0) {
   console.error('Uso: node scripts/run-with-db.mjs <subcomando cargo> [...args]');
@@ -65,7 +108,7 @@ if (cargoArgs.length === 0) {
 }
 
 console.log('');
-const { dbName, dbUrl, cargoTargetDir } = getBranchDbContext();
+const { branch, dbName, dbUrl, cargoTargetDir } = getBranchDbContext();
 console.log('');
 
 /* [011A-3] La BD de rama se crea vacia y los macros `query_*!` validan
@@ -94,6 +137,7 @@ if (divergentes.length > 0) {
   process.exit(1);
 }
 migrarBdRama(dbUrl);
+if (branch !== 'main' && branch !== 'master') sembrarBdRama(dbUrl);
 /* [10AA-27] Solo al arrancar el backend: deja el admin local con la clave de
  * `frontend/.env.local` para que la auto-entrada del panel no dé 401. */
 if (cargoArgs[0] === 'run') sincronizarClaveDevSilencioso(dbUrl);
