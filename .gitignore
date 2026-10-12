@@ -46,6 +46,7 @@ desktop.ini
 /scripts/*
 !/scripts/branch-db.mjs
 !/scripts/run-with-db.mjs
+!/scripts/run-cargo.mjs
 !/scripts/clave-dev.mjs
 !/scripts/datos/
 /scripts/datos/*
