@@ -6,7 +6,7 @@ use super::*;
 use crate::services::marketplace::{buscar_cache, Coste, Generado};
 
 fn pool_si_hay() -> Option<sqlx::PgPool> {
-    let url = std::env::var("DATABASE_URL").ok()?;
+    let url = crate::config::url_bd_pruebas()?;
     sqlx::postgres::PgPoolOptions::new()
         .max_connections(1)
         .connect_lazy(&url)

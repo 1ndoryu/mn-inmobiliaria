@@ -48,3 +48,22 @@ impl AppConfig {
         })
     }
 }
+
+/* [10AA-31] Nombre de la BD de desarrollo de la usuaria (rama `main`). */
+#[cfg(test)]
+const BD_DESARROLLO: &str = "glory_backend_inmobiliaria";
+
+/* [10AA-31] URL de BD para los tests de BD viva. Nunca la de desarrollo: en
+ * `main`, `DATABASE_URL` apunta a ella y los tests borran y purgan filas reales
+ * (`purgar_cache`, DELETE por hilo). Sin URL o con la de desarrollo, el test se
+ * omite, igual que sin `DATABASE_URL`. Los tests solo corren en BD de rama. */
+#[cfg(test)]
+pub fn url_bd_pruebas() -> Option<String> {
+    let url = std::env::var("DATABASE_URL").ok()?;
+    let nombre = url.rsplit('/').next()?.split('?').next()?;
+    if nombre == BD_DESARROLLO {
+        eprintln!("OMITIDO: DATABASE_URL apunta a la BD de desarrollo ({BD_DESARROLLO}); los tests de BD viva solo corren en BD de rama");
+        return None;
+    }
+    Some(url)
+}

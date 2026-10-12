@@ -618,7 +618,7 @@ mod pruebas_receta {
     use crate::models::{CreateInmuebleRequest, RecetaPublicidad, UpdateInmuebleRequest};
 
     fn pool_si_hay() -> Option<PgPool> {
-        let url = std::env::var("DATABASE_URL").ok()?;
+        let url = crate::config::url_bd_pruebas()?;
         sqlx::postgres::PgPoolOptions::new()
             .max_connections(1)
             .connect_lazy(&url)
@@ -720,7 +720,7 @@ mod pruebas_estado {
     use crate::models::CreateInmuebleRequest;
 
     fn pool_si_hay() -> Option<PgPool> {
-        let url = std::env::var("DATABASE_URL").ok()?;
+        let url = crate::config::url_bd_pruebas()?;
         sqlx::postgres::PgPoolOptions::new()
             .max_connections(1)
             .connect_lazy(&url)
@@ -797,7 +797,7 @@ mod pruebas_borrado_foto {
     use crate::models::{AddFotoRequest, CreateInmuebleRequest};
 
     fn pool_si_hay() -> Option<PgPool> {
-        let url = std::env::var("DATABASE_URL").ok()?;
+        let url = crate::config::url_bd_pruebas()?;
         sqlx::postgres::PgPoolOptions::new()
             .max_connections(1)
             .connect_lazy(&url)
