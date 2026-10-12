@@ -68,7 +68,7 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
   - **09AA-10** dedup y espejo M3 (decidir qué lado gana).
   - **09AA-11** proveedores IA (coordinado con 09AA-4).
   - **09AA-12** frontend de chat (paralelizable; buscar la discrepancia de estado).
-- **09AA-14** — fix del scraper (lee chrome, no burbujas): `parseBurbujaLado` + tests bun.
+- **09AA-14** — scraper «lee chrome»: el autor sale de la primera aria-label ancestro (`nombreAccesible` en `vendor/burbujas.iife.js:440`, `mpNombre` en `marketplace-float.ts:577`). Decidido 2026-10-12: el fix va en origen (`plugins-opencode/src/burbujas`, chip task_7d226a2c), no a mano en el vendor del lab (sha256 en `manifest.json`). Pendiente: copia al lab con hash y prueba viva en Facebook (usuaria).
 - **10AA-17** — `floatDraftCache` no se invalida al borrar en MN (cubierto por `force`).
 - **10AA-24/25/26** — el lab procesa ventanas en serie; paralelizar si molesta.
 - **08AA-8b** — política de refresco del excerpt ante mensajes nuevos; rescatar marcas Cliente/Dueña con pestaña en fondo.
