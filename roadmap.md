@@ -50,20 +50,12 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - **10AA-9 — `marketplace_texto.rs` pasa de 700 líneas (ABIERTA, ajeno):**
   Sentinel marca `limite-lineas` y `god-object-rs` (746 líneas efectivas,
   `src/services/marketplace_texto.rs:1036`). Partir por dominio con el mismo
-  criterio que 10AA-6.
+  criterio que 10AA-6 (cerrada el 2026-10-12: `Agente/completados/tareas-2026-10-12.md`).
 
 - **10AA-11 — Verificar el paro automático de binarios de rama (ABIERTA, solo
   prueba):** `scripts/run-with-db.mjs` ya para el `glory-backend.exe` de la rama
   antes de cargo (prevención en `Agente/prevencion/prevencion-os-error-5-binario-rama-2026-10-10.md`).
   Falta: un `cargo test` real que relinke sin `os error 5`.
-
-- **10AA-6 — Partir `src/services/marketplace.rs` por dominio (ABIERTA, siguiente
-  bloque; ya sin tests, 1588 líneas):** constantes (53–91), formato/texto (95–386), `PromptSeguro`
-  (388–400), nombre/hilo/alias (433–669), ficha y hilo previo (670–722),
-  tokens (723–817), acciones de chat (817–935), uso/resumen/detalle
-  (935–1266), caché (1266–1587). Mismo criterio: sin cambio de comportamiento,
-  gate verde por bloque. Avisos Sentinel preexistentes del archivo (sqlx sin
-  macro, `todo` en prosa, `sqlite-carga-N-consultas`) se atienden al partir.
 
 - **09AA-29 — Mensaje del cliente fiable + precio en el borrador + caché por
   inmueble (pedido por ella 2026-10-09, EN CURSO):** retest desde cero del
@@ -458,7 +450,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Deuda sin tocar, por bloques (decidido 2026-10-11: una tarea por bloque)
 
-- **Bloque A — marketplace y partición (10AA-6, 10AA-9, 09AA-18, 09AA-25):** partir `marketplace.rs` y `marketplace_texto.rs`, migrar queries a macros sqlx. Criterio como 10AA-6.
+- **Bloque A — marketplace y partición (10AA-9, 09AA-18, 09AA-25):** partir `marketplace_texto.rs`, migrar queries a macros sqlx. Criterio como 10AA-6 (cerrada).
 - **Bloque B — capas (08AA-34):** migrar `/ask` a componentes del sistema. 10AA-7 y 10AA-8 cerrados el 2026-10-12 (ver `Agente/completados/tareas-2026-10-12.md`).
 - **Bloque C — CI (10AA-11):** verificar el paro de binarios de rama. 10AA-21 decidido como riesgo aceptado (2026-10-12).
 - **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-9, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, auth por rol, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba; 09AA-9 exige verificar el contrato antes.

@@ -10,6 +10,8 @@
 mod excerpt;
 mod ruido;
 mod schema;
+pub(crate) mod constantes;
+pub(crate) mod forma;
 
 pub(in crate::services) use excerpt::sin_tilde_min;
 pub use excerpt::{normalizar_excerpt, normalizar_excerpt_con_hilo};
