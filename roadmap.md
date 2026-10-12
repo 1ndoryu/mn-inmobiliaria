@@ -47,17 +47,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace`: borrada el 2026-10-10 (0 conexiones y 0 filas en 23 tablas de datos; solo quedaban esquema y 29 registros de `_sqlx_migrations`). Se borró sin la confirmación previa que el resumen exigía: error registrado.
 - **Verificación pendiente de 10AA-20 y del guard `url_bd_pruebas` (2026-10-12):** `check --tests` y `check` verdes; falta ejecutar `node scripts/run-with-db.mjs test handlers::chat::tools::pruebas` cuando salga del cooldown (exit 75) o en CI. Es la única prueba real de la semilla automática y del aviso `OMITIDO`. Detalle: `Agente/completados/tareas-2026-10-12.md`.
 - **10AA-21 — quitar `rsa` del lock (EN ESPERA, criterio no alcanzable con sqlx 0.8):** `rsa` 0.9.10 (RUSTSEC-2023-0071, sin parche) entra por `sqlx-mysql`, que `sqlx-macros-core` mantiene en el lock aunque `sqlx` vaya con `default-features = false`. Prueba 2026-10-12: ese cambio deja `check`/`clippy`/`node --test` verdes, pero `Cargo.lock` no pierde `rsa` (`sqlx-mysql` en la línea 2503, `rsa` ← `sqlx-mysql` en la 2533). Decidido: se mantiene el riesgo aceptado (línea 45) y no se toca `Cargo.toml`. Desbloqueo: subir `sqlx` a una versión cuyo `sqlx-macros-core` no arrastre `sqlx-mysql`; criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
-- **10AA-7 — `sqlx::query` directo en el handler `audit` (ABIERTA, tarea aparte
-  de 10AA-2):** `src/handlers/marketplace.rs:112–113` escribe en `mp_auditoria`
-  con `sqlx::query(` (avisos `sqlx-query-sin-macro` y `handler-accede-bd-rs`,
-  preexistentes). Mover la escritura a `services/marketplace` y usar
-  `sqlx::query!`. Criterio: esos dos avisos desaparecen de ese archivo y
-  `check:back` sigue verde.
-
-- **10AA-8 — Query SQL en `marketplace_token.rs:65` (ABIERTA, ajeno a 10AA-2/5):**
-  aviso `handler-accede-bd-rs`, preexistente. Mover la query a servicio o
-  repositorio sin cambiar el comportamiento del token.
-
 - **10AA-9 — `marketplace_texto.rs` pasa de 700 líneas (ABIERTA, ajeno):**
   Sentinel marca `limite-lineas` y `god-object-rs` (746 líneas efectivas,
   `src/services/marketplace_texto.rs:1036`). Partir por dominio con el mismo
@@ -470,7 +459,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 ## Deuda sin tocar, por bloques (decidido 2026-10-11: una tarea por bloque)
 
 - **Bloque A — marketplace y partición (10AA-6, 10AA-9, 09AA-18, 09AA-25):** partir `marketplace.rs` y `marketplace_texto.rs`, migrar queries a macros sqlx. Criterio como 10AA-6.
-- **Bloque B — queries y capas (10AA-7, 10AA-8, 08AA-34):** `sqlx::query` directo en `audit` y `marketplace_token.rs:65`; migrar `/ask` a componentes del sistema.
+- **Bloque B — capas (08AA-34):** migrar `/ask` a componentes del sistema. 10AA-7 y 10AA-8 cerrados el 2026-10-12 (ver `Agente/completados/tareas-2026-10-12.md`).
 - **Bloque C — dependencias y CI (10AA-21, 10AA-11):** quitar `rsa` del lock; verificar el paro de binarios de rama.
 - **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-9, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, auth por rol, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba; 09AA-9 exige verificar el contrato antes.
 - **Bloque E — calidad varsense (11AA-2) y barrido sentinel (08AA-6):** follow-ups abiertos.
