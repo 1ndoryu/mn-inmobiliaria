@@ -8,6 +8,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::handlers::chat::tools::telefono_valido;
+use crate::models::MAX_FOTO_BYTES;
 use crate::repositories::ClienteRepository;
 use crate::services::transporte::{destino_jubilado, reparto, EntradaWhatsapp};
 use crate::services::{CanalResolver, InmuebleService};
@@ -115,6 +116,23 @@ pub struct AudioPendiente {
     pub(crate) mime: String,
 }
 
+/// Lee el cuerpo en trozos y corta en cuanto supera `max`. `resp.bytes()`
+/// lo bufferizaba entero antes de medirlo: una `media_url` enorme o hostil
+/// llenaba la memoria. El `Content-Length` declarado permite cortar antes.
+async fn leer_acotado(mut resp: reqwest::Response, max: usize) -> Result<Vec<u8>, String> {
+    if resp.content_length().is_some_and(|n| n > max as u64) {
+        return Err(format!("media sobre el tope de {max} bytes"));
+    }
+    let mut bytes = Vec::new();
+    while let Some(trozo) = resp.chunk().await.map_err(|e| e.to_string())? {
+        if bytes.len() + trozo.len() > max {
+            return Err(format!("media sobre el tope de {max} bytes"));
+        }
+        bytes.extend_from_slice(&trozo);
+    }
+    Ok(bytes)
+}
+
 async fn descargar_y_guardar(
     http: &reqwest::Client,
     upload_dir: &std::path::Path,
@@ -144,7 +162,7 @@ async fn descargar_y_guardar(
         "audio/mp4" => ("audio", ".m4a"),
         _ => return Err("content-type no soportado".to_string()),
     };
-    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    let bytes = leer_acotado(resp, MAX_FOTO_BYTES).await?;
     /* [299A-3] El audio NO pasa por `guardar_archivo` (solo valida fotos y
      * toda nota de voz caía al fallback `[media]`): usa `guardar_audio`. */
     let carpeta = format!("whatsapp/{telefono_norm}");
@@ -392,4 +410,37 @@ pub async fn repartir_y_vincular(
         },
         medios,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// Servidor local que responde `tam` bytes sin `Content-Length` (cierre de
+    /// conexión): fuerza la lectura en trozos, que es el camino que se acota.
+    async fn servidor_media(tam: usize) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut peticion = [0u8; 1024];
+            let _ = sock.read(&mut peticion).await;
+            let cabecera = "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nConnection: close\r\n\r\n";
+            let _ = sock.write_all(cabecera.as_bytes()).await;
+            let _ = sock.write_all(&vec![0u8; tam]).await;
+            let _ = sock.shutdown().await;
+        });
+        format!("http://{addr}/foto.jpg")
+    }
+
+    #[tokio::test]
+    async fn descarga_rechaza_media_sobre_el_tope() {
+        let url = servidor_media(MAX_FOTO_BYTES + 1).await;
+        let http = reqwest::Client::new();
+        let err = descargar_y_guardar(&http, std::path::Path::new("."), "5491100000000", &url)
+            .await
+            .expect_err("media por encima del tope debe rechazarse");
+        assert!(err.contains("tope"), "mensaje: {err}");
+    }
 }
