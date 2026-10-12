@@ -27,7 +27,7 @@ Propuesta: **Publicar** = se muestra cuando la respuesta es positiva. **Revisar*
 | Clave | Pregunta | Tipo | Propuesta | Motivo |
 |---|---|---|---|---|
 | `punto_referencia` | Punto de referencia cercano | texto | Revisar | Ayuda a ubicar, pero puede revelar la dirección exacta. |
-| `negociable` | ¿Precio negociable? | sí/no | Privado (recomendación) | Es táctica de venta; mostrarlo resta margen de negociación. |
+| `negociable` | ¿Precio negociable? | sí/no | **Publicar** (decidido por la usuaria, 2026-10-12) | Recomendación previa: privado, por táctica de venta. La usuaria decidió publicarlo. |
 | `precio_minimo` | Mínimo aceptado | decimal | Privado, nunca | Columna aparte; ya es privada. |
 
 ### Servicios (todos los tipos)
@@ -87,7 +87,8 @@ Propuesta: **Publicar** = se muestra cuando la respuesta es positiva. **Revisar*
 
 - **Publicar si positivo (candidatos claros):** `internet`, `agua` (solo «Sí»), `amoblado` (solo «Sí»), `ascensor`, `conjunto_cerrado`, `ampliacion`, `bano`, `deposito`, `cercado`.
 - **Revisar caso por caso:** `punto_referencia`, `piso` (apartamento y townhouse), `areas_comunes`, `areas_externas`, `frente_metros`, `servicios`.
-- **Privado:** `negociable` (recomendación), `precio_minimo` (siempre).
+- **Decidido por la usuaria (2026-10-12):** `negociable` se publica. «A veces» en agua sigue sin mostrarse.
+- **Privado:** `precio_minimo` (siempre).
 
 ## Fases si se aprueba
 
