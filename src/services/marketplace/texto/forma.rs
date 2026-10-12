@@ -261,7 +261,10 @@ pub fn formatear_parrafos(texto: &str) -> String {
 
 /// Vacía el párrafo en curso a la lista (sin el cierre no se puede usar
 /// cierre + `push` directo: doble préstamo mutable del acumulador).
-pub(in crate::services::marketplace) fn vaciar_parrafo(actual: &mut String, parrafos: &mut Vec<String>) {
+pub(in crate::services::marketplace) fn vaciar_parrafo(
+    actual: &mut String,
+    parrafos: &mut Vec<String>,
+) {
     if !actual.trim().is_empty() {
         parrafos.push(actual.trim().to_string());
         actual.clear();

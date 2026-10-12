@@ -96,8 +96,7 @@ pub fn validar_borrador(r: &BorradorRequest) -> Vec<String> {
     }
     /* [09AA-20] F0: convive `firma-v1` (texto plano) con `firma-v2`
      * (burbujas estructuradas, que además requiere `conversacion`). */
-    if r.firma_version != "firma-v1"
-        && r.firma_version != super::super::burbujas::FIRMA_VERSION_V2
+    if r.firma_version != "firma-v1" && r.firma_version != super::super::burbujas::FIRMA_VERSION_V2
     {
         errores.push("firma_version debe ser firma-v1 o firma-v2".to_string());
     } else if r.firma_version == super::super::burbujas::FIRMA_VERSION_V2

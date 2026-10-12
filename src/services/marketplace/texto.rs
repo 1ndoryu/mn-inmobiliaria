@@ -7,11 +7,11 @@
 //! párrafos, títulos, caché y tokens, y re-exporta estos nombres para no
 //! mover sus usos externos (handlers, utoipa, sombra).
 
+pub(crate) mod constantes;
 mod excerpt;
+pub(crate) mod forma;
 mod ruido;
 mod schema;
-pub(crate) mod constantes;
-pub(crate) mod forma;
 
 pub(in crate::services) use excerpt::sin_tilde_min;
 pub use excerpt::{normalizar_excerpt, normalizar_excerpt_con_hilo};
