@@ -45,12 +45,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   - Riesgo aceptado: `rsa` 0.9.10 (baja, Marvin), sin parche upstream. Ya no entra por `jsonwebtoken` (retirado en 10AA-19); sigue en `Cargo.lock` por `sqlx-mysql`, opcional y fuera del build por defecto. Seguimiento: 10AA-21.
   - Los 6 tests de `handlers::chat::tools::pruebas` necesitan la semilla `scripts/fixtures/seed-test-inmobiliaria.sql` en la BD de rama (sin ella: `RowNotFound`). Se aplicó a mano con `psql` 18; automatizada en 10AA-20 (2026-10-12).
   - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace`: borrada el 2026-10-10 (0 conexiones y 0 filas en 23 tablas de datos; solo quedaban esquema y 29 registros de `_sqlx_migrations`). Se borró sin la confirmación previa que el resumen exigía: error registrado.
-- **Verificación pendiente de 10AA-20 y del guard `url_bd_pruebas` (2026-10-12):** `check --tests` y `check` verdes; falta ejecutar `node scripts/run-with-db.mjs test handlers::chat::tools::pruebas` cuando salga del cooldown (exit 75) o en CI. Es la única prueba real de la semilla automática y del aviso `OMITIDO`. Detalle: `Agente/completados/tareas-2026-10-12.md`.
 - **10AA-21 — quitar `rsa` del lock (DECIDIDO 2026-10-12: riesgo aceptado; criterio no alcanzable con sqlx 0.8):** `rsa` 0.9.10 (RUSTSEC-2023-0071, sin parche) entra por `sqlx-mysql`, que `sqlx-macros-core` mantiene en el lock aunque `sqlx` vaya con `default-features = false`. Prueba 2026-10-12: ese cambio deja `check`/`clippy`/`node --test` verdes, pero `Cargo.lock` no pierde `rsa` (`sqlx-mysql` en la línea 2503, `rsa` ← `sqlx-mysql` en la 2533). Decidido: se mantiene el riesgo aceptado (línea 45) y no se toca `Cargo.toml`. Desbloqueo: subir `sqlx` a una versión cuyo `sqlx-macros-core` no arrastre `sqlx-mysql`; criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
-- **10AA-11 — Verificar el paro automático de binarios de rama (ABIERTA, solo
-  prueba):** `scripts/run-with-db.mjs` ya para el `glory-backend.exe` de la rama
-  antes de cargo (prevención en `Agente/prevencion/prevencion-os-error-5-binario-rama-2026-10-10.md`).
-  Falta: un `cargo test` real que relinke sin `os error 5`.
 
 - **09AA-29 — Mensaje del cliente fiable + precio en el borrador + caché por
   inmueble (pedido por ella 2026-10-09, EN CURSO):** retest desde cero del
@@ -441,9 +436,9 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 - **Bloque A — marketplace y partición (10AA-9, 09AA-18, 09AA-25):** partir `marketplace_texto.rs`, migrar queries a macros sqlx. Criterio como 10AA-6 (cerrada).
 - **Bloque B — capas (08AA-34):** cerrado el 2026-10-12: 08AA-34 resuelta por 10AA-14 (ver `Agente/completados/tareas-2026-10-12.md`).
-- **Bloque C — CI (10AA-11):** verificar el paro de binarios de rama. 10AA-21 decidido como riesgo aceptado (2026-10-12).
+- **Bloque C — CI:** 10AA-21 decidido como riesgo aceptado (2026-10-12); 10AA-11 cerrada (ver `Agente/completados/tareas-2026-10-12.md`).
 - **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba.
-- **Bloque E — calidad varsense (11AA-2) y barrido sentinel (08AA-6):** follow-ups abiertos.
+- **Bloque E — barrido sentinel (08AA-6):** pendiente, ~518 hallazgos, sin urgencia. 11AA-2 cerrada (ver `Agente/completados/tareas-2026-10-12.md`).
 
 ## Optimizacion PageSpeed movil + SEO profundo (249A-1, completada 2026-09-24)
 
@@ -1066,7 +1061,3 @@ Siguiente: C1 (NUEVO 2026-10-07 [07AA-5]: cableado en opencode-propio —
 
 ## 05AA-1 — MN adopta `Resolver` del núcleo (cerrada 2026-10-05: ver `Agente/completados/tareas-2026-10-05.md`)
 
-## 11AA-2 — Calidad MN: follow-ups de varsense (abierta, prioridad baja)
-
-- Varsense no sigue constantes de cadena: `CLASE_TEXTO`, `TARJETA_PRESENTACION` y `CURSOR_MAQUINA` (`frontend/src/features/publica/disenno.ts`) obligan a eximir `texto-publica`, `fases-presentacion` y `parpadeo-cursor` con `excludeClassPatterns` en `varsense.config.json`. Decidido: exención por patrón en la config de MN; no se toca el checkout compartido `.quality-tools/varsense` (NAKOMI fija la misma versión). Criterio: arreglo en varsense y quitar la exención sin nuevos `claseHuerfana`.
-- MN no tiene script `quality:lock`: el lock se regenera desde la raíz de MN con `node "<area-trabajo>/workspace-manager/scripts/quality/lock-generator.mjs" --write`. Decidido: documentarlo en el README o añadir el script; nunca editar el lock a mano. Criterio: comando documentado o script que pase `--check`.
