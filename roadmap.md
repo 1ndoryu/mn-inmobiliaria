@@ -47,6 +47,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - **10AA-21 — quitar `rsa` del lock (DECIDIDO 2026-10-12: riesgo aceptado; criterio no alcanzable con sqlx 0.8):** `rsa` 0.9.10 (RUSTSEC-2023-0071, sin parche) entra por `sqlx-mysql`, que `sqlx-macros-core` mantiene en el lock aunque `sqlx` vaya con `default-features = false`. Prueba 2026-10-12: ese cambio deja `check`/`clippy`/`node --test` verdes, pero `Cargo.lock` no pierde `rsa` (`sqlx-mysql` en la línea 2503, `rsa` ← `sqlx-mysql` en la 2533). Decidido: se mantiene el riesgo aceptado (línea 45) y no se toca `Cargo.toml`. Desbloqueo: subir `sqlx` a una versión cuyo `sqlx-macros-core` no arrastre `sqlx-mysql`; criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
 
 - **12AA-1 — Gateway WhatsApp (Baileys 6.7.24, puerto 3102): timeouts y reconexión (abierto 2026-10-12):** en `C:\tmp\gateway.log`, «Timed Out» en la consulta `props` tras cada apertura (L821→L825 y L943→L947, 2026-10-12T08:30:10Z), sin cortar la sesión; 242 `ENOTFOUND web.whatsapp.com` con 408; 18 cierres 428 «Connection Terminated». La reconexión es fija de 5 s sin backoff (`gateway/src/sesion.mjs:110` y `:113`). Mitigaciones no aplicadas (requieren verificación): `fireInitQueries: false` en `gateway/src/sesion.mjs:77-80`, backoff en :110/:113 y revisar la resolución DNS del host. Cierre: sin `ENOTFOUND` ni cierres 428 repetidos en 24 h con `wa_a`/`wa_b` estables.
+- **12AA-2 — Higiene opcional: queries sqlx de test a macros (abierto 2026-10-12, prioridad baja, no bloquea):** 173 llamadas `sqlx::query*` en código `#[cfg(test)]` o archivos solo-test (Sentinel las exime, 08AA-26). Migrar exige tuplas a mano (`handlers/chat/tools.rs` 747/755/1423/1603, `handlers/whatsapp.rs` 556/569, `services/mensajeria/outbox_idempotency.rs` 373, `marketplace/pruebas/cache.rs` 25, `pruebas/hilos/releer_uso.rs` 46, `pruebas/corregir.rs` 13) y regenerar `.sqlx/` (85 entradas) con `SQLX_OFFLINE_DIR`. Las 17 de producción ya están documentadas con `sentinel-disable` (`repositories/inmueble.rs`, `solicitud.rs`, `visita.rs`). Ver `Agente/completados/tareas-2026-10-12.md`.
 - **09AA-29 — Mensaje del cliente fiable + precio en el borrador + caché por
   inmueble (pedido por ella 2026-10-09, EN CURSO):** retest desde cero del
   hilo de Puerto Ordaz: el panel mostró «erto Ordaz.» como mensaje del cliente
@@ -125,12 +126,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   (`ficha-formulario`, `modal-inmueble`, `vincular-hilo`, …). Hoy ese
   componente no existe; `vincular-hilo` (09AA-21) sigue la convención
   vigente (`CLASE_SELECT`). No mezclar con 09AA-19.
-- **09AA-25 — Migrar queries a macros sqlx (gate 2026-10-09: familias
-  `sqlx-query-sin-macro` 143 + `sqlx-query-as-sin-macro` 71, todas warning):
-  ** migrar `sqlx::query/query_as` a `query!/query_as!` por dominio
-  (empieza por `repositories/inmueble.rs`), con test en verde por tanda.
-  Prioridad baja, no bloquea nada; las queries actuales usan binds
-  (seguras), es higiene del gate, no defecto.
 - **09AA-14 — Conectar el flotante al núcleo local (pedido por ella
   2026-10-10, EN CURSO):** la ventanita negra cocinaba sola con receta vieja
   (plantilla "sigue disponible + precio" con solo el título, intención
@@ -434,7 +429,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Deuda sin tocar, por bloques (decidido 2026-10-11: una tarea por bloque)
 
-- **Bloque A — marketplace y partición (10AA-9, 09AA-18, 09AA-25):** partir `marketplace_texto.rs`, migrar queries a macros sqlx. Criterio como 10AA-6 (cerrada).
+- **Bloque A — marketplace y partición (10AA-9, 09AA-18):** partir `marketplace_texto.rs`. Criterio como 10AA-6 (cerrada).
 - **Bloque B — capas (08AA-34):** cerrado el 2026-10-12: 08AA-34 resuelta por 10AA-14 (ver `Agente/completados/tareas-2026-10-12.md`).
 - **Bloque C — CI:** 10AA-21 decidido como riesgo aceptado (2026-10-12); 10AA-11 cerrada (ver `Agente/completados/tareas-2026-10-12.md`).
 - **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba.
