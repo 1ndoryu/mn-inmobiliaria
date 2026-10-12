@@ -1285,7 +1285,7 @@ async fn total_chats(
 /// caché por vuelta antes de volver a mirar el vínculo en memoria.
 const LOTE_HUERFANOS: i64 = 100;
 
-/// [10AA-4] Fila agregada por hilo: (thread_id, borradores, usos, corregidas,
+/// [10AA-4] Fila agregada por hilo: (`thread_id`, borradores, usos, corregidas,
 /// último `valida_hasta`).
 type FilaChat = (String, i64, i64, i64, chrono::DateTime<chrono::Utc>);
 

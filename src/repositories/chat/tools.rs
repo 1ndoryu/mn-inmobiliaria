@@ -60,7 +60,7 @@ pub(crate) struct FiltrosTarjetas<'a> {
 }
 
 /// Inmuebles publicados y disponibles para `buscar_inmuebles`.
-/// Binds por orden: $1 texto, $2 tipo, $3 operacion, $4 precio_max,
+/// Binds por orden: $1 texto, $2 tipo, $3 operacion, $4 `precio_max`,
 /// $5 limite, $6 habitaciones, $7 zona.
 pub(crate) async fn tarjetas_inmuebles(
     pool: &PgPool,
@@ -114,7 +114,7 @@ pub(crate) async fn ficha_inmueble(pool: &PgPool, id: Uuid) -> Result<Option<Fic
 }
 
 /// Título de un inmueble publicado (`None` si no existe o no está publicado).
-/// Compartida por `enviar_fotos` (chat_tools) y `agendar` (chat_tools_captacion).
+/// Compartida por `enviar_fotos` (`chat_tools`) y `agendar` (`chat_tools_captacion`).
 pub(crate) async fn titulo_inmueble_publicado(
     pool: &PgPool,
     id: Uuid,

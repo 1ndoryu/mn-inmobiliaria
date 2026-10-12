@@ -34,7 +34,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 /// Días que vive una fila resuelta antes de la purga (`DoD` del plan).
-const TTL_RESUELTOS_DIAS: i64 = 7;
+const TTL_RESUELTOS_DIAS: f64 = 7.0;
 
 /// Clave determinista `sha256("{ambito}:{motivo}:{texto}")` en hex.
 /// `ambito` = `session_id` (o `"global"` para avisos sin sesión como el
@@ -198,7 +198,7 @@ pub async fn purgar_resueltos(pool: &PgPool) -> Result<u64, sqlx::Error> {
     let r = sqlx::query!(
         "DELETE FROM agent_outbox WHERE status IN ('sent', 'failed') \
          AND created_at < NOW() - ($1 * INTERVAL '1 day')",
-        TTL_RESUELTOS_DIAS as f64,
+        TTL_RESUELTOS_DIAS,
     )
     .execute(pool)
     .await?;

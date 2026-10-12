@@ -69,7 +69,7 @@ impl Drop for Vuelo<'_> {
 impl Singleflight {
     fn mapa(&self) -> std::sync::MutexGuard<'_, Mapa> {
         /* Un pánico ajeno no debe dejar la clave bloqueada para siempre. */
-        self.vuelo.lock().unwrap_or_else(|e| e.into_inner())
+        self.vuelo.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Ejecuta `f` si nadie vuela con `clave`; si no, espera el resultado
