@@ -3,6 +3,25 @@
 
 use super::*;
 
+/* Lee la fila del hilo de prueba: (thread_id, excerpt_texto, excerpt_crudo). */
+async fn leer_hilo(
+    pool: &sqlx::PgPool,
+    firma: &str,
+    ph: &str,
+    ch: &str,
+) -> (String, String, Option<String>) {
+    sqlx::query_as(
+        "SELECT thread_id, excerpt_texto, excerpt_crudo FROM mp_respuestas_cache \
+         WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
+    )
+    .bind(firma)
+    .bind(ph)
+    .bind(ch)
+    .fetch_one(pool)
+    .await
+    .expect("lee hilo")
+}
+
 #[tokio::test]
 async fn corregir_marca_y_guardar_no_pisa_correccion() {
     let Some(pool) = pool_si_hay() else { return };
@@ -95,16 +114,7 @@ async fn corregir_marca_y_guardar_no_pisa_correccion() {
         Some(("nueva-ia".to_string(), false))
     );
     /* [07AA-7] Regenerar refresca la foto del chat (+ crudo [08AA-21]). */
-    let hilo2: (String, String, Option<String>) = sqlx::query_as(
-        "SELECT thread_id, excerpt_texto, excerpt_crudo FROM mp_respuestas_cache \
-         WHERE firma = $1 AND precio_hash = $2 AND catalog_hash = $3",
-    )
-    .bind(&firma)
-    .bind(&ph)
-    .bind(&ch)
-    .fetch_one(&pool)
-    .await
-    .expect("lee hilo");
+    let hilo2 = leer_hilo(&pool, &firma, &ph, &ch).await;
     assert_eq!(
         hilo2,
         (
