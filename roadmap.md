@@ -21,6 +21,7 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 
 ## 3. Pruebas de la usuaria (en vivo)
 
+- **169A-2 — Panel de solicitudes:** pestaña «Solicitudes» en dev: filtros por estado, cambio de estado en una fila (y recarga), paginación si hay más de 20, y la barra móvil de 5 pestañas a 360 px. Código verificado (tsc, lint, build, gate); prueba viva sin hacer. Detalle: `Agente/completados/tareas-2026-10-12.md`.
 - **10AA-28/29 — Globo, dueña y apertura:** ver «Tú» en burbujas de la dueña; chip «Precio»/«Valor» en un mensaje real.
 - **10AA-24/25/26 — Chats en tiempo real:** chat nuevo visible en admin en < 2 s; borrador IA breve con cliente real (no se simulan envíos).
 - **09AA-29 — Mensaje del cliente fiable, precio en el borrador y caché por inmueble (pedido por ella 2026-10-09, en curso):** retest desde cero del hilo de Puerto Ordaz.
@@ -73,7 +74,6 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 - **08AA-8b** — Decidido: el camino principal de marcas no usa geometría (`opencode-propio/.../marketplace-float.ts:671-695`). Pestaña en fondo en vivo (§3); trabajo en `opencode-propio-dev`.
 - **199A-7** — Decidido 2026-10-12: no implementar. Opcional, sin ficha ni urgencia; el reordenado por DELETE+POST (199A-6) funciona. Se reabre si lo pide la usuaria.
 - **299A-3** — pendiente de proveedor IA operativo (§5) para reproducir las dos notas de voz (`src/services/turno.rs:511-517`).
-- **169A-2** — pendiente (agente): UI admin sobre `GET/PATCH /api/admin/solicitudes` (`src/handlers/comercial/solicitud.rs:93-150`).
 - **279A** — ficha pública sin extras hasta la revisión de la usuaria (§2). Pendiente del agente: preparar la lista candidata de extras positivos con su motivo, para que ella la revise.
 - **03AA-5** — bloqueado por el corpus de la usuaria (5+2+1 HTML y dataset; `Agente/planes/plan-detector-captacion-2026-10-03.md:42-51`).
 - **Fuera de MN:** configurar `coolify-manager-rs` para desplegar proyectos Rust (repo separado).

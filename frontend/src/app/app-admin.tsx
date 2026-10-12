@@ -7,6 +7,7 @@ import { TablaInmuebles } from '../features/inmuebles/tabla-inmuebles';
 import { VistaImagenes } from '../features/imagenes/vista-imagenes';
 import { VistaMensajes } from '../features/chat/vista-mensajes';
 import { VistaPublicidad } from '../features/publicidad/vista-publicidad';
+import { VistaSolicitudes } from '../features/solicitudes/vista-solicitudes';
 import { useAnadirFotos } from '../hooks/inmuebles/use-anadir-fotos';
 import { useBorrador } from '../hooks/inmuebles/use-borrador';
 import { useConfigCopy } from '../hooks/copy/use-config-copy';
@@ -57,7 +58,13 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
   const [vista, setVista] = useState<VistaApp>(() => {
     try {
       const guardada = localStorage.getItem('admin:vista');
-      if (guardada === 'inmuebles' || guardada === 'imagenes' || guardada === 'mensajes' || guardada === 'publicidad') {
+      if (
+        guardada === 'inmuebles' ||
+        guardada === 'imagenes' ||
+        guardada === 'mensajes' ||
+        guardada === 'publicidad' ||
+        guardada === 'solicitudes'
+      ) {
         return guardada;
       }
     } catch {
@@ -160,7 +167,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {vista === 'imagenes' ? 'Imágenes' : vista === 'mensajes' ? 'Mensajes' : vista === 'publicidad' ? 'Publicidad' : 'Inmuebles'}
+            {vista === 'imagenes' ? 'Imágenes' : vista === 'mensajes' ? 'Mensajes' : vista === 'publicidad' ? 'Publicidad' : vista === 'solicitudes' ? 'Solicitudes' : 'Inmuebles'}
           </h1>
           <p className="text-sm text-muted-foreground">
             {vista === 'imagenes'
@@ -169,6 +176,8 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
                 ? 'Conversaciones del chat con IA'
                 : vista === 'publicidad'
                   ? 'Imágenes listas para redes'
+                  : vista === 'solicitudes'
+                    ? 'Propuestas de «Publicar mi inmueble» para revisar'
                   : total === 0
                   ? 'Registra tu primer inmueble'
                   : `${total} inmueble${total === 1 ? '' : 's'} en el servidor`}
@@ -181,7 +190,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
           <Button variant="ghost" size="icon" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={alSalir}>
             <LogOut className="h-4 w-4" />
           </Button>
-          {vista === 'mensajes' || vista === 'publicidad' ? null : vista === 'imagenes' ? (
+          {vista === 'mensajes' || vista === 'publicidad' || vista === 'solicitudes' ? null : vista === 'imagenes' ? (
             <Button variant="outline" onClick={() => setConfigAbierta(true)}>
               <Settings2 /> Configurar mejora
             </Button>
@@ -215,6 +224,8 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
 
       {vista === 'mensajes' ? (
         <VistaMensajes />
+      ) : vista === 'solicitudes' ? (
+        <VistaSolicitudes />
       ) : vista === 'inmuebles' ? (
         <>
           <div className="mb-4 flex flex-col gap-2 sm:flex-row">

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Building2, CalendarClock, ChevronsLeft, ChevronsRight, ImageIcon, Megaphone, MessageCircle, Monitor, Moon, Settings2, Sun, Users } from 'lucide-react';
+import { Building2, CalendarClock, ChevronsLeft, ChevronsRight, ImageIcon, Inbox, Megaphone, MessageCircle, Monitor, Moon, Settings2, Sun, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonPlano } from '@/components/ui/button';
 import { useTema } from '@/hooks/app/use-tema';
@@ -106,7 +106,8 @@ function BotonTab({
 // Layout con menú lateral en escritorio y cabecera compacta en móvil.
 // `mensajes` (169A-5) es la bandeja del chat con IA + su configuración.
 // `publicidad` es la galería de imágenes para redes (plantilla Post I).
-export type VistaApp = 'inmuebles' | 'imagenes' | 'mensajes' | 'publicidad';
+// `solicitudes` (169A-2) es la bandeja de «Publicar mi inmueble».
+export type VistaApp = 'inmuebles' | 'imagenes' | 'mensajes' | 'publicidad' | 'solicitudes';
 
 export function Layout({
   children,
@@ -191,6 +192,13 @@ export function Layout({
             contraido={contraido}
             onClick={alCambiarVista ? () => alCambiarVista('publicidad') : undefined}
           />
+          <ItemNav
+            icono={<Inbox className="h-4 w-4" />}
+            texto="Solicitudes"
+            activo={vista === 'solicitudes'}
+            contraido={contraido}
+            onClick={alCambiarVista ? () => alCambiarVista('solicitudes') : undefined}
+          />
           <ItemNav icono={<Users className="h-4 w-4" />} texto="Clientes" pronto contraido={contraido} />
           <ItemNav icono={<CalendarClock className="h-4 w-4" />} texto="Visitas" pronto contraido={contraido} />
           {alAbrirConfig && (
@@ -224,7 +232,7 @@ export function Layout({
           </span>
           <span className="font-bold">Inmobiliaria</span>
           <Badge variant="secondary" className="ml-auto">
-            {(vista ?? 'inmuebles') === 'imagenes' ? 'Imágenes' : vista === 'mensajes' ? 'Mensajes' : vista === 'publicidad' ? 'Publicidad' : 'Inmuebles'}
+            {(vista ?? 'inmuebles') === 'imagenes' ? 'Imágenes' : vista === 'mensajes' ? 'Mensajes' : vista === 'publicidad' ? 'Publicidad' : vista === 'solicitudes' ? 'Solicitudes' : 'Inmuebles'}
           </Badge>
           {iaResumen && <IndicadorIA resumen={iaResumen} punto />}
           {labResumen && <IndicadorLab resumen={labResumen} punto />}
@@ -249,7 +257,7 @@ export function Layout({
             aria-label="Navegación principal"
             className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur md:hidden"
           >
-            <div className="grid grid-cols-4 gap-1 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+            <div className="grid grid-cols-5 gap-1 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
               <BotonTab
                 icono={<Building2 className="h-5 w-5" />}
                 texto="Inmuebles"
@@ -273,6 +281,12 @@ export function Layout({
                 texto="Publicidad"
                 activo={vista === 'publicidad'}
                 onClick={() => alCambiarVista('publicidad')}
+              />
+              <BotonTab
+                icono={<Inbox className="h-5 w-5" />}
+                texto="Solicitudes"
+                activo={vista === 'solicitudes'}
+                onClick={() => alCambiarVista('solicitudes')}
               />
             </div>
           </nav>

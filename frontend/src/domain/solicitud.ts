@@ -87,3 +87,33 @@ export function puestosAEnviar(texto: string): number {
   const n = Number(limpio);
   return Number.isInteger(n) && n >= 0 ? n : 0;
 }
+
+/* [169A-2] Panel admin: propuestas de clientes que el admin revisa. El
+ * estado lo fija el servidor (CHECK en BD); aquí solo se muestra y se cambia. */
+export const ESTADOS_SOLICITUD = ['pendiente', 'revisada', 'aceptada', 'descartada'] as const;
+export type EstadoSolicitud = (typeof ESTADOS_SOLICITUD)[number];
+
+export interface Solicitud {
+  id: string;
+  nombre: string;
+  telefono: string;
+  email: string;
+  descripcion: string;
+  ubicacion: string;
+  puestos: number;
+  residencia: string;
+  precioEstimado: number | null;
+  operacion: string;
+  estado: EstadoSolicitud;
+  /* URLs relativas a la API (`/uploads/…`); se resuelven con `urlFotoSolicitud`. */
+  fotos: string[];
+  origenContacto: string;
+  creadaEn: string;
+}
+
+export interface PaginaSolicitudes {
+  items: Solicitud[];
+  total: number;
+  page: number;
+  perPage: number;
+}
