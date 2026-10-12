@@ -56,13 +56,19 @@ const BD_DESARROLLO: &str = "glory_backend_inmobiliaria";
 /* [10AA-31] URL de BD para los tests de BD viva. Nunca la de desarrollo: en
  * `main`, `DATABASE_URL` apunta a ella y los tests borran y purgan filas reales
  * (`purgar_cache`, DELETE por hilo). Sin URL o con la de desarrollo, el test se
- * omite, igual que sin `DATABASE_URL`. Los tests solo corren en BD de rama. */
+ * omite, igual que sin `DATABASE_URL`. Los tests solo corren en BD de rama.
+ * [09AA-36c] La omisión avisa con el nombre del test (Rust usa el nombre del
+ * test como nombre del hilo); se ve con `--nocapture`. */
 #[cfg(test)]
 pub fn url_bd_pruebas() -> Option<String> {
-    let url = std::env::var("DATABASE_URL").ok()?;
+    let hilo = std::thread::current().name().unwrap_or("?").to_string();
+    let Ok(url) = std::env::var("DATABASE_URL") else {
+        eprintln!("OMITIDO {hilo}: sin DATABASE_URL");
+        return None;
+    };
     let nombre = url.rsplit('/').next()?.split('?').next()?;
     if nombre == BD_DESARROLLO {
-        eprintln!("OMITIDO: DATABASE_URL apunta a la BD de desarrollo ({BD_DESARROLLO}); los tests de BD viva solo corren en BD de rama");
+        eprintln!("OMITIDO {hilo}: DATABASE_URL apunta a la BD de desarrollo ({BD_DESARROLLO}); los tests de BD viva solo corren en BD de rama");
         return None;
     }
     Some(url)

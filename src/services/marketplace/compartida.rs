@@ -382,10 +382,7 @@ mod tests {
     #[tokio::test]
     async fn compartida_enlaza_y_propaga_correccion() {
         /* [09AA-36c] La omisión queda visible (`--nocapture`), no silenciosa. */
-        let Some(pool) = pool_si_hay() else {
-            eprintln!("OMITIDO compartida_enlaza_y_propaga_correccion: sin DATABASE_URL");
-            return;
-        };
+        let Some(pool) = pool_si_hay() else { return };
         let catalogo = clave_azar();
         let precio = clave_azar();
         let mensaje = mensaje_clave_de(&["¿sigue disponible?"]);
@@ -450,10 +447,7 @@ mod tests {
     #[tokio::test]
     async fn vinculo_ignora_hilo_con_respuesta_de_la_duena() {
         /* [09AA-36c] La omisión queda visible (`--nocapture`), no silenciosa. */
-        let Some(pool) = pool_si_hay() else {
-            eprintln!("OMITIDO vinculo_ignora_hilo_con_respuesta_de_la_duena: sin DATABASE_URL");
-            return;
-        };
+        let Some(pool) = pool_si_hay() else { return };
         let catalogo = clave_azar();
         let precio = clave_azar();
         let mensaje = mensaje_clave_de(&["¿sigue disponible?"]);
