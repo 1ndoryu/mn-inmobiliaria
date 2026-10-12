@@ -33,6 +33,24 @@ function credencialesDev(): { email: string; clave: string } | null {
   return { email, clave };
 }
 
+/* Auto-entrada local como mucho una vez por carga: si la clave local falla, el
+ * 401 del login vuelve a emitir «sesión caducada» y sin este freno se
+ * reintentaría sin fin. Un token viejo (sin claim `role`, 09AA-9) da 401 en
+ * rutas de staff después del montaje; por eso también se entra al caducar. */
+let autoEntradaIntentada = false;
+
+function autoEntradaDev(): Promise<string> | null {
+  if (entradaDevEnVuelo) return entradaDevEnVuelo;
+  if (autoEntradaIntentada) return null;
+  const cred = credencialesDev();
+  if (!cred) return null;
+  autoEntradaIntentada = true;
+  entradaDevEnVuelo = entrar(cred.email, cred.clave).finally(() => {
+    entradaDevEnVuelo = null;
+  });
+  return entradaDevEnVuelo;
+}
+
 export function useSesion() {
   const [email, setEmail] = useState<string | null>(() =>
     leerToken() ? (leerEmailSesion() ?? 'admin') : null,
@@ -40,22 +58,30 @@ export function useSesion() {
   const [autoEntrando, setAutoEntrando] = useState(false);
 
   useEffect(() => {
-    const alExpirar = () => setEmail(null);
+    const alExpirar = () => {
+      setEmail(null);
+      const entrada = autoEntradaDev();
+      if (!entrada) return;
+      setAutoEntrando(true);
+      entrada
+        .then((quien) => setEmail(quien))
+        .catch(() => {
+          // Falla en silencio: el formulario de login ya explica cómo entrar.
+        })
+        .finally(() => setAutoEntrando(false));
+    };
     return suscribirEvento(EVENTO_SESION_EXPIRADA, alExpirar);
   }, []);
 
   useEffect(() => {
     if (leerToken()) return;
-    const cred = credencialesDev();
-    if (!cred) return;
+    const entrada = autoEntradaDev();
+    if (!entrada) return;
     setAutoEntrando(true);
     /* Sin AbortController: `entrar` no acepta señal; el flag `vivo` evita
      * fijar estado si el componente se desmontó antes de responder. */
     let vivo = true;
-    entradaDevEnVuelo ??= entrar(cred.email, cred.clave).finally(() => {
-      entradaDevEnVuelo = null;
-    });
-    entradaDevEnVuelo
+    entrada
       .then((quien) => {
         if (vivo) setEmail(quien);
       })
