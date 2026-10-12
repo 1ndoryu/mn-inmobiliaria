@@ -41,7 +41,40 @@ async fn corregir_marca_y_guardar_no_pisa_correccion() {
         buscar_cache(&pool, &firma, &ph, &ch).await.expect("busca"),
         Some(("texto de la dueña".to_string(), true))
     );
-    /* Regenerar explícito sí pisa y resetea versión. */
+    /* [09AA-36b] Regenerar explícito tampoco pisa una corrección (10AA-17). */
+    reemplazar_cache(
+        &pool,
+        &firma,
+        &ph,
+        &ch,
+        "nueva-ia",
+        &foto_prueba(
+            "hilo-2",
+            "Dueña: sigue disponible?",
+            "CRUDO Dueña: sigue disponible?",
+        ),
+        Coste::default(),
+    )
+    .await
+    .expect("reemplaza");
+    assert_eq!(
+        buscar_cache(&pool, &firma, &ph, &ch).await.expect("busca"),
+        Some(("texto de la dueña".to_string(), true)),
+        "la corrección sobrevive a force"
+    );
+    /* Sin corrección, regenerar explícito sí pisa y resetea versión. */
+    borrar_cache(&pool, &firma, &ph, &ch).await.expect("limpia");
+    guardar_cache(
+        &pool,
+        &firma,
+        &ph,
+        &ch,
+        "texto-ia-3",
+        &foto_prueba("hilo-1", "x", "crudo-x"),
+        Coste::default(),
+    )
+    .await
+    .expect("guarda sin corrección");
     reemplazar_cache(
         &pool,
         &firma,

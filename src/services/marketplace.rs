@@ -1581,6 +1581,8 @@ pub async fn guardar_cache(
 /// [07AA-7] Refresca también `thread_id` + `excerpt_texto` (foto actual).
 /// [08AA-18] Guarda con `clave_hilo()` (ver `guardar_cache`).
 /// [08AA-21] Refresca también `excerpt_crudo` (ver `guardar_cache`).
+/// [09AA-36b] No pisa una corrección escrita entre la lectura del hit y este
+/// `UPDATE`: `WHERE corregida = FALSE` deja la fila intacta (10AA-17).
 pub async fn reemplazar_cache(
     pool: &sqlx::PgPool,
     firma: &str,
@@ -1598,7 +1600,8 @@ pub async fn reemplazar_cache(
          corregida = FALSE, usos = 0, thread_id = EXCLUDED.thread_id, \
          excerpt_texto = EXCLUDED.excerpt_texto, excerpt_crudo = EXCLUDED.excerpt_crudo, \
          origen = EXCLUDED.origen, tokens_entrada = EXCLUDED.tokens_entrada, \
-         tokens_salida = EXCLUDED.tokens_salida, ms_generacion = EXCLUDED.ms_generacion",
+         tokens_salida = EXCLUDED.tokens_salida, ms_generacion = EXCLUDED.ms_generacion \
+         WHERE mp_respuestas_cache.corregida = FALSE",
         firma,
         precio_hash,
         catalog_hash,

@@ -381,7 +381,11 @@ mod tests {
      * comprueba la propagación. Sin `DATABASE_URL` se omite. */
     #[tokio::test]
     async fn compartida_enlaza_y_propaga_correccion() {
-        let Some(pool) = pool_si_hay() else { return };
+        /* [09AA-36c] La omisión queda visible (`--nocapture`), no silenciosa. */
+        let Some(pool) = pool_si_hay() else {
+            eprintln!("OMITIDO compartida_enlaza_y_propaga_correccion: sin DATABASE_URL");
+            return;
+        };
         let catalogo = clave_azar();
         let precio = clave_azar();
         let mensaje = mensaje_clave_de(&["¿sigue disponible?"]);
@@ -445,7 +449,11 @@ mod tests {
      * compartida no es fuente de propagación; `vinculo_compartido` lo ignora. */
     #[tokio::test]
     async fn vinculo_ignora_hilo_con_respuesta_de_la_duena() {
-        let Some(pool) = pool_si_hay() else { return };
+        /* [09AA-36c] La omisión queda visible (`--nocapture`), no silenciosa. */
+        let Some(pool) = pool_si_hay() else {
+            eprintln!("OMITIDO vinculo_ignora_hilo_con_respuesta_de_la_duena: sin DATABASE_URL");
+            return;
+        };
         let catalogo = clave_azar();
         let precio = clave_azar();
         let mensaje = mensaje_clave_de(&["¿sigue disponible?"]);

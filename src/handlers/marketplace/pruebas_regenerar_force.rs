@@ -43,7 +43,11 @@ fn aceptar_hit_regenerar_descarta_ia_y_respeta_correccion() {
 
 #[tokio::test]
 async fn guardar_generado_pisar_reemplaza_la_fila_y_sin_pisar_la_conserva() {
-    let Some(pool) = pool_si_hay() else { return };
+    /* [09AA-36c] La omisión queda visible (`--nocapture`), no silenciosa. */
+    let Some(pool) = pool_si_hay() else {
+        eprintln!("OMITIDO guardar_generado_pisar: sin DATABASE_URL");
+        return;
+    };
     let (firma, ph, ch) = (clave_azar(), clave_azar(), clave_azar());
     let foto = FotoHilo {
         thread_id: "hilo-regenerar-force",

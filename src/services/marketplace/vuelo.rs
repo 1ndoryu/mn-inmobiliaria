@@ -25,17 +25,53 @@ pub struct Generado {
     pub coste: Coste,
 }
 
+type Mapa = std::collections::HashMap<
+    String,
+    Vec<tokio::sync::mpsc::UnboundedSender<std::sync::Arc<Generado>>>,
+>;
+
 #[derive(Debug, Default)]
 pub struct Singleflight {
-    vuelo: tokio::sync::Mutex<
-        std::collections::HashMap<
-            String,
-            Vec<tokio::sync::mpsc::UnboundedSender<std::sync::Arc<Generado>>>,
-        >,
-    >,
+    /* `std` y no `tokio`: el lock nunca se sostiene a través de un `await`, y
+     * así `Drop` de `Vuelo` puede liberar la clave de forma síncrona. */
+    vuelo: std::sync::Mutex<Mapa>,
+}
+
+/* [09AA-36a] Guarda del líder: si el líder cae antes de difundir (el cliente
+ * cierra la conexión y Axum suelta el future), `Drop` libera la clave. Sin
+ * ella la entrada quedaba para siempre y cada petición posterior con la misma
+ * clave se encolaba como seguidora esperando a un líder que ya no existe. */
+struct Vuelo<'a> {
+    sf: &'a Singleflight,
+    clave: &'a str,
+    difundido: bool,
+}
+
+impl Vuelo<'_> {
+    fn difundir(&mut self, gen: &std::sync::Arc<Generado>) {
+        let lista = self.sf.mapa().remove(self.clave).unwrap_or_default();
+        for tx in lista {
+            let _ = tx.send(std::sync::Arc::clone(gen));
+        }
+        /* Tras difundir la clave puede tener ya otro líder: no tocarla al caer. */
+        self.difundido = true;
+    }
+}
+
+impl Drop for Vuelo<'_> {
+    fn drop(&mut self) {
+        if !self.difundido {
+            self.sf.mapa().remove(self.clave);
+        }
+    }
 }
 
 impl Singleflight {
+    fn mapa(&self) -> std::sync::MutexGuard<'_, Mapa> {
+        /* Un pánico ajeno no debe dejar la clave bloqueada para siempre. */
+        self.vuelo.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// Ejecuta `f` si nadie vuela con `clave`; si no, espera el resultado
     /// ajeno. Sin `Send` en `f`: se sondea inline, sin `spawn`.
     pub async fn ejecutar<F, Fut>(&self, clave: &str, f: F) -> std::sync::Arc<Generado>
@@ -44,7 +80,7 @@ impl Singleflight {
         Fut: std::future::Future<Output = Generado>,
     {
         let seguidor = {
-            let mut mapa = self.vuelo.lock().await;
+            let mut mapa = self.mapa();
             if let Some(lista) = mapa.get_mut(clave) {
                 let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
                 lista.push(tx);
@@ -66,13 +102,13 @@ impl Singleflight {
                 })
             })
         } else {
+            let mut vuelo = Vuelo {
+                sf: self,
+                clave,
+                difundido: false,
+            };
             let gen = std::sync::Arc::new(f().await);
-            let mut mapa = self.vuelo.lock().await;
-            if let Some(lista) = mapa.remove(clave) {
-                for tx in lista {
-                    let _ = tx.send(std::sync::Arc::clone(&gen));
-                }
-            }
+            vuelo.difundir(&gen);
             gen
         }
     }
@@ -117,5 +153,60 @@ mod pruebas {
             assert_eq!(r.texto, "hola");
             assert!(Arc::ptr_eq(&resultados[0], r), "mismo Arc para todos");
         }
+    }
+
+    /* [09AA-36a] Líder cancelado (cliente desconectado) a mitad de generación:
+     * el seguidor cae a fallback y una petición nueva con la misma clave vuelve
+     * a generar. Antes del `Drop` la clave quedaba colgada y esto no terminaba. */
+    #[tokio::test]
+    async fn lider_cancelado_libera_la_clave() {
+        use std::sync::Arc;
+        use std::time::Duration;
+        let vuelo = Arc::new(Singleflight::default());
+        let v = Arc::clone(&vuelo);
+        let lider = tokio::spawn(async move {
+            v.ejecutar("clave-y", || async {
+                tokio::time::sleep(Duration::from_secs(3600)).await;
+                Generado {
+                    texto: "nunca".to_string(),
+                    fuente: "ia".to_string(),
+                    coste: Coste::default(),
+                }
+            })
+            .await
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        let v = Arc::clone(&vuelo);
+        let seguidor = tokio::spawn(async move {
+            v.ejecutar("clave-y", || async {
+                Generado {
+                    texto: "no-debe-ejecutarse".to_string(),
+                    fuente: "ia".to_string(),
+                    coste: Coste::default(),
+                }
+            })
+            .await
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        lider.abort();
+        let _ = lider.await;
+        let r = tokio::time::timeout(Duration::from_secs(2), seguidor)
+            .await
+            .expect("el seguidor no debe colgar")
+            .expect("tarea seguidora");
+        assert_eq!(r.fuente, "reserva", "seguidor sin líder cae a fallback");
+        let nuevo = tokio::time::timeout(
+            Duration::from_secs(2),
+            vuelo.ejecutar("clave-y", || async {
+                Generado {
+                    texto: "nuevo".to_string(),
+                    fuente: "ia".to_string(),
+                    coste: Coste::default(),
+                }
+            }),
+        )
+        .await
+        .expect("la clave debe estar libre");
+        assert_eq!(nuevo.texto, "nuevo");
     }
 }
