@@ -63,19 +63,19 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 ## 6. Desarrollo pendiente (por dependencia)
 
 - **09AA-6 §8 — chat backend:**
-  - **09AA-8** tope de media hecho (§1); webhook fail-closed según §2.
-  - **09AA-10** dedup y espejo M3 (decidir qué lado gana).
-  - **09AA-11** proveedores IA (coordinado con 09AA-4).
-  - **09AA-12** frontend de chat (paralelizable; buscar la discrepancia de estado).
-- **09AA-14** — scraper «lee chrome»: el autor sale de la primera aria-label ancestro (`nombreAccesible` en `vendor/burbujas.iife.js:440`, `mpNombre` en `marketplace-float.ts:577`). Decidido 2026-10-12: el fix va en origen (`plugins-opencode/src/burbujas`, chip task_7d226a2c), no a mano en el vendor del lab (sha256 en `manifest.json`). Pendiente: copia al lab con hash y prueba viva en Facebook (usuaria).
-- **10AA-17** — `floatDraftCache` no se invalida al borrar en MN (cubierto por `force`).
-- **10AA-24/25/26** — el lab procesa ventanas en serie; paralelizar si molesta.
-- **08AA-8b** — política de refresco del excerpt ante mensajes nuevos; rescatar marcas Cliente/Dueña con pestaña en fondo.
-- **199A-7** — pareo Orquídea: endpoint PATCH para reordenar fotos (opcional).
-- **299A-3** — demo fotos/audio: la IA escala tras 2 notas de voz (sin fix registrado).
-- **169A-2** — UI admin de revisión de solicitudes (no existe).
-- **279A** — cablear extras públicos a ficha e IA (depende de §2).
-- **03AA-5** — detector de captación: C0 (corpus 5+2+1, dataset 30–50, DDL) antes de código.
+  - **09AA-8** webhook fail-closed tras 12AA-1 (§2).
+  - **09AA-10** Decidido 2026-10-12: Rust manda. Falta alinear el espejo de `plugins-opencode` (hex y firma v2): repo ajeno a MN.
+  - **09AA-11** F6a/F6b tras la prueba viva de 09AA-4 (§3). Pendiente: GloryAPI sin reintento (`src/handlers/ia/ia_proveedores.rs:102-153`) y `get("uso")` sin productor localizado.
+  - **09AA-12** Decidido 2026-10-12: sin discrepancia reproducible; queda la prueba viva de QR y polling (§3).
+- **09AA-14** — scraper: fix en origen, `plugins-opencode/src/burbujas` (chip task_7d226a2c). Copia al lab con sha256 y prueba viva en Facebook (§3).
+- **10AA-17** — Decidido: sin fallo en main (invalidación por contador en `opencode-propio/src/packages/desktop/src/main/marketplace-service.ts:389-404`). Prueba viva y promoción en §3 y §4.
+- **10AA-24/25/26** — Decidido: el lab procesa ventanas en serie; paralelizar solo si la usuaria lo pide.
+- **08AA-8b** — Decidido: el camino principal de marcas no usa geometría (`opencode-propio/.../marketplace-float.ts:671-695`). Pestaña en fondo en vivo (§3); trabajo en `opencode-propio-dev`.
+- **199A-7** — Decidido 2026-10-12: no implementar. Opcional, sin ficha ni urgencia; el reordenado por DELETE+POST (199A-6) funciona. Se reabre si lo pide la usuaria.
+- **299A-3** — pendiente de proveedor IA operativo (§5) para reproducir las dos notas de voz (`src/services/turno.rs:511-517`).
+- **169A-2** — pendiente (agente): UI admin sobre `GET/PATCH /api/admin/solicitudes` (`src/handlers/comercial/solicitud.rs:93-150`).
+- **279A** — pendiente de decisión de la usuaria: qué claves de `extras` van en la ficha pública (§2).
+- **03AA-5** — bloqueado por el corpus de la usuaria (5+2+1 HTML y dataset; `Agente/planes/plan-detector-captacion-2026-10-03.md:42-51`).
 - **Fuera de MN:** configurar `coolify-manager-rs` para desplegar proyectos Rust (repo separado).
 
 ## 7. Planes vinculados
