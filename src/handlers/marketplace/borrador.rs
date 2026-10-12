@@ -117,7 +117,12 @@ pub async fn borrador(
         /* Hit: el plugin audita `hit`; aquí no se audita nada (el conteo de
          * usos ya subió en la misma sentencia del `UPDATE ... RETURNING`). */
         log_borrador_cache(r.thread_id.trim(), corregida);
-        let resp = respuesta_hit(servir_cuerpo(&texto, &r), corregida, conocido, &firma_version);
+        let resp = respuesta_hit(
+            servir_cuerpo(&texto, &r),
+            corregida,
+            conocido,
+            &firma_version,
+        );
         return Ok(con_idempotencia(resp, clave_idem.as_ref()));
     }
     /* Miss (el plugin audita `miss`): una sola IA por clave en vuelo. La
@@ -348,7 +353,12 @@ pub(super) async fn datos_y_ya_dicho(
 }
 
 /// Prompt de sistema del borrador: tono, datos del inmueble y forma del mensaje (sin saludo).
-pub(super) fn sistema_borrador(r: &BorradorRequest, aviso: &str, datos: &str, ya_dicho: &str) -> String {
+pub(super) fn sistema_borrador(
+    r: &BorradorRequest,
+    aviso: &str,
+    datos: &str,
+    ya_dicho: &str,
+) -> String {
     use crate::services::marketplace::{CONTACTO_TEL, CONTACTO_WA};
     let tono = crate::services::marketplace::continuacion::tono_de(r);
     /* [07AA-10] Saludo primero y por su nombre: el hilo trae `nombre|aviso`.
@@ -515,8 +525,14 @@ mod tests {
     #[test]
     fn franja_sigue_la_hora_de_venezuela() {
         assert_eq!(franja_de("2026-10-11T08:00:00-04:00"), Some("buenos días"));
-        assert_eq!(franja_de("2026-10-11T14:00:00-04:00"), Some("buenas tardes"));
-        assert_eq!(franja_de("2026-10-11T22:00:00-04:00"), Some("buenas noches"));
+        assert_eq!(
+            franja_de("2026-10-11T14:00:00-04:00"),
+            Some("buenas tardes")
+        );
+        assert_eq!(
+            franja_de("2026-10-11T22:00:00-04:00"),
+            Some("buenas noches")
+        );
         /* 12:30 UTC son las 08:30 en Venezuela: la franja sale de la hora local. */
         assert_eq!(franja_de("2026-10-11T12:30:00+00:00"), Some("buenos días"));
         assert_eq!(franja_de("sin-hora"), None);
@@ -557,4 +573,3 @@ mod tests {
         );
     }
 }
-

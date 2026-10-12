@@ -41,7 +41,10 @@ async fn solo_huerfanos_pagina_sin_conocidos() {
             .await
             .expect("pagina");
         for chat in &pagina.chats {
-            assert!(!chat.aviso_conocido, "solo_huerfanos no trae hilos con ficha");
+            assert!(
+                !chat.aviso_conocido,
+                "solo_huerfanos no trae hilos con ficha"
+            );
             vistos.push(chat.thread_id.clone());
         }
         if !pagina.hay_mas {

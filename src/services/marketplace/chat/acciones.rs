@@ -33,7 +33,7 @@ pub async fn borrar_hilo_no_corregidas(
         thread_clave,
     )
     .execute(pool)
-        .await?;
+    .await?;
     if r.rows_affected() > 0 {
         VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
         cambios::notificar();
@@ -60,12 +60,18 @@ pub async fn archivar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<()
 /// inmueble y sigue sirviendo a otros hilos.
 pub async fn borrar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<u64, AppError> {
     let mut tx = pool.begin().await?;
-    let r = sqlx::query!("DELETE FROM mp_respuestas_cache WHERE thread_id = $1", thread_clave)
-        .execute(&mut *tx)
-        .await?;
-    sqlx::query!("DELETE FROM mp_chats_archivados WHERE thread_id = $1", thread_clave)
-        .execute(&mut *tx)
-        .await?;
+    let r = sqlx::query!(
+        "DELETE FROM mp_respuestas_cache WHERE thread_id = $1",
+        thread_clave
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        "DELETE FROM mp_chats_archivados WHERE thread_id = $1",
+        thread_clave
+    )
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     if r.rows_affected() > 0 {
         VERSION_BORRADORES_BORRADOS.fetch_add(1, Ordering::SeqCst);
@@ -79,7 +85,8 @@ pub async fn borrar_hilo(pool: &sqlx::PgPool, thread_clave: &str) -> Result<u64,
 /// lo lee en cada barrido (`GET .../borradores/version`) y, si cambia, vacía su
 /// caché en memoria: un borrador borrado no debe seguir sirviéndose desde ahí.
 /// Proceso-local: un reinicio lo pone a 0, y el float lo trata como cambio.
-pub(in crate::services::marketplace) static VERSION_BORRADORES_BORRADOS: AtomicU64 = AtomicU64::new(0);
+pub(in crate::services::marketplace) static VERSION_BORRADORES_BORRADOS: AtomicU64 =
+    AtomicU64::new(0);
 
 pub fn version_borradores_borrados() -> u64 {
     VERSION_BORRADORES_BORRADOS.load(Ordering::SeqCst)
@@ -109,7 +116,7 @@ pub async fn borrar_borrador_hilo(
         thread_clave,
     )
     .execute(&mut *tx)
-        .await?;
+    .await?;
     for (catalogo, precio, mensaje) in &claves {
         sqlx::query!(
             "DELETE FROM mp_respuestas_inmueble ci WHERE ci.catalog_hash = $1 \

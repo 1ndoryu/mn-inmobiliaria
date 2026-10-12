@@ -426,7 +426,8 @@ mod tests {
             let (mut sock, _) = listener.accept().await.unwrap();
             let mut peticion = [0u8; 1024];
             let _ = sock.read(&mut peticion).await;
-            let cabecera = "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nConnection: close\r\n\r\n";
+            let cabecera =
+                "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nConnection: close\r\n\r\n";
             let _ = sock.write_all(cabecera.as_bytes()).await;
             let _ = sock.write_all(&vec![0u8; tam]).await;
             let _ = sock.shutdown().await;

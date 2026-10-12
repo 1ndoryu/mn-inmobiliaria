@@ -21,13 +21,13 @@ use crate::repositories::InmuebleRepository;
 use crate::services::marketplace::{
     archivar_hilo, aviso_fb_de_thread, borrar_borrador_hilo, borrar_hilo,
     borrar_hilo_no_corregidas, borrar_todo_cache, buscar_cache, buscar_compartida,
-    clave_cache_hilo, clave_hilo, consumir_minuto,
-    corregir_cache, corregir_compartida, detalle_chat, enlazar_compartida, formatear_parrafos,
-    guardar_cache, hash_ficha, nombre_de_thread, normalizar_excerpt_hilo, ocurrencias_nombre,
-    plantilla_de_nombre, precio_hash_seguro, reemplazar_cache, releer_foto, rellenar_nombre,
-    resumen_chats, resumen_uso, sha_hex, strip_ficha_para_prompt, sub_exento, validar_borrador,
-    vincular_hilo_compartido, vinculo_compartido, BorradorRequest, ClaveCompartida, FotoHilo,
-    FALLBACK_BORRADOR, FIRMA_VERSION_V2, SIN_FICHA, STRIP_VERSION,
+    clave_cache_hilo, clave_hilo, consumir_minuto, corregir_cache, corregir_compartida,
+    detalle_chat, enlazar_compartida, formatear_parrafos, guardar_cache, hash_ficha,
+    nombre_de_thread, normalizar_excerpt_hilo, ocurrencias_nombre, plantilla_de_nombre,
+    precio_hash_seguro, reemplazar_cache, releer_foto, rellenar_nombre, resumen_chats, resumen_uso,
+    sha_hex, strip_ficha_para_prompt, sub_exento, validar_borrador, vincular_hilo_compartido,
+    vinculo_compartido, BorradorRequest, ClaveCompartida, FotoHilo, FALLBACK_BORRADOR,
+    FIRMA_VERSION_V2, SIN_FICHA, STRIP_VERSION,
 };
 use crate::AppState;
 
@@ -44,9 +44,7 @@ use estructuradas::{
  * (split límite 500). Re-export `pub` para las rutas utoipa de `mod.rs`
  * (`marketplace::emitir_token`…); `MpAuth`/`limite` para este boundary. */
 use token::limite;
-pub use token::{
-    emitir_token, emitir_token_cli, CliTokenRequest, MpAuth, TokenResponse,
-};
+pub use token::{emitir_token, emitir_token_cli, CliTokenRequest, MpAuth, TokenResponse};
 /* [09AA-5] Buffer de eventos del puente para la tab de Logs (sin PII). */
 use logs::{hilo8, log_borrador_cache, log_borrador_ia, mp_log, LogNivel};
 
@@ -68,7 +66,6 @@ pub use borrador::*;
 use claves::*;
 pub use corregir::*;
 pub use regenerar::*;
-
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
@@ -146,7 +143,10 @@ pub fn routes() -> Router<AppState> {
             get(chats_admin::chats).delete(chats_admin::borrar_todo),
         )
         /* [10AA-24] Long-poll de cambios. Ruta estática: matchit la prefiere a `:thread`. */
-        .route("/marketplace/chats/cambios", get(chats_admin::cambios_chats))
+        .route(
+            "/marketplace/chats/cambios",
+            get(chats_admin::cambios_chats),
+        )
         .route(
             "/marketplace/chats/:thread",
             get(chats_admin::chat_detalle).delete(chats_admin::borrar_chat),

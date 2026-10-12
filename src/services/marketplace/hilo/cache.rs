@@ -5,7 +5,9 @@ use crate::errors::AppError;
 use crate::models::InmuebleRow;
 
 use crate::services::marketplace::cambios;
-use crate::services::marketplace::{clave_hilo, purgar_compartida, strip_ficha_para_prompt, PromptSeguro, STRIP_VERSION};
+use crate::services::marketplace::{
+    clave_hilo, purgar_compartida, strip_ficha_para_prompt, PromptSeguro, STRIP_VERSION,
+};
 
 /// [11AA] Llave de la fila de caché de un hilo: la firma del mensaje, sin el
 /// nombre. La fila guarda solo el cuerpo (sin saludo ni nombre): el saludo lo

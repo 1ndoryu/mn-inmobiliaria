@@ -78,13 +78,8 @@ async fn autenticar(parts: &Parts, state: &AppState) -> Result<MpClaims, AppErro
         .and_then(|v| v.to_str().ok())
         .and_then(|h| h.strip_prefix("Bearer "))
         .ok_or(AppError::Unauthorized)?;
-    let claims: MpClaims = jwt::verificar(
-        token,
-        state.jwt_secret.as_bytes(),
-        Some(ISS),
-        Some(AUD),
-    )
-    .map_err(|_| AppError::Unauthorized)?;
+    let claims: MpClaims = jwt::verificar(token, state.jwt_secret.as_bytes(), Some(ISS), Some(AUD))
+        .map_err(|_| AppError::Unauthorized)?;
     if claims.scope != SCOPE {
         return Err(AppError::Forbidden("alcance insuficiente".to_string()));
     }

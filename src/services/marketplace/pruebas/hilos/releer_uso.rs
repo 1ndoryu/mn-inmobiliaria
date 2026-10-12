@@ -34,10 +34,9 @@ async fn releer_crea_fila_si_falta() {
         .await
         .expect("releer crea");
     assert!(actualizado && creado);
-    let (actualizado2, creado2) =
-        releer_foto(&pool, hilo, "Hola. ¿Sigue disponible?", "crudo2")
-            .await
-            .expect("releer refresca");
+    let (actualizado2, creado2) = releer_foto(&pool, hilo, "Hola. ¿Sigue disponible?", "crudo2")
+        .await
+        .expect("releer refresca");
     assert!(actualizado2 && !creado2);
     let filas = detalle_chat(&pool, hilo).await.expect("detalle");
     assert_eq!(filas.len(), 1);

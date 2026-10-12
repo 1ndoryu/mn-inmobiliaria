@@ -4,10 +4,7 @@ use sqlx::PgPool;
 
 /// `vigente` de un token mp emitido (`NOT revocada AND expira_en > now()`).
 /// `None` si el `jti` no existe; el handler decide el 401.
-pub(crate) async fn token_vigente(
-    pool: &PgPool,
-    jti: &str,
-) -> Result<Option<bool>, sqlx::Error> {
+pub(crate) async fn token_vigente(pool: &PgPool, jti: &str) -> Result<Option<bool>, sqlx::Error> {
     sqlx::query_scalar(
         "SELECT NOT revocada AND expira_en > now() FROM mp_tokens_emitidos WHERE jti = $1",
     )

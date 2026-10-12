@@ -69,7 +69,9 @@ pub fn verificar<T: DeserializeOwned>(
 
     // La firma se comprueba antes de leer ningún claim: nada no firmado influye.
     let entrada = &token[..cabecera.len() + 1 + payload.len()];
-    let recibida = URL_SAFE_NO_PAD.decode(firma).map_err(|_| ErrorJwt::Formato)?;
+    let recibida = URL_SAFE_NO_PAD
+        .decode(firma)
+        .map_err(|_| ErrorJwt::Formato)?;
     let mut mac = mac_con_clave(secreto)?;
     mac.update(entrada.as_bytes());
     // `verify_slice` compara en tiempo constante.
@@ -143,7 +145,9 @@ mod pruebas {
             .unwrap();
         // Entrada literal del RFC (JSON con ",\r\n" dentro): la forma compacta da otra firma.
         let entrada = "eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ";
-        let esperada = URL_SAFE_NO_PAD.decode("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk").unwrap();
+        let esperada = URL_SAFE_NO_PAD
+            .decode("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
+            .unwrap();
         assert_eq!(firma_hs256(entrada.as_bytes(), &clave).unwrap(), esperada);
     }
 
@@ -159,7 +163,8 @@ mod pruebas {
     fn expiracion_con_margen_de_60_segundos() {
         let dentro = json!({"exp": ahora() - 30});
         let fuera = json!({"exp": ahora() - 120});
-        let ok: Result<Value, _> = verificar(&firmar(&dentro, SECRETO).unwrap(), SECRETO, None, None);
+        let ok: Result<Value, _> =
+            verificar(&firmar(&dentro, SECRETO).unwrap(), SECRETO, None, None);
         assert!(ok.is_ok());
         let r: Result<Value, _> = verificar(&firmar(&fuera, SECRETO).unwrap(), SECRETO, None, None);
         assert_eq!(r.unwrap_err(), ErrorJwt::Expirado);

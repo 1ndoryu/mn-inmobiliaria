@@ -5,8 +5,7 @@ use super::*;
 
 #[test]
 fn forma_poda_oferta_de_fotos() {
-    let r =
-        imponer_forma_borrador(&ia_fabio("¿Te comparto fotos para que la veas por dentro?"));
+    let r = imponer_forma_borrador(&ia_fabio("¿Te comparto fotos para que la veas por dentro?"));
     assert!(!r.contains("fotos"), "{r}");
     assert!(!r.contains('?'), "{r}");
     assert!(r.contains("$43.000"), "{r}");

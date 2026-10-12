@@ -35,10 +35,7 @@ pub fn staff_routes() -> Router<AppState> {
         .route("/agent/clientes", get(listar_clientes).post(crear_cliente))
         .route("/agent/clientes/:id", patch(actualizar_cliente))
         .route("/agent/clientes/:id/sesiones", get(sesiones_de_cliente))
-        .route(
-            "/agent/enviar",
-            post(super::staff_envio::enviar_manual),
-        )
+        .route("/agent/enviar", post(super::staff_envio::enviar_manual))
         .route("/agent/uso", get(super::staff_envio::uso_mensajes))
         .route("/agent/auditoria", get(super::staff_envio::auditoria))
         /* [289A-1] Vinculación desde la consola: proxy de estado+QR del

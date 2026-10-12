@@ -213,7 +213,8 @@ pub(super) async fn auditoria(
     Query(q): Query<Limite>,
 ) -> Result<Json<Vec<AuditoriaFila>>, AppError> {
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
-    let filas = crate::repositories::chat::envio::auditoria_tomas_humanas(&state.pool, limit).await?;
+    let filas =
+        crate::repositories::chat::envio::auditoria_tomas_humanas(&state.pool, limit).await?;
     Ok(Json(filas))
 }
 

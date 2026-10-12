@@ -33,7 +33,13 @@ pub fn mensaje_clave_de(textos: &[&str]) -> String {
         if i > 0 {
             canon.push('\n');
         }
-        canon.push_str(&texto.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase());
+        canon.push_str(
+            &texto
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .to_lowercase(),
+        );
     }
     sha_hex(&canon)
 }
@@ -57,7 +63,10 @@ fn inicios_palabra(texto: &[char], nombre: &[char]) -> Vec<usize> {
     let fin = nombre.len();
     (0..=texto.len() - fin)
         .filter(|&i| {
-            let coincide = nombre.iter().enumerate().all(|(j, &c)| bajar(texto[i + j]) == c);
+            let coincide = nombre
+                .iter()
+                .enumerate()
+                .all(|(j, &c)| bajar(texto[i + j]) == c);
             let antes = i == 0 || !es_palabra(texto[i - 1]);
             let despues = i + fin == texto.len() || !es_palabra(texto[i + fin]);
             coincide && antes && despues
@@ -221,10 +230,12 @@ pub async fn vinculo_compartido(
     )
     .fetch_optional(pool)
     .await?;
-    Ok(fila.and_then(|f| match (f.thread_id, f.mensaje_clave, f.excerpt_texto) {
-        (Some(t), Some(m), Some(e)) if super::continuacion::es_apertura(&e) => Some((t, m)),
-        _ => None,
-    }))
+    Ok(
+        fila.and_then(|f| match (f.thread_id, f.mensaje_clave, f.excerpt_texto) {
+            (Some(t), Some(m), Some(e)) if super::continuacion::es_apertura(&e) => Some((t, m)),
+            _ => None,
+        }),
+    )
 }
 
 /// Hilo que recibe una respuesta compartida ya servida (acierto de la clave):
@@ -344,10 +355,7 @@ mod tests {
             plantilla_de_nombre("Hola Ana, sí está disponible.", "Ana"),
             "Hola {{nombre}}, sí está disponible."
         );
-        assert_eq!(
-            plantilla_de_nombre("hola ana", "Ana"),
-            "hola {{nombre}}"
-        );
+        assert_eq!(plantilla_de_nombre("hola ana", "Ana"), "hola {{nombre}}");
         assert_eq!(plantilla_de_nombre("Hola Anabel", "Ana"), "Hola Anabel");
     }
 
@@ -398,13 +406,26 @@ mod tests {
             excerpt_crudo: "",
         };
         super::super::guardar_cache(
-            &pool, &firma_a, &precio, &catalogo, "Hola {{nombre}}.", &foto, Coste::default(),
+            &pool,
+            &firma_a,
+            &precio,
+            &catalogo,
+            "Hola {{nombre}}.",
+            &foto,
+            Coste::default(),
         )
         .await
         .expect("guardar");
-        enlazar_compartida(&pool, &firma_a, &clave, "Hola {{nombre}}.", Coste::default(), false)
-            .await
-            .expect("enlazar");
+        enlazar_compartida(
+            &pool,
+            &firma_a,
+            &clave,
+            "Hola {{nombre}}.",
+            Coste::default(),
+            false,
+        )
+        .await
+        .expect("enlazar");
         let hit = buscar_compartida(&pool, &clave).await.expect("buscar");
         assert_eq!(hit, Some(("Hola {{nombre}}.".to_string(), false)));
         let vinculo = vinculo_compartido(&pool, &firma_a, &precio, &catalogo)
@@ -463,13 +484,26 @@ mod tests {
             excerpt_crudo: "",
         };
         super::super::guardar_cache(
-            &pool, &firma, &precio, &catalogo, "Hola {{nombre}}.", &foto, Coste::default(),
+            &pool,
+            &firma,
+            &precio,
+            &catalogo,
+            "Hola {{nombre}}.",
+            &foto,
+            Coste::default(),
         )
         .await
         .expect("guardar");
-        enlazar_compartida(&pool, &firma, &clave, "Hola {{nombre}}.", Coste::default(), false)
-            .await
-            .expect("enlazar");
+        enlazar_compartida(
+            &pool,
+            &firma,
+            &clave,
+            "Hola {{nombre}}.",
+            Coste::default(),
+            false,
+        )
+        .await
+        .expect("enlazar");
         let vinculo = vinculo_compartido(&pool, &firma, &precio, &catalogo)
             .await
             .expect("vinculo");

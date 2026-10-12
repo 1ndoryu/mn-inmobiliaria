@@ -161,4 +161,3 @@ pub(super) async fn regenerar_uno(
         coste: gen.coste,
     })
 }
-

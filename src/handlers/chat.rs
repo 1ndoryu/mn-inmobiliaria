@@ -186,9 +186,8 @@ pub fn agent_router(pool: sqlx::PgPool, hub: ChatHub) -> Router<()> {
     for def in tools::definiciones() {
         registro.register(def);
     }
-    let executor: Arc<dyn glory_agent::tools::ToolExecutor> = Arc::new(
-        tools::Herramientas::new(pool.clone(), contacto_defecto()).with_hub(hub.clone()),
-    );
+    let executor: Arc<dyn glory_agent::tools::ToolExecutor> =
+        Arc::new(tools::Herramientas::new(pool.clone(), contacto_defecto()).with_hub(hub.clone()));
     let mut state = glory_agent::transport::AgentState::new(provider, prompt_config())
         .with_pool(pool)
         .with_hub(hub);

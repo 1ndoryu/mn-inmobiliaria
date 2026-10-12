@@ -166,7 +166,14 @@ pub async fn corregir(
     let texto = crate::services::marketplace::quitar_saludo(&r.texto, nombre.as_deref());
     let (_, precio_hash, catalog_hash, _) =
         claves_cache(&state.pool, r.aviso_id.as_deref(), None).await?;
-    corregir_cache(&state.pool, &clave_firma, &precio_hash, &catalog_hash, &texto).await?;
+    corregir_cache(
+        &state.pool,
+        &clave_firma,
+        &precio_hash,
+        &catalog_hash,
+        &texto,
+    )
+    .await?;
     /* [09AA-30 F2] La corrección de la dueña vale para todo el inmueble: se
      * aplica a la respuesta compartida con el nombre del hilo que la corrige. */
     if let Some((thread, mensaje)) =
@@ -183,4 +190,3 @@ pub async fn corregir(
     }
     Ok((StatusCode::OK, Json(CorregirResponse { corregida: true })).into_response())
 }
-

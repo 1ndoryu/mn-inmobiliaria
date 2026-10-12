@@ -174,13 +174,12 @@ async fn borrar_hilo_quita_todo_menos_la_compartida() {
             .is_none(),
         "la corrección también cae con el chat"
     );
-    let archivados: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*)::BIGINT FROM mp_chats_archivados WHERE thread_id = $1",
-    )
-    .bind(&hilo)
-    .fetch_one(&pool)
-    .await
-    .expect("cuenta archivados");
+    let archivados: i64 =
+        sqlx::query_scalar("SELECT COUNT(*)::BIGINT FROM mp_chats_archivados WHERE thread_id = $1")
+            .bind(&hilo)
+            .fetch_one(&pool)
+            .await
+            .expect("cuenta archivados");
     assert_eq!(archivados, 0, "sale la marca de archivado");
     assert!(
         buscar_compartida(&pool, &clave)

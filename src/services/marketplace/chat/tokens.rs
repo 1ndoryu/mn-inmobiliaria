@@ -98,6 +98,6 @@ pub async fn registrar_token(
         expira_en,
     )
     .execute(pool)
-        .await?;
+    .await?;
     Ok(jti)
 }

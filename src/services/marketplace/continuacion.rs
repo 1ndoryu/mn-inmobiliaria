@@ -37,7 +37,9 @@ pub fn es_continuacion(excerpt: &str) -> bool {
 /// cliente coincida con el de otro hilo.
 #[must_use]
 pub fn es_apertura(excerpt: &str) -> bool {
-    !excerpt.lines().any(|l| l.trim_start().starts_with("Dueña:"))
+    !excerpt
+        .lines()
+        .any(|l| l.trim_start().starts_with("Dueña:"))
 }
 
 /// Tono pedido por el puente (`amable` por defecto).
@@ -160,7 +162,8 @@ mod tests {
 
     #[test]
     fn la_forma_quita_contacto_arrastrado() {
-        let ia = "Tiene 2 baños.\n\nCualquier cosa escríbeme al 04249208855\nhttps://wa.me/584249208855";
+        let ia =
+            "Tiene 2 baños.\n\nCualquier cosa escríbeme al 04249208855\nhttps://wa.me/584249208855";
         assert_eq!(dar_forma_continuacion(ia), "Tiene 2 baños.");
     }
 

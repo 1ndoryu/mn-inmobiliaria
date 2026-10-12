@@ -221,7 +221,7 @@ async fn describir_y_anexar(pool: &sqlx::PgPool, foto: FotoPendiente) {
         foto.mensaje_id,
     )
     .execute(pool)
-        .await
+    .await
     {
         tracing::warn!("webhook WhatsApp: no se pudo anexar descripción: {e}");
     }
@@ -273,16 +273,17 @@ pub(crate) async fn transcribir_y_anexar(pool: &sqlx::PgPool, audio: AudioPendie
         return;
     }
     let nombre = ruta.file_name().and_then(|n| n.to_str()).unwrap_or("nota");
-    let texto = match crate::handlers::ia::rutas::transcribir_audio(&bytes, nombre, &audio.mime).await {
-        Ok(t) => t,
-        Err(e) => {
-            tracing::warn!(
-                "webhook WhatsApp: no se pudo transcribir {}: {e}",
-                audio.clave
-            );
-            return;
-        }
-    };
+    let texto =
+        match crate::handlers::ia::rutas::transcribir_audio(&bytes, nombre, &audio.mime).await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::warn!(
+                    "webhook WhatsApp: no se pudo transcribir {}: {e}",
+                    audio.clave
+                );
+                return;
+            }
+        };
     let cuerpo = cuerpo_audio_con_texto(&audio.cuerpo_base, &texto);
     if let Err(e) = sqlx::query!(
         "UPDATE agent_messages SET body = $1 WHERE id = $2",
@@ -290,7 +291,7 @@ pub(crate) async fn transcribir_y_anexar(pool: &sqlx::PgPool, audio: AudioPendie
         audio.mensaje_id,
     )
     .execute(pool)
-        .await
+    .await
     {
         tracing::warn!("webhook WhatsApp: no se pudo anexar transcripción: {e}");
     }

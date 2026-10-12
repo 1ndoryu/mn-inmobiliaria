@@ -9,11 +9,7 @@ use super::super::*;
  * `DATABASE_URL` se omite. */
 #[tokio::test]
 async fn resumen_cuenta_hilos_que_comparten_respuesta() {
-    let Some(e) = escenario_borrador(
-        "hilo-compartida-a-09aa30",
-        "hilo-compartida-b-09aa30",
-    )
-    .await
+    let Some(e) = escenario_borrador("hilo-compartida-a-09aa30", "hilo-compartida-b-09aa30").await
     else {
         return;
     };
@@ -48,7 +44,9 @@ async fn resumen_cuenta_hilos_que_comparten_respuesta() {
         de(clave_solo.as_str()),
     );
 
-    borrar_hilo(&e.pool, &clave_solo).await.expect("limpia solo");
+    borrar_hilo(&e.pool, &clave_solo)
+        .await
+        .expect("limpia solo");
     limpiar_escenario(&e).await;
     assert_eq!(
         resultado,

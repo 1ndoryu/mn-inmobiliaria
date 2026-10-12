@@ -117,11 +117,7 @@ fn clave_azar() -> String {
 }
 
 /* [08AA-21] Atajo para la foto del hilo en pruebas de caché. */
-fn foto_prueba(
-    hilo: &'static str,
-    limpio: &'static str,
-    crudo: &'static str,
-) -> FotoHilo<'static> {
+fn foto_prueba(hilo: &'static str, limpio: &'static str, crudo: &'static str) -> FotoHilo<'static> {
     FotoHilo {
         thread_id: hilo,
         excerpt: limpio,

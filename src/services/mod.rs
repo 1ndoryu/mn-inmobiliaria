@@ -37,12 +37,6 @@ pub use triage::{
  * dominio. `allow(unused_imports)`: sin llamadores fuera de `services` avisan
  * como no usados; el de `outbox_idempotency` sí lo usa `tope_uso.rs`. */
 #[allow(unused_imports)]
-pub(crate) use mensajeria::alerta_whatsapp;
-#[allow(unused_imports)]
-pub(crate) use mensajeria::canal_resolver;
-#[allow(unused_imports)]
-pub(crate) use mensajeria::outbox_idempotency;
-#[allow(unused_imports)]
 pub(crate) use comercial::note;
 #[allow(unused_imports)]
 pub(crate) use comercial::solicitud;
@@ -64,3 +58,9 @@ pub(crate) use marketplace::compartida as marketplace_compartida;
 pub(crate) use marketplace::texto as marketplace_texto;
 #[allow(unused_imports)]
 pub(crate) use marketplace::vuelo as marketplace_vuelo;
+#[allow(unused_imports)]
+pub(crate) use mensajeria::alerta_whatsapp;
+#[allow(unused_imports)]
+pub(crate) use mensajeria::canal_resolver;
+#[allow(unused_imports)]
+pub(crate) use mensajeria::outbox_idempotency;

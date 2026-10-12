@@ -12,10 +12,9 @@ use axum::response::Response;
 
 use crate::errors::AppError;
 use crate::services::marketplace::{
-    clave_hilo, estructuradas_apagadas, llave_esperada, mensaje_clave_de,
-    normalizar_excerpt_hilo, sha_hex, texto_para_prompt, validar_conversacion,
-    validar_idempotency_key, BorradorRequest, ConversacionValidada, ErrorEstructurado, LadoUtil,
-    CODIGO_IDEMPOTENCIA, FIRMA_VERSION_V2,
+    clave_hilo, estructuradas_apagadas, llave_esperada, mensaje_clave_de, normalizar_excerpt_hilo,
+    sha_hex, texto_para_prompt, validar_conversacion, validar_idempotency_key, BorradorRequest,
+    ConversacionValidada, ErrorEstructurado, LadoUtil, CODIGO_IDEMPOTENCIA, FIRMA_VERSION_V2,
 };
 
 use super::logs::{hilo8, mp_log, LogNivel};
