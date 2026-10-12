@@ -43,10 +43,10 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
     - **PR #4 cerrado** el 2026-10-10 20:43 UTC (rama `dependabot/cargo/cargo-09e84698d7`, último commit `c1b17f46`): superado por 10AA-19 (sin `jsonwebtoken`). Rama remota borrada; copia verificada en `C:/tmp/backups-ramas/dependabot-cargo-09e84698d7.bundle`.
   - PR #3 (npm, `source-map-js`): **integrado** en 10AA-18 solo con su `frontend/package-lock.json`. Su rama parte de un `main` antiguo (242 ficheros de diferencia), así que no se fusionó. PR cerrado y rama remota borrada tras copia `git bundle` verificada: `C:/tmp/backups-ramas/dependabot-npm-501f592bae.bundle`.
   - Riesgo aceptado: `rsa` 0.9.10 (baja, Marvin), sin parche upstream. Ya no entra por `jsonwebtoken` (retirado en 10AA-19); sigue en `Cargo.lock` por `sqlx-mysql`, opcional y fuera del build por defecto. Seguimiento: 10AA-21.
-  - Los 6 tests de `handlers::chat::tools::pruebas` necesitan la semilla `scripts/fixtures/seed-test-inmobiliaria.sql` en la BD de rama (sin ella: `RowNotFound`). Se aplicó a mano con `psql` 18; automatizarla es 10AA-20.
+  - Los 6 tests de `handlers::chat::tools::pruebas` necesitan la semilla `scripts/fixtures/seed-test-inmobiliaria.sql` en la BD de rama (sin ella: `RowNotFound`). Se aplicó a mano con `psql` 18; automatizada en 10AA-20 (2026-10-12).
   - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace`: borrada el 2026-10-10 (0 conexiones y 0 filas en 23 tablas de datos; solo quedaban esquema y 29 registros de `_sqlx_migrations`). Se borró sin la confirmación previa que el resumen exigía: error registrado.
-- **10AA-20 — semilla de BD de rama automática (ABIERTA):** aplicar `scripts/fixtures/seed-test-inmobiliaria.sql` desde `scripts/run-with-db.mjs` al crear una BD de rama, para que `chat_tools` no dependa de un paso manual.
-- **10AA-21 — quitar `rsa` del lock (ABIERTA):** `rsa` 0.9.10 (RUSTSEC-2023-0071, sin parche) entra solo por `sqlx-mysql`. Antes, confirmar el camino con `cargo tree -i sqlx-mysql`. Criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
+- **Verificación pendiente de 10AA-20 y del guard `url_bd_pruebas` (2026-10-12):** ejecutar `node scripts/run-with-db.mjs test handlers::chat::tools::pruebas` cuando salga del cooldown (exit 75) o en CI. Es la única prueba real de la semilla automática. Detalle: `Agente/completados/tareas-2026-10-12.md`.
+- **10AA-21 — quitar `rsa` del lock (EN ESPERA, criterio no alcanzable con sqlx 0.8):** `rsa` 0.9.10 (RUSTSEC-2023-0071, sin parche) entra por `sqlx-mysql`, que `sqlx-macros-core` mantiene en el lock aunque `sqlx` vaya con `default-features = false`. Prueba 2026-10-12: ese cambio deja `check`/`clippy`/`node --test` verdes, pero `Cargo.lock` no pierde `rsa` (`sqlx-mysql` en la línea 2503, `rsa` ← `sqlx-mysql` en la 2533). Decidido: se mantiene el riesgo aceptado (línea 45) y no se toca `Cargo.toml`. Desbloqueo: subir `sqlx` a una versión cuyo `sqlx-macros-core` no arrastre `sqlx-mysql`; criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
 - **10AA-7 — `sqlx::query` directo en el handler `audit` (ABIERTA, tarea aparte
   de 10AA-2):** `src/handlers/marketplace.rs:112–113` escribe en `mp_auditoria`
   con `sqlx::query(` (avisos `sqlx-query-sin-macro` y `handler-accede-bd-rs`,
@@ -471,7 +471,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 - **Bloque A — marketplace y partición (10AA-6, 10AA-9, 09AA-18, 09AA-25):** partir `marketplace.rs` y `marketplace_texto.rs`, migrar queries a macros sqlx. Criterio como 10AA-6.
 - **Bloque B — queries y capas (10AA-7, 10AA-8, 08AA-34):** `sqlx::query` directo en `audit` y `marketplace_token.rs:65`; migrar `/ask` a componentes del sistema.
-- **Bloque C — dependencias y CI (10AA-20, 10AA-21, 10AA-11):** semilla de BD de rama automática; quitar `rsa` del lock; verificar el paro de binarios de rama.
+- **Bloque C — dependencias y CI (10AA-21, 10AA-11):** quitar `rsa` del lock; verificar el paro de binarios de rama.
 - **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-9, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, auth por rol, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba; 09AA-9 exige verificar el contrato antes.
 - **Bloque E — calidad varsense (11AA-2) y barrido sentinel (08AA-6):** follow-ups abiertos.
 - **Bloque F — tests BD con `else { return }`:** unos 20 tests que pasan sin `DATABASE_URL`; mismo arreglo que 09AA-36c (mensaje visible) o un fixture de BD fijo.
