@@ -465,39 +465,19 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   (Singleflight + test, re-exportado). Gate `22E/478W/7H`: caen los 3
   umbrales marginales de 08AA-6; cero hallazgos en archivos nuevos.
 
-## Deploy mn-inmobiliaria.com (239A-1, en curso 2026-09-23)
+## Deploy mn-inmobiliaria.com (239A-1, parte del agente cerrada 2026-10-11)
 
-- Plan: `Agente/planes/plan-deploy-produccion-2026-09-23.md`.
-- Monorepo: `INMOBILIARIA/*` → `frontend/`; servir `STATIC_DIR` + fallback SPA;
-  CORS prod solo dominio; `Dockerfile.rust` multi-stage (`VITE_API_URL` build-arg).
-- Fase 0 cerrada 2026-09-23: commits receta+mejora (INMOBILIARIA `5a113f5`,
-  `70a6361`) y suscriptor+plan (`6cd8a90e`, `3ac8ca46`); `.env` a
-  `glory_backend_inmobiliaria`; gate local verde (tsc, vite build, fmt, check,
-  clippy `-D warnings`, test 15/15).
-- Mejora IA queda solo-local (prompt Ultra HD + descarga `=s0` validados);
-  cookies fuera del VPS; sync prod→local solo lectura.
-- Fase 1 cerrada 2026-09-23 (`39f383de`+`4c9f1d45`): humo local `/`+fallback SPA 200,
-  `/api/health` 200, 11 publicados. En prod manda el `Dockerfile.rust` del template del
-  manager (no el del repo): 239A-2 (`944bacf8`) cambió `glory-agent` a git-dep pineado
-  `f2f19e7` tras el fallo `failed to read /glory-agent/Cargo.toml`.
-- Fase 3+4 hechas 2026-09-23: manager recompilado (1.0.0), sitio `inmobiliaria`
-  (`as0scgwg44wkkkccgwcwg8w0`) creado. `sync-env push` bloqueado (el manager exige claves
-  Stripe que el proyecto no usa; mejora pendiente a la herramienta, sin dummies).
-- Incidencia 2026-09-24 CERRADA: `Servidor no disponible` con API sana = `VITE_API_URL`
-  sin hornear (bundle con `127.0.0.1:3000`). Fix herramienta (`d908b94` template
-  `ARG VITE_API_URL`, `3008e65` push `--only` exime trio Stripe) + push var + rebuild
-  6/6 OK; bundle `index-EZwYRSQX.js` con dominio; API `total=11` fotos `218`.
-  Detalle en plan (seccion incidencia) y `Agente/completados/tareas-2026-09-24.md`.
-  Pendiente del usuario: recargar https://mn-inmobiliaria.com y confirmar lista visible.
-- Fase 5 COMPLETADA 2026-09-24: dump data-only + `run-sql --file` (el `import` del
-  manager es solo-WP) → 11/218/2; 218 fotos vía `POST /api/admin/fotos/upload` (el
-  manager no tiene push a volúmenes); admin rotado a password nueva generada,
-  `import@example.com` eliminado.
-- Fase 6.3 E2E COMPLETADO 2026-09-24: 11 publicados, fotos HD 200, login admin, receta
-  PUT→pública→revertida, solicitud POST→admin→borrada, WhatsApp horneado.
-  Estado prod: 11 inmuebles, 218 fotos, 0 solicitudes, 1 user.
-- Requiere del usuario: nueva password admin para la rotación de Fase 5.4 (o confirmar
-  mantener la actual / que la genere yo).
+- Detalle y evidencia: `Agente/completados/tareas-2026-10-11.md` (239A-1) y `Agente/planes/plan-deploy-produccion-2026-09-23.md`.
+- Pendiente de la usuaria: confirmar la password admin rotada en Fase 5.4 (o pedir que se genere otra) y revisar https://mn-inmobiliaria.com con la lista visible.
+
+## Deuda sin tocar, por bloques (decidido 2026-10-11: una tarea por bloque)
+
+- **Bloque A — marketplace y partición (10AA-6, 10AA-9, 09AA-18, 09AA-25):** partir `marketplace.rs` y `marketplace_texto.rs`, migrar queries a macros sqlx. Criterio como 10AA-6.
+- **Bloque B — queries y capas (10AA-7, 10AA-8, 08AA-34):** `sqlx::query` directo en `audit` y `marketplace_token.rs:65`; migrar `/ask` a componentes del sistema.
+- **Bloque C — dependencias y CI (10AA-20, 10AA-21, 10AA-11):** semilla de BD de rama automática; quitar `rsa` del lock; verificar el paro de binarios de rama.
+- **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-9, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, auth por rol, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba; 09AA-9 exige verificar el contrato antes.
+- **Bloque E — calidad varsense (11AA-2) y barrido sentinel (08AA-6):** follow-ups abiertos.
+- **Bloque F — tests BD con `else { return }`:** unos 20 tests que pasan sin `DATABASE_URL`; mismo arreglo que 09AA-36c (mensaje visible) o un fixture de BD fijo.
 
 ## Optimizacion PageSpeed movil + SEO profundo (249A-1, completada 2026-09-24)
 
