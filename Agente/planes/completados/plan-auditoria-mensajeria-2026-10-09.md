@@ -148,7 +148,7 @@ Orden (no codificar sin el prerrequisito indicado):
    a fail-closed con `ALLOW_EMPTY_IN_DEV` (o rompe local);
    `sesion.rs:124,147` tope previo a `bytes()` + solo-esquema ya en
    :305-315. Verificación: 401 sin secreto, descarga gigante cortada.
-3. **09AA-9 — Auth con rol:** `_auth` ignorado (`chat_staff.rs:88,136,169`,
+3. **09AA-9 — Auth con rol:** `_auth` ignorado (`chat_staff.rs:88,136,169` — archivo ya inexistente, hoy `handlers/chat/staff*.rs`, referencia corregida 2026-10-12 —,
    `auth.rs:12-14` sin `role`, `ask.rs:30,60` igual) es defecto-real alta;
    NO codificar sin verificar contrato del float opencode-propio
    (emisor/rol que usa hoy) o se rompe la integración viva.

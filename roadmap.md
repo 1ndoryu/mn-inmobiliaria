@@ -121,8 +121,10 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 - **09AA-18 — Cierre del split de `marketplace_texto.rs` (ABIERTA, prioridad baja):**
   la división ya está hecha (08AA-8 y 10AA-10); el fichero ya no existe y `marketplace/texto/`
   tiene como máximo 590 líneas (`excerpt.rs`). Falta solo el cierre: `fmt` (bloqueado por el
-  guard, sin saltarlo) y `sentinel check 09AA-18` (puede ejecutar tests: pide permiso a la usuaria).
-  `clippy` y `test services::marketplace` ya en verde (10AA-6).
+  guard, sin saltarlo). Bloqueos reales (2026-10-12): `sentinel check 09AA-18` para en preflight
+  `tool-release-evidence-missing` del checkout de Sentinel `ba6d9c7` (v0.7.24, `quality-tools.json`);
+  certificar esa release es decisión de la usuaria (`Agente/documentacion/mantenimiento-herramientas-calidad-2026-10-06.md`).
+  Decidido por la usuaria: dejar abierta hasta certificar Sentinel. `clippy` y `test services::marketplace` ya en verde (10AA-6).
 - **Mejora (nueva 2026-10-09):** crear `Select` en
   `frontend/src/components/ui/` y migrar los `<select>` nativos
   (`ficha-formulario`, `modal-inmueble`, `vincular-hilo`, …). Hoy ese
@@ -171,8 +173,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   dead-letter `pending`. NO toca regenerar. Sin empezar hasta cerrar
   09AA-4/09AA-5 (mismo pipeline) o serializar con esas sesiones.
 - **09AA-8 — Webhook fail-closed + tope media (09AA-6 §8.2).**
-- **09AA-9 — Auth con rol en consola staff (09AA-6 §8.3, requiere verificar
-  contrato float opencode-propio antes de codificar).**
 - **09AA-10 — Dedup + espejo M3 (09AA-6 §8.4).**
 - **09AA-11 — Proveedores IA: abstracción + reintento glory coordinado con
   09AA-4 (09AA-6 §8.5).**
@@ -283,11 +283,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   file-level en `C:\tmp\backup-08AA-35-caron`; prod intacta. Plan archivado
   en `Agente/planes/completados/plan-verificar-sync-push-2026-10-08.md`,
   detalle en `Agente/completados/tareas-2026-10-09.md`.
-- **08AA-34 — Migrar /ask a componentes del sistema (hallazgo gate 2026-10-08
-  cerrando 08AA-33):** 15 `html-nativo-en-vez-de-componente` en
-  `entrada-pregunta.tsx` (8) y `pagina-ask.tsx` (7); son `<button>`/`<input>`
-  preexistentes, no del bloque 08AA-33 (ese usó `Boton`/`Dialog`). Cambiar a
-  `Boton`/`Input` del sistema + verificar /ask en vivo.
 - **08AA-32 — Extraer 5 hooks `componente-sin-hook` (cola de 08AA-26, CERRADA 2026-10-08):**
   `useHiloMensajes`, `useSesionesWhatsapp`, `usePestanaIA`, `useTarjetaFotoMejora`,
   `useModalDescargarFotos`; componentes con solo JSX + helpers puros.
@@ -445,9 +440,9 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 ## Deuda sin tocar, por bloques (decidido 2026-10-11: una tarea por bloque)
 
 - **Bloque A — marketplace y partición (10AA-9, 09AA-18, 09AA-25):** partir `marketplace_texto.rs`, migrar queries a macros sqlx. Criterio como 10AA-6 (cerrada).
-- **Bloque B — capas (08AA-34):** migrar `/ask` a componentes del sistema. 10AA-7 y 10AA-8 cerrados el 2026-10-12 (ver `Agente/completados/tareas-2026-10-12.md`).
+- **Bloque B — capas (08AA-34):** cerrado el 2026-10-12: 08AA-34 resuelta por 10AA-14 (ver `Agente/completados/tareas-2026-10-12.md`).
 - **Bloque C — CI (10AA-11):** verificar el paro de binarios de rama. 10AA-21 decidido como riesgo aceptado (2026-10-12).
-- **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-9, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, auth por rol, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba; 09AA-9 exige verificar el contrato antes.
+- **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba.
 - **Bloque E — calidad varsense (11AA-2) y barrido sentinel (08AA-6):** follow-ups abiertos.
 
 ## Optimizacion PageSpeed movil + SEO profundo (249A-1, completada 2026-09-24)
