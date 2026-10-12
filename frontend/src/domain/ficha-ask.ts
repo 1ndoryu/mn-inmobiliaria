@@ -17,8 +17,9 @@
 // - Dato que es columna del inmueble (filtra, se publica, lo usa la IA) →
 //   migración + backend + `ColumnasAsk` + entrada en COLUMNAS_POR_TIPO.
 //   No lo metas en `extras`: los filtros y la pública no los leen.
-// - `privada: false` = apto para mostrarse fuera del panel (la pública y
-//   la IA aún no leen `extras`: pendiente cablearlas, ver roadmap).
+// - `privada: false` = apto para mostrarse fuera del panel. La IA ya lee
+//   `extras` (`src/handlers/chat.rs:134`); la ficha pública aún no (fuerza
+//   `'{}'` en `src/repositories/inmueble.rs:27`): pendiente, ver roadmap 279A.
 // - `destino: 'precioMinimo'` = el valor va a su columna privada, no a
 //   `extras`. Si mañana hay otro dato así (comisión, deuda…), añade una
 //   variante de `destino`, no otro `clave === 'x'` regado.
@@ -96,9 +97,8 @@ export const COMUNES: PreguntaAsk[] = [
 ];
 
 /* Servicios básicos (279A-6): aplican a cada tipo. `privada: false` los
- * marca aptos para la ficha visible y la IA, pero hoy nadie los lee fuera
- * del panel (pendiente: cablear pública + IA, ver roadmap). Huecos que
- * faltaban: internet y agua. */
+ * marca aptos para la ficha visible. Hoy solo los lee la IA; la pública
+ * no (pendiente, ver roadmap 279A). Huecos que faltaban: internet y agua. */
 export const SERVICIOS: PreguntaAsk[] = [
   {
     clave: 'internet',

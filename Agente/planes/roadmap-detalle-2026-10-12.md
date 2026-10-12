@@ -869,8 +869,9 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   cifras. SQL probado con psql en transacción con ROLLBACK (margen `t`/`f`,
   cifra filtrada, cero cambios).
 - Pendiente: cablear `extras` públicos (`privada: false`) a la ficha
-  visible y a la IA — hoy nadie los lee fuera del panel (la pública ni los
-  pide, el backend los pela con `'{}'`).
+  visible. La IA ya los lee (`src/handlers/chat.rs:134`); la pública no (el
+  backend los pela con `'{}'`, `src/repositories/inmueble.rs:27`). Lista
+  candidata y criterio: `Agente/planes/plan-extras-publicos-2026-10-12.md`.
 - Requiere de usuaria: responder el cuestionario en `/ask`.
 
 ## 011A-5 — F5 consumidor delgado MN (cerrada 2026-10-01: ver `Agente/completados/tareas-2026-10-01.md`)
