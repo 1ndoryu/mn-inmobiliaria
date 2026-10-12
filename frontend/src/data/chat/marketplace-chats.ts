@@ -23,6 +23,12 @@ export interface ChatResumen {
   /* [09AA-28] URL pública (`/uploads/…`, relativa a la API) de la portada del
    * inmueble vinculado; ausente/null = sin vínculo o ficha sin fotos. */
   inmueble_foto?: string | null;
+  /* [09AA-30 F4] Hilos con la misma respuesta de caché, contando éste; 1 = no
+   * compartida. Ausente en respuestas viejas (se trata como 1). */
+  compartida_por?: number;
+  /* [09AA-30 F4] Fecha del último borrador (no la del último mensaje del
+   * cliente); ausente/null = filas anteriores a la columna. */
+  ultimo_borrador_en?: string | null;
 }
 
 /* Fila de `GET /api/admin/marketplace/chats/:thread`.

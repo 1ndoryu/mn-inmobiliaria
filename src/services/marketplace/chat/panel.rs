@@ -5,7 +5,9 @@ use crate::errors::AppError;
 use crate::models::url_publica_de_foto;
 use crate::repositories::InmuebleRepository;
 
-use crate::services::marketplace::{aviso_fb_de_thread, clave_hilo, mejor_puntaje_con_alias, Coste};
+use crate::services::marketplace::{
+    aviso_fb_de_thread, clave_hilo, mejor_puntaje_con_alias, Coste,
+};
 
 /// Fila del dashboard M2: conteos por día y evento. Sin PII: el HMAC del hilo
 /// jamás sale, solo día + evento + conteo.
@@ -88,6 +90,12 @@ pub struct ChatResumen {
     pub aviso_conocido: bool,
     pub inmueble_vinculado: Option<String>,
     pub inmueble_foto: Option<String>,
+    /// [09AA-30 F4] Hilos que comparten esta respuesta (mismo inmueble, precio y
+    /// `mensaje_clave`), contando el propio. 1 = no compartida.
+    pub compartida_por: i64,
+    /// [09AA-30 F4] Fecha del último borrador (`creada_en`). `None` si todas sus
+    /// filas son anteriores a la columna. No es la hora del último mensaje.
+    pub ultimo_borrador_en: Option<String>,
 }
 
 /// [09AA-28] Vínculos de aviso: `marketplace_id` → (id, título, alias).
@@ -206,6 +214,16 @@ pub async fn resumen_chats(
             std::collections::HashMap::new()
         }
     };
+    /* [09AA-30 F4] Fecha del último borrador y hilos que comparten respuesta, en
+     * una sola query para la página; si falla, sin esos datos (jamás se bloquea). */
+    let hilos_pagina: Vec<String> = salida.iter().map(|(fila, _)| fila.0.clone()).collect();
+    let extras = match datos_extra_hilos(pool, &hilos_pagina).await {
+        Ok(e) => e,
+        Err(e) => {
+            tracing::warn!("resumen_chats: sin fecha ni compartición ({e}), chats sin esos datos");
+            std::collections::HashMap::new()
+        }
+    };
     let chats = salida
         .into_iter()
         .map(
@@ -214,6 +232,8 @@ pub async fn resumen_chats(
                     .as_ref()
                     .and_then(|(id, _)| portadas.get(id))
                     .map(|clave| url_publica_de_foto(clave));
+                let (ultimo_borrador, compartida_por) =
+                    extras.get(&thread_id).copied().unwrap_or((None, 1));
                 ChatResumen {
                     thread_id,
                     borradores,
@@ -223,6 +243,8 @@ pub async fn resumen_chats(
                     aviso_conocido: vinculado.is_some(),
                     inmueble_vinculado: vinculado.map(|(_, titulo)| titulo),
                     inmueble_foto,
+                    compartida_por,
+                    ultimo_borrador_en: ultimo_borrador.map(|f| f.to_rfc3339()),
                 }
             },
         )
@@ -245,7 +267,8 @@ pub(in crate::services::marketplace) async fn total_chats(
     if solo_huerfanos {
         let hilos: Vec<String> = sqlx::query_scalar(
             "SELECT DISTINCT thread_id FROM mp_respuestas_cache \
-             WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
+             WHERE origen IS DISTINCT FROM 'releer' \
+             AND thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
         )
         .fetch_all(pool)
         .await?;
@@ -255,9 +278,11 @@ pub(in crate::services::marketplace) async fn total_chats(
             .count();
         return Ok(i64::try_from(sin_ficha).unwrap_or(i64::MAX));
     }
+    /* [09AA-30 F4] Cuenta solo hilos con borrador: los «releer» (solo foto) no. */
     let total = sqlx::query_scalar(
         "SELECT COUNT(DISTINCT thread_id)::BIGINT FROM mp_respuestas_cache \
-         WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
+         WHERE origen IS DISTINCT FROM 'releer' \
+         AND thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados)",
     )
     .fetch_one(pool)
     .await?;
@@ -270,7 +295,8 @@ pub(in crate::services::marketplace) const LOTE_HUERFANOS: i64 = 100;
 
 /// [10AA-4] Fila agregada por hilo: (`thread_id`, borradores, usos, corregidas,
 /// último `valida_hasta`).
-pub(in crate::services::marketplace) type FilaChat = (String, i64, i64, i64, chrono::DateTime<chrono::Utc>);
+pub(in crate::services::marketplace) type FilaChat =
+    (String, i64, i64, i64, chrono::DateTime<chrono::Utc>);
 
 /// [10AA-4] Hasta `lote` hilos tras el cursor `(ultimo, thread_id)`, en el mismo
 /// orden que el panel. Excluye los archivados, igual que `total`.
@@ -284,7 +310,7 @@ pub(in crate::services::marketplace) async fn filas_chats_tras(
         None => (None, None),
     };
     let filas: Vec<FilaChat> = sqlx::query!(
-        "SELECT thread_id, COUNT(*)::BIGINT AS \"borradores!\", COALESCE(SUM(usos), 0)::BIGINT AS \"usos!\", \
+        "SELECT thread_id, COUNT(*) FILTER (WHERE origen IS DISTINCT FROM 'releer')::BIGINT AS \"borradores!\", COALESCE(SUM(usos), 0)::BIGINT AS \"usos!\", \
          SUM(CASE WHEN corregida THEN 1 ELSE 0 END)::BIGINT AS \"corregidas!\", MAX(valida_hasta) AS \"ultimo!\" \
          FROM mp_respuestas_cache \
          WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados) \
@@ -302,6 +328,41 @@ pub(in crate::services::marketplace) async fn filas_chats_tras(
     .map(|r| (r.thread_id, r.borradores, r.usos, r.corregidas, r.ultimo))
     .collect();
     Ok(filas)
+}
+
+/// [09AA-30 F4] Por hilo de la página: fecha del último borrador (`creada_en`) y
+/// hilos que comparten su respuesta (mismo inmueble, precio y `mensaje_clave`).
+/// Una query para todos, comprobada en compilación (`.sqlx`); las filas
+/// «releer» no cuentan. Sin `mensaje_clave` la compartición es 1.
+pub(in crate::services::marketplace) async fn datos_extra_hilos(
+    pool: &sqlx::PgPool,
+    hilos: &[String],
+) -> Result<
+    std::collections::HashMap<String, (Option<chrono::DateTime<chrono::Utc>>, i64)>,
+    sqlx::Error,
+> {
+    if hilos.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    let filas = sqlx::query!(
+        "SELECT thread_id AS \"thread_id!\", MAX(creada_en) AS \"ultimo\", MAX(compartida)::BIGINT AS \"compartida\" FROM ( \
+           SELECT c.thread_id, c.creada_en, \
+             CASE WHEN c.mensaje_clave IS NULL THEN 1 ELSE ( \
+               SELECT COUNT(DISTINCT o.thread_id) FROM mp_respuestas_cache o \
+               WHERE o.catalog_hash = c.catalog_hash AND o.precio_hash = c.precio_hash \
+                 AND o.mensaje_clave = c.mensaje_clave AND o.origen IS DISTINCT FROM 'releer' \
+             ) END AS compartida \
+           FROM mp_respuestas_cache c \
+           WHERE c.thread_id = ANY($1) AND c.origen IS DISTINCT FROM 'releer' \
+         ) t GROUP BY thread_id",
+        hilos,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(filas
+        .into_iter()
+        .map(|r| (r.thread_id, (r.ultimo, r.compartida.unwrap_or(1))))
+        .collect())
 }
 
 /* [09AA-21] ¿El aviso del hilo empareja con una ficha? Rama exacta primero:

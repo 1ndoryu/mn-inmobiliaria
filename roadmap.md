@@ -24,7 +24,7 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 - **10AA-28/29 — Globo, dueña y apertura:** ver «Tú» en burbujas de la dueña; chip «Precio»/«Valor» en un mensaje real.
 - **10AA-24/25/26 — Chats en tiempo real:** chat nuevo visible en admin en < 2 s; borrador IA breve con cliente real (no se simulan envíos).
 - **09AA-29 — Mensaje del cliente fiable, precio en el borrador y caché por inmueble (pedido por ella 2026-10-09, en curso):** retest desde cero del hilo de Puerto Ordaz.
-- **09AA-30 — Caché por inmueble:** verificar F3 en lab (F4 en dev, §6).
+- **09AA-30 — Caché por inmueble:** retest vivo de F1/F3 y revisión del panel admin (F4) en dev; código y BD de pruebas verificados (2026-10-12).
 - **09AA-23 — Vínculo visible:** crear el inmueble Río Aro con precio y Regenerar el hilo `salazar`.
 - **09AA-19 — Burbujas estructuradas:** retest F4 (3 filas intactas, 0 corregidas) y F7d (2 avisos).
 - **09AA-4 — Regenerar y prueba JWT:** `/borrador` con JWT → `fuente=ia`, sin WARN de vacío.
@@ -68,7 +68,6 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
   - **09AA-10** dedup y espejo M3 (decidir qué lado gana).
   - **09AA-11** proveedores IA (coordinado con 09AA-4).
   - **09AA-12** frontend de chat (paralelizable; buscar la discrepancia de estado).
-- **09AA-30 F4** — panel admin con origen visible (tras F3).
 - **09AA-14** — fix del scraper (lee chrome, no burbujas): `parseBurbujaLado` + tests bun.
 - **10AA-17** — `floatDraftCache` no se invalida al borrar en MN (cubierto por `force`).
 - **10AA-24/25/26** — el lab procesa ventanas en serie; paralelizar si molesta.

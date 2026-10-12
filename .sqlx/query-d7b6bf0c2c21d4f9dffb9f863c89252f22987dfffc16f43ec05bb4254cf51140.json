@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT thread_id, COUNT(*)::BIGINT AS \"borradores!\", COALESCE(SUM(usos), 0)::BIGINT AS \"usos!\", SUM(CASE WHEN corregida THEN 1 ELSE 0 END)::BIGINT AS \"corregidas!\", MAX(valida_hasta) AS \"ultimo!\" FROM mp_respuestas_cache WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados) GROUP BY thread_id HAVING $1::TIMESTAMPTZ IS NULL OR (MAX(valida_hasta), thread_id) < ($1, $2) ORDER BY MAX(valida_hasta) DESC, thread_id DESC LIMIT $3",
+  "query": "SELECT thread_id, COUNT(*) FILTER (WHERE origen IS DISTINCT FROM 'releer')::BIGINT AS \"borradores!\", COALESCE(SUM(usos), 0)::BIGINT AS \"usos!\", SUM(CASE WHEN corregida THEN 1 ELSE 0 END)::BIGINT AS \"corregidas!\", MAX(valida_hasta) AS \"ultimo!\" FROM mp_respuestas_cache WHERE thread_id NOT IN (SELECT thread_id FROM mp_chats_archivados) GROUP BY thread_id HAVING $1::TIMESTAMPTZ IS NULL OR (MAX(valida_hasta), thread_id) < ($1, $2) ORDER BY MAX(valida_hasta) DESC, thread_id DESC LIMIT $3",
   "describe": {
     "columns": [
       {
@@ -44,5 +44,5 @@
       null
     ]
   },
-  "hash": "9e643ec9507888f3c4e17a82cdf0ca15b9b21403d468ed71160b3c98bee060c8"
+  "hash": "d7b6bf0c2c21d4f9dffb9f863c89252f22987dfffc16f43ec05bb4254cf51140"
 }

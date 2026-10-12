@@ -183,8 +183,13 @@ export function ChatsMarketplace() {
                   )}
                   <span className="mt-0.5 block text-muted-foreground">
                     {c.borradores} borrador{c.borradores === 1 ? '' : 'es'} · {c.usos} uso{c.usos === 1 ? '' : 's'} ·{' '}
-                    {fechaCorta(c.ultimo)}
+                    {c.ultimo_borrador_en ? `último borrador ${fechaCorta(c.ultimo_borrador_en)}` : `vigente hasta ${fechaCorta(c.ultimo)}`}
                   </span>
+                  {(c.compartida_por ?? 1) > 1 && (
+                    <Badge variant="secondary" className="mt-1 text-[10px]">
+                      compartida por {c.compartida_por} hilos
+                    </Badge>
+                  )}
                 </ButtonPlano>
                 {/* [09AA-30] Tres puntos por conversación, dentro de la caja de la fila:
                  * archivar, borrar borrador o borrar el chat entero. */}
@@ -261,13 +266,11 @@ export function ChatsMarketplace() {
                     corregida por la dueña
                   </Badge>
                 )}
+                <Badge variant="outline" className="text-[10px]">
+                  {textoOrigen(f.origen)}
+                </Badge>
                 <span>
-                  {[
-                    textoUsos(f.usos),
-                    `vigente hasta ${fechaCorta(f.valida_hasta)}`,
-                    textoOrigen(f.origen),
-                    ...textoMetricas(f),
-                  ].join(' · ')}
+                  {[textoUsos(f.usos), `vigente hasta ${fechaCorta(f.valida_hasta)}`, ...textoMetricas(f)].join(' · ')}
                 </span>
               </span>
             </li>

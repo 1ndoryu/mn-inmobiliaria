@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT thread_id AS \"thread_id!\", MAX(creada_en) AS \"ultimo\", MAX(compartida)::BIGINT AS \"compartida\" FROM ( SELECT c.thread_id, c.creada_en, CASE WHEN c.mensaje_clave IS NULL THEN 1 ELSE ( SELECT COUNT(DISTINCT o.thread_id) FROM mp_respuestas_cache o WHERE o.catalog_hash = c.catalog_hash AND o.precio_hash = c.precio_hash AND o.mensaje_clave = c.mensaje_clave AND o.origen IS DISTINCT FROM 'releer' ) END AS compartida FROM mp_respuestas_cache c WHERE c.thread_id = ANY($1) AND c.origen IS DISTINCT FROM 'releer' ) t GROUP BY thread_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "thread_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "ultimo",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "compartida",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "feb61191e7ce0132b5d8ed079301ca0cb91f5916b3a3e63e53f9cb1ad1b9abfd"
+}
