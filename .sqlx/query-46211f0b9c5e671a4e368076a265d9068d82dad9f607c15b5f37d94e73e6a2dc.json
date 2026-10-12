@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO agent_outbox (kind, payload, idempotency_key) VALUES ('whatsapp', $1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "46211f0b9c5e671a4e368076a265d9068d82dad9f607c15b5f37d94e73e6a2dc"
+}

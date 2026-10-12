@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (COALESCE(MAX(sequence_num), 0) + 1)::BIGINT AS \"siguiente!\" FROM agent_messages WHERE session_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "siguiente!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "49192b78ebc69b939fb8717a5c7f721471a183f0e16de73c730ec0462cf1e922"
+}

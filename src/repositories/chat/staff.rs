@@ -182,3 +182,70 @@ pub(crate) async fn listar_sesiones_de_cliente(
     .await?;
     Ok(filas)
 }
+
+/// [09AA-7] Resultado de persistir una respuesta staff: mensaje nuevo, o un
+/// reintento cuya clave ya estaba guardada (con el número de secuencia dado).
+pub(crate) enum Persistida {
+    Nueva(glory_agent::models::ChatMessage),
+    Duplicada { sequence_num: i64 },
+}
+
+/// [09AA-7] Escritura atómica del turno humano: mensaje y outbox en una
+/// transacción (o los dos o ninguno). Bloquea la sesión hasta el commit para
+/// que dos envíos del mismo hilo no calculen el mismo número.
+pub(crate) async fn persistir_respuesta_staff(
+    pool: &PgPool,
+    session_id: Uuid,
+    body: &str,
+    clave: Option<&str>,
+    outbox: Option<&serde_json::Value>,
+) -> Result<Persistida, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    sqlx::query!(
+        "SELECT id FROM agent_sessions WHERE id = $1 FOR UPDATE",
+        session_id
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if let Some(k) = clave {
+        let previa = sqlx::query_scalar!(
+            "SELECT sequence_num FROM agent_messages WHERE session_id = $1 AND idempotency_key = $2",
+            session_id,
+            k
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(sequence_num) = previa {
+            return Ok(Persistida::Duplicada { sequence_num });
+        }
+    }
+    let sequence_num = sqlx::query_scalar!(
+        r#"SELECT (COALESCE(MAX(sequence_num), 0) + 1)::BIGINT AS "siguiente!" FROM agent_messages WHERE session_id = $1"#,
+        session_id
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    let msg = sqlx::query_as!(
+        glory_agent::models::ChatMessage,
+        "INSERT INTO agent_messages (session_id, sender, body, sequence_num, idempotency_key) \
+         VALUES ($1, 'staff', $2, $3, $4) \
+         RETURNING id, session_id, sender, body, sequence_num, input_tokens, output_tokens, created_at",
+        session_id,
+        body,
+        sequence_num,
+        clave
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if let Some(payload) = outbox {
+        sqlx::query!(
+            "INSERT INTO agent_outbox (kind, payload, idempotency_key) VALUES ('whatsapp', $1, $2)",
+            payload,
+            clave.map(|k| format!("staff:{session_id}:{k}"))
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(Persistida::Nueva(msg))
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM agent_outbox WHERE payload->>'session_id' = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "02e250a78f6745568248d7aef9e898c4605b3d0e938fa5e139137d7abc7f4385"
+}

@@ -2,11 +2,14 @@ use axum::extract::{Path, Query, State};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use serde::Deserialize;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::middleware::AuthStaff;
-use crate::repositories::chat::staff::{ClienteResumen, SesionDeCliente, SesionResumen};
+use crate::repositories::chat::staff::{
+    persistir_respuesta_staff, ClienteResumen, Persistida, SesionDeCliente, SesionResumen,
+};
 use crate::AppState;
 use glory_agent::errors::AgentError;
 
@@ -117,6 +120,10 @@ async fn historial(
 #[derive(Debug, Deserialize)]
 struct RespuestaStaff {
     body: String,
+    /// [09AA-7] Clave por envío que genera el panel. Un reintento con la misma
+    /// clave no vuelve a guardar ni a encolar el mensaje.
+    #[serde(default)]
+    idempotency_key: Option<String>,
 }
 
 /// Responder como humano: persiste (sender `staff`), emite por el WS del
@@ -124,6 +131,10 @@ struct RespuestaStaff {
 /// [289A-2] Si la sesión tiene hilo `WhatsApp`, el mensaje también se encola
 /// al outbox `whatsapp` (`motivo: manual`): antes solo quedaba en el panel
 /// y al cliente de `WhatsApp` no le llegaba nada.
+/// [09AA-7] Mensaje y outbox se escriben en una transacción (o los dos o
+/// ninguno) y un reintento con `idempotency_key` devuelve `duplicado: true`.
+/// La toma del hilo va después del commit: son escrituras idempotentes que se
+/// repiten sin riesgo si fallan.
 async fn responder(
     _auth: AuthStaff,
     State(state): State<AppState>,
@@ -136,48 +147,49 @@ async fn responder(
             "mensaje vacio o >8000 chars".to_string(),
         ));
     }
+    let clave = input
+        .idempotency_key
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty());
+    if clave.as_ref().is_some_and(|k| k.len() > 64) {
+        return Err(AppError::BadRequest(
+            "idempotency_key supera 64 chars".to_string(),
+        ));
+    }
     glory_agent::persistence::ensure_session(&state.pool, id)
         .await
         .map_err(|e| fail(&e))?;
-    /* Secuencia con `insert_message_seq` (reseed + retry 23505): el contador
-     * en memoria del hub vuelve a 1 en cada reinicio y colisiona. */
-    let msg = glory_agent::persistence::insert_message_seq(
-        &state.pool,
-        &state.hub,
-        id,
-        "staff",
-        &body,
-        None,
-        None,
-    )
-    .await
-    .map_err(|e| fail(&e))?;
-    let seq = msg.sequence_num;
-    let _ = state
-        .hub
-        .broadcast(id, &glory_agent::models::WsServerMessage::live(msg));
-    if let Some((canal, telefono)) =
-        crate::repositories::ClienteRepository::hilo_whatsapp(&state.pool, id)
-            .await
-            .map_err(AppError::from)?
+    let outbox = match crate::repositories::ClienteRepository::hilo_whatsapp(&state.pool, id)
+        .await
+        .map_err(AppError::from)?
     {
-        let destino = telefono.as_deref().map(str::trim).filter(|v| !v.is_empty());
-        if let Some(destino) = destino {
-            glory_agent::persistence::enqueue_outbox(
-                &state.pool,
-                "whatsapp",
+        Some((canal, telefono)) => telefono
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(|destino| {
                 serde_json::json!({
                     "session_id": id,
                     "destino": destino,
                     "texto": body,
                     "via": canal,
                     "motivo": "manual",
-                }),
-            )
-            .await
-            .map_err(|e| fail(&e))?;
+                })
+            }),
+        None => None,
+    };
+    let persistida = persistir_respuesta(&state.pool, id, &body, clave.as_deref(), outbox).await?;
+    let duplicado = matches!(persistida, Persistida::Duplicada { .. });
+    let seq = match persistida {
+        Persistida::Nueva(msg) => {
+            let seq = msg.sequence_num;
+            let _ = state
+                .hub
+                .broadcast(id, &glory_agent::models::WsServerMessage::live(msg));
+            seq
         }
-    }
+        Persistida::Duplicada { sequence_num } => sequence_num,
+    };
     glory_agent::persistence::set_session_ai(&state.pool, id, false)
         .await
         .map_err(|e| fail(&e))?;
@@ -189,7 +201,37 @@ async fn responder(
     crate::repositories::ClienteRepository::marcar_atencion(&state.pool, id, "delegada")
         .await
         .map_err(AppError::from)?;
-    Ok(Json(serde_json::json!({"ok": true, "sequence_num": seq})))
+    Ok(Json(
+        serde_json::json!({"ok": true, "sequence_num": seq, "duplicado": duplicado}),
+    ))
+}
+
+/// [09AA-7] Escritura atómica del turno humano (SQL en el repositorio). Reintenta
+/// solo si otro escritor (p. ej. `insert_message_seq`) tomó el mismo número de
+/// secuencia.
+async fn persistir_respuesta(
+    pool: &PgPool,
+    session_id: Uuid,
+    body: &str,
+    clave: Option<&str>,
+    outbox: Option<serde_json::Value>,
+) -> Result<Persistida, AppError> {
+    const INTENTOS: u8 = 3;
+    let mut intento = 1;
+    loop {
+        match persistir_respuesta_staff(pool, session_id, body, clave, outbox.as_ref()).await {
+            Err(e) if es_unique_violation(&e) && intento < INTENTOS => {
+                intento += 1;
+            }
+            otro => return otro.map_err(AppError::from),
+        }
+    }
+}
+
+fn es_unique_violation(e: &sqlx::Error) -> bool {
+    e.as_database_error()
+        .and_then(|d| d.code())
+        .is_some_and(|c| c == "23505")
 }
 
 #[derive(Debug, Deserialize)]
@@ -439,3 +481,93 @@ async fn sesiones_de_cliente(
 
 /* [08AA-6] El test de la allowlist vive con su dominio en
  * `chat_staff_config::pruebas`. */
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    /* Sin `DATABASE_URL` de rama (o apuntando a la BD de desarrollo) se omite,
+     * como el resto de tests de BD viva. */
+    fn pool_si_hay() -> Option<PgPool> {
+        let url = crate::config::url_bd_pruebas()?;
+        sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect_lazy(&url)
+            .ok()
+    }
+
+    /* [09AA-7] Un reintento con la misma clave no duplica el mensaje ni el
+     * envío a WhatsApp; sin hilo WhatsApp no se encola nada. */
+    #[tokio::test]
+    async fn responder_con_clave_no_duplica_mensaje_ni_envio() {
+        let Some(pool) = pool_si_hay() else { return };
+        let sid = Uuid::new_v4();
+        glory_agent::persistence::ensure_session(&pool, sid)
+            .await
+            .unwrap();
+        let outbox = serde_json::json!({
+            "session_id": sid,
+            "destino": "584120825234",
+            "texto": "Hola",
+            "via": "wa_a",
+            "motivo": "manual",
+        });
+        let clave = format!("prueba-{sid}");
+        let primera = persistir_respuesta(&pool, sid, "Hola", Some(&clave), Some(outbox.clone()))
+            .await
+            .unwrap();
+        assert!(matches!(primera, Persistida::Nueva(ref m) if m.sequence_num == 1));
+        let segunda = persistir_respuesta(&pool, sid, "Hola", Some(&clave), Some(outbox))
+            .await
+            .unwrap();
+        assert!(matches!(segunda, Persistida::Duplicada { sequence_num: 1 }));
+
+        let mensajes = sqlx::query_scalar!(
+            r#"SELECT COUNT(*)::BIGINT AS "n!" FROM agent_messages WHERE session_id = $1"#,
+            sid
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(mensajes, 1);
+        let encolados = sqlx::query_scalar!(
+            r#"SELECT COUNT(*)::BIGINT AS "n!" FROM agent_outbox WHERE payload->>'session_id' = $1"#,
+            sid.to_string()
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(encolados, 1);
+
+        let web = Uuid::new_v4();
+        glory_agent::persistence::ensure_session(&pool, web)
+            .await
+            .unwrap();
+        let sin_hilo = persistir_respuesta(&pool, web, "Hola", Some("web-1"), None)
+            .await
+            .unwrap();
+        assert!(matches!(sin_hilo, Persistida::Nueva(_)));
+        let sin_outbox = sqlx::query_scalar!(
+            r#"SELECT COUNT(*)::BIGINT AS "n!" FROM agent_outbox WHERE payload->>'session_id' = $1"#,
+            web.to_string()
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(sin_outbox, 0);
+
+        sqlx::query!(
+            "DELETE FROM agent_outbox WHERE payload->>'session_id' = $1",
+            sid.to_string()
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        for s in [sid, web] {
+            sqlx::query!("DELETE FROM agent_messages WHERE session_id = $1", s)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+    }
+}

@@ -107,6 +107,17 @@ async fn procesar_aviso(
             .filter(|v| !v.is_empty())
     };
     let Some(destino) = destino else {
+        /* [09AA-7] Dead-letter: sin destino el aviso no puede salir. Tras 1 h
+         * en `pending` pasa a `failed` (visible en el panel, sin reintento
+         * automático) para que no ocupe el lote de 10 de `fetch_pending_outbox`
+         * y bloquee a los avisos nuevos. */
+        if chrono::Utc::now() - entry.created_at > chrono::Duration::hours(1) {
+            tracing::error!(
+                "alerta WhatsApp {}: sin 'whatsapp_admin' tras 1 h, dead-letter",
+                entry.id
+            );
+            return "failed";
+        }
         tracing::warn!(
             "alerta WhatsApp {}: sin 'whatsapp_admin' en agent_config, se reintenta",
             entry.id
@@ -249,6 +260,39 @@ mod pruebas {
     #[tokio::test]
     async fn gateway_caido_marca_failed_no_pending_eterno() {
         let Some(pool) = pool_si_hay() else { return };
+        /* [09AA-7] Sin `whatsapp_admin` ni `destino` el aviso no puede salir:
+         * queda `pending` la primera hora y luego pasa a `failed` (dead-letter).
+         * Va en este mismo test porque ambos casos tocan `whatsapp_admin` y así
+         * no corren en paralelo. */
+        sqlx::query("DELETE FROM agent_config WHERE key = 'whatsapp_admin'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let http_sin = reqwest::Client::new();
+        let url_caida = "http://127.0.0.1:9/inexistente";
+        let mut sin_destino = glory_agent::persistence::enqueue_outbox(
+            &pool,
+            "whatsapp",
+            serde_json::json!({"session_id": uuid::Uuid::new_v4().to_string(), "motivo": "prueba"}),
+        )
+        .await
+        .unwrap();
+        let id_sin = sin_destino.id;
+        assert_eq!(
+            procesar_aviso(&pool, &http_sin, url_caida, None, &sin_destino).await,
+            "pending"
+        );
+        sin_destino.created_at = chrono::Utc::now() - chrono::Duration::hours(2);
+        assert_eq!(
+            procesar_aviso(&pool, &http_sin, url_caida, None, &sin_destino).await,
+            "failed"
+        );
+        sqlx::query("DELETE FROM agent_outbox WHERE id = $1")
+            .bind(id_sin)
+            .execute(&pool)
+            .await
+            .unwrap();
+
         glory_agent::persistence::set_config(&pool, "whatsapp_admin", "+34600000000")
             .await
             .unwrap();
