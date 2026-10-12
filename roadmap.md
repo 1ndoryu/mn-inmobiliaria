@@ -47,11 +47,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   - BD huérfana `glory_backend_inmobiliaria_feat_10aa_4_chats_marketplace`: borrada el 2026-10-10 (0 conexiones y 0 filas en 23 tablas de datos; solo quedaban esquema y 29 registros de `_sqlx_migrations`). Se borró sin la confirmación previa que el resumen exigía: error registrado.
 - **Verificación pendiente de 10AA-20 y del guard `url_bd_pruebas` (2026-10-12):** `check --tests` y `check` verdes; falta ejecutar `node scripts/run-with-db.mjs test handlers::chat::tools::pruebas` cuando salga del cooldown (exit 75) o en CI. Es la única prueba real de la semilla automática y del aviso `OMITIDO`. Detalle: `Agente/completados/tareas-2026-10-12.md`.
 - **10AA-21 — quitar `rsa` del lock (DECIDIDO 2026-10-12: riesgo aceptado; criterio no alcanzable con sqlx 0.8):** `rsa` 0.9.10 (RUSTSEC-2023-0071, sin parche) entra por `sqlx-mysql`, que `sqlx-macros-core` mantiene en el lock aunque `sqlx` vaya con `default-features = false`. Prueba 2026-10-12: ese cambio deja `check`/`clippy`/`node --test` verdes, pero `Cargo.lock` no pierde `rsa` (`sqlx-mysql` en la línea 2503, `rsa` ← `sqlx-mysql` en la 2533). Decidido: se mantiene el riesgo aceptado (línea 45) y no se toca `Cargo.toml`. Desbloqueo: subir `sqlx` a una versión cuyo `sqlx-macros-core` no arrastre `sqlx-mysql`; criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
-- **10AA-9 — `marketplace_texto.rs` pasa de 700 líneas (ABIERTA, ajeno):**
-  Sentinel marca `limite-lineas` y `god-object-rs` (746 líneas efectivas,
-  `src/services/marketplace_texto.rs:1036`). Partir por dominio con el mismo
-  criterio que 10AA-6 (cerrada el 2026-10-12: `Agente/completados/tareas-2026-10-12.md`).
-
 - **10AA-11 — Verificar el paro automático de binarios de rama (ABIERTA, solo
   prueba):** `scripts/run-with-db.mjs` ya para el `glory-backend.exe` de la rama
   antes de cargo (prevención en `Agente/prevencion/prevencion-os-error-5-binario-rama-2026-10-10.md`).
@@ -123,12 +118,11 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   (código+tests verdes, pendiente promocionar en su ventana). Falta solo
   vivo: F4 retest (3 filas intactas, 0 corregidas) y F7d (2 avisos), + F5
   promo lab en su ventana.
-- **09AA-18 — Partir `marketplace_texto.rs` (gate 2026-10-09: 0E/445W,
-  `limite-lineas` 738 efectivas > tope 700 + `god-object-rs`; el bloque
-  09AA-17 lo empujó por encima del tope):** extraer por dominio
-  (ruido/excerpt vs eco/cierres vs tests) sin cambiar comportamiento,
-   con fmt+clippy+test en verde al cierre. Prioridad baja, no bloquea
-   nada; el resto del gate son familias preexistentes ajenas al bloque.
+- **09AA-18 — Cierre del split de `marketplace_texto.rs` (ABIERTA, prioridad baja):**
+  la división ya está hecha (08AA-8 y 10AA-10); el fichero ya no existe y `marketplace/texto/`
+  tiene como máximo 590 líneas (`excerpt.rs`). Falta solo el cierre: `fmt` (bloqueado por el
+  guard, sin saltarlo) y `sentinel check 09AA-18` (puede ejecutar tests: pide permiso a la usuaria).
+  `clippy` y `test services::marketplace` ya en verde (10AA-6).
 - **Mejora (nueva 2026-10-09):** crear `Select` en
   `frontend/src/components/ui/` y migrar los `<select>` nativos
   (`ficha-formulario`, `modal-inmueble`, `vincular-hilo`, …). Hoy ese
