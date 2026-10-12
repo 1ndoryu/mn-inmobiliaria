@@ -113,13 +113,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   (código+tests verdes, pendiente promocionar en su ventana). Falta solo
   vivo: F4 retest (3 filas intactas, 0 corregidas) y F7d (2 avisos), + F5
   promo lab en su ventana.
-- **09AA-18 — Cierre del split de `marketplace_texto.rs` (ABIERTA, prioridad baja):**
-  la división ya está hecha (08AA-8 y 10AA-10); el fichero ya no existe y `marketplace/texto/`
-  tiene como máximo 590 líneas (`excerpt.rs`). Falta solo el cierre: `fmt` (bloqueado por el
-  guard, sin saltarlo). Bloqueos reales (2026-10-12): `sentinel check 09AA-18` para en preflight
-  `tool-release-evidence-missing` del checkout de Sentinel `ba6d9c7` (v0.7.24, `quality-tools.json`);
-  certificar esa release es decisión de la usuaria (`Agente/documentacion/mantenimiento-herramientas-calidad-2026-10-06.md`).
-  Decidido por la usuaria: dejar abierta hasta certificar Sentinel. `clippy` y `test services::marketplace` ya en verde (10AA-6).
 - **Mejora (nueva 2026-10-09):** crear `Select` en
   `frontend/src/components/ui/` y migrar los `<select>` nativos
   (`ficha-formulario`, `modal-inmueble`, `vincular-hilo`, …). Hoy ese
@@ -428,7 +421,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 ## Deuda sin tocar, por bloques (decidido 2026-10-11: una tarea por bloque)
 
-- **Bloque A — marketplace y partición (10AA-9, 09AA-18):** partir `marketplace_texto.rs`. Criterio como 10AA-6 (cerrada).
+- **Bloque A — marketplace y partición (10AA-9, 09AA-18):** cerrado el 2026-10-12: partición de `marketplace_texto.rs` completa, `fmt` aplicado (`8b84358e`), `cargo check --tests` en verde; 09AA-18 registrada en `Agente/completados/tareas-2026-10-12.md`.
 - **Bloque B — capas (08AA-34):** cerrado el 2026-10-12: 08AA-34 resuelta por 10AA-14 (ver `Agente/completados/tareas-2026-10-12.md`).
 - **Bloque C — CI:** 10AA-21 decidido como riesgo aceptado (2026-10-12); 10AA-11 cerrada (ver `Agente/completados/tareas-2026-10-12.md`).
 - **Bloque D — chat backend (09AA-7, 09AA-8, 09AA-10, 09AA-11, 09AA-12):** invariantes de mensajería, webhook, dedup, proveedores IA y frontend de chat. Ver sus entradas arriba.
