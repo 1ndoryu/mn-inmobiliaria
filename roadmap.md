@@ -14,7 +14,7 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 - **08AA-30 — filas duplicadas en `mp_respuestas_cache`:** decidido «Dejarlas» (161 filas, 48 `thread_id` repetidos, 82 sobrantes). No se borran; la unificación de `thread_id` sigue en §6.
 - **289A-5 — sesión `739bb63e` con `devolver_a_ia`:** decidido «No, pendiente». No se reintenta ahora.
 - **03AA-3 Asistente Marketplace:** falta la firma de ella para M1, el remoto y la fecha.
-- **279A-4..8 Extras públicos:** decidir si se cablean a ficha e IA (ver 279A, §6).
+- **279A-4..8 Extras públicos:** decidido 2026-10-12: la ficha pública no muestra extras todavía. Criterio de la usuaria: solo extras positivos que agreguen valor, con revisión lista por lista (el valor depende del caso: planta baja frente a último piso según el edificio). La IA sigue leyéndolos (ver 279A, §6).
 - **Deploy 239A-1, Fase 5.4:** confirmar la password admin rotada (o pedir otra).
 - **169A-1 — `AGENTE_CONTACTO`:** confirmar el valor real que va en `.env` (no se muestra aquí).
 - **Entrada de personal en producción:** acción de la usuaria (entrar una vez en la app); el agente no entra en producción.
@@ -74,7 +74,7 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 - **199A-7** — Decidido 2026-10-12: no implementar. Opcional, sin ficha ni urgencia; el reordenado por DELETE+POST (199A-6) funciona. Se reabre si lo pide la usuaria.
 - **299A-3** — pendiente de proveedor IA operativo (§5) para reproducir las dos notas de voz (`src/services/turno.rs:511-517`).
 - **169A-2** — pendiente (agente): UI admin sobre `GET/PATCH /api/admin/solicitudes` (`src/handlers/comercial/solicitud.rs:93-150`).
-- **279A** — pendiente de decisión de la usuaria: qué claves de `extras` van en la ficha pública (§2).
+- **279A** — ficha pública sin extras hasta la revisión de la usuaria (§2). Pendiente del agente: preparar la lista candidata de extras positivos con su motivo, para que ella la revise.
 - **03AA-5** — bloqueado por el corpus de la usuaria (5+2+1 HTML y dataset; `Agente/planes/plan-detector-captacion-2026-10-03.md:42-51`).
 - **Fuera de MN:** configurar `coolify-manager-rs` para desplegar proyectos Rust (repo separado).
 
