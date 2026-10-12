@@ -4,10 +4,11 @@
 // [309A-3] El hilo lo lleva `useHiloPaginado` (última página al abrir,
 // fusión al refrescar, anteponer al subir): aquí solo sesiones y acciones.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   actualizarSesion,
   listarSesiones,
+  nuevaClaveEnvio,
   responderSesion,
   type EstadoSesionChat,
   type ResumenSesion,
@@ -77,11 +78,20 @@ export function useBandejaChat() {
     void hilo.abrirHilo(id);
   }
 
+  /* [09AA-7] Un envío fallido conserva su clave: si ella reenvía el mismo
+   * texto en la misma sesión, el backend lo reconoce y no lo duplica. */
+  const envioPendiente = useRef<{ sesion: string; texto: string; clave: string } | null>(null);
+
   async function responder(texto: string): Promise<boolean> {
     if (!seleccionada || !texto.trim()) return false;
+    const limpio = texto.trim();
+    const previo = envioPendiente.current;
+    const clave = previo && previo.sesion === seleccionada && previo.texto === limpio ? previo.clave : nuevaClaveEnvio();
+    envioPendiente.current = { sesion: seleccionada, texto: limpio, clave };
     setRespondiendo(true);
     try {
-      await responderSesion(seleccionada, texto.trim());
+      await responderSesion(seleccionada, limpio, clave);
+      envioPendiente.current = null;
       await hilo.refrescarHilo(seleccionada);
       return true;
     } catch (e) {

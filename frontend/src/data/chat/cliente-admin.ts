@@ -59,11 +59,21 @@ export function historialSesion(id: string, opts?: { limit?: number; beforeSeq?:
   return apiFetch<MensajeServidor[]>(`/api/admin/agent/sesiones/${encodeURIComponent(id)}/historial?${q.toString()}`);
 }
 
+/* [09AA-7] Clave por envío: un reintento con la misma no duplica el mensaje
+ * ni el envío a WhatsApp. `getRandomValues` funciona también fuera de HTTPS. */
+export function nuevaClaveEnvio(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /* Responder toma el hilo (backend apaga la IA y marca `escalated`). */
-export function responderSesion(id: string, texto: string): Promise<{ ok: boolean; sequence_num: number }> {
+export function responderSesion(
+  id: string,
+  texto: string,
+  claveEnvio: string,
+): Promise<{ ok: boolean; sequence_num: number; duplicado: boolean }> {
   return apiFetch(`/api/admin/agent/sesiones/${encodeURIComponent(id)}/mensajes`, {
     method: 'POST',
-    body: JSON.stringify({ body: texto }),
+    body: JSON.stringify({ body: texto, idempotency_key: claveEnvio }),
   });
 }
 
