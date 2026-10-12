@@ -8,7 +8,7 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 
 ## 2. Decisiones de la usuaria (bloqueos)
 
-- **Aplazado — 08AA-6 barrido Sentinel (~518 hallazgos):** decidido aplazar, sin urgencia. Ver `Agente/completados/tareas-2026-10-12.md`.
+- **08AA-6 barrido Sentinel:** 0 hallazgos Sentinel/Varsense, análisis 2026-10-12 (HEAD `8d3f6bfd`). La cifra de ~518 era histórica y ya no aplica. Ver `Agente/completados/tareas-2026-10-12.md`.
 - **Riesgo aceptado — 10AA-21 (`rsa` 0.9.10, RUSTSEC-2023-0071):** decidido 2026-10-12. Se reabre al subir `sqlx` sin `sqlx-mysql`; criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
 - **Webhook del gateway (09AA-8) — secreto `WA_WEBHOOK_SECRETO`:** decidido «tras 12AA-1» (2026-10-12). Al cerrar 12AA-1: fijar el secreto en `.env` y en el gateway, y hacer fail-closed `secreto_valido` (`src/services/transporte.rs:95-103`), que hoy acepta cualquier valor si el esperado está vacío.
 - **08AA-30 — filas duplicadas en `mp_respuestas_cache`:** decidido «Dejarlas» (161 filas, 48 `thread_id` repetidos, 82 sobrantes). No se borran; la unificación de `thread_id` sigue en §6.
