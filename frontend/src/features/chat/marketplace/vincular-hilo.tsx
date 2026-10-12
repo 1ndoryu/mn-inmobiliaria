@@ -5,8 +5,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { esMarketplaceIdValido, type Inmueble } from '@/domain/inmueble';
-import { CLASE_SELECT, Etiqueta } from '@/features/inmuebles/campos-formulario';
+import { Etiqueta } from '@/features/inmuebles/campos-formulario';
 
 export function VincularHilo({
   inmuebles,
@@ -28,7 +29,7 @@ export function VincularHilo({
     <div className="space-y-3 rounded-md border p-3">
       <div className="space-y-1">
         <Etiqueta>Inmueble destino</Etiqueta>
-        <select /* sentinel-disable html-nativo-en-vez-de-componente */ className={CLASE_SELECT} value={inmuebleId} onChange={(e) => setInmuebleId(e.target.value)}>
+        <Select value={inmuebleId} onChange={(e) => setInmuebleId(e.target.value)}>
           <option value="">Elige el inmueble…</option>
           {inmuebles.map((i) => (
             <option key={i.id} value={i.id}>
@@ -36,7 +37,7 @@ export function VincularHilo({
               {i.marketplaceId ? ` (aviso ${i.marketplaceId})` : ''}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="space-y-1">
         <Etiqueta>ID aviso Marketplace</Etiqueta>

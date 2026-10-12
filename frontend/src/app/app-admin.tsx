@@ -23,6 +23,7 @@ import type { EstadoInmueble, Inmueble } from '../domain/inmueble';
 import { resumirConexionIA } from '../domain/ia';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 
 /* [249A-1] Panel de gestión en módulo aparte: `App.tsx` lo carga con
  * `React.lazy` solo bajo `/admin*`, así el visitante público no descarga el
@@ -226,7 +227,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
                 className="pl-9"
               />
             </div>
-            <select /* sentinel-disable html-nativo-en-vez-de-componente */
+            <Select sinBase
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value as 'todos' | EstadoInmueble)}
               className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
@@ -236,7 +237,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
               <option value="reservado">reservado</option>
               <option value="vendido">vendido</option>
               <option value="alquilado">alquilado</option>
-            </select>
+            </Select>
           </div>
 
           {cargando ? (

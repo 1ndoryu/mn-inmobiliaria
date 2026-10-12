@@ -7,7 +7,7 @@ import {
   type Inmueble,
   type InmuebleDraft,
 } from '@/domain/inmueble';
-import { BannerBorrador, CLASE_SELECT, Etiqueta } from './campos-formulario';
+import { BannerBorrador, Etiqueta } from './campos-formulario';
 import { CampoAliasTitulos } from './campos/alias-titulos';
 import { CampoMarketplaceId } from './campos/marketplace-id';
 import { FichaFormulario } from './ficha-formulario';
@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useModalInmueble } from '@/hooks/inmuebles/use-modal-inmueble';
@@ -153,24 +154,23 @@ export function ModalInmueble(props: Props) {
             </div>
             <div className="space-y-1">
               <Etiqueta>Estado</Etiqueta>
-              <select /* sentinel-disable html-nativo-en-vez-de-componente */
+              <Select
                 value={form.estado}
                 onChange={(e) => cambiar('estado', e.target.value as InmuebleDraft['estado'])}
-                className={CLASE_SELECT}
               >
                 {ESTADOS.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="space-y-1">
               <Etiqueta error={errores.tipo}>Tipo</Etiqueta>
-              <select /* sentinel-disable html-nativo-en-vez-de-componente */
+              <Select
                 value={form.tipo}
                 onChange={(e) => cambiar('tipo', e.target.value as InmuebleDraft['tipo'])}
-                className={cn(CLASE_SELECT, errores.tipo && 'border-destructive')}
+                className={errores.tipo ? 'border-destructive' : undefined}
               >
                 <option value="">Seleccionar…</option>
                 {TIPOS.map((t) => (
@@ -178,20 +178,20 @@ export function ModalInmueble(props: Props) {
                     {ETIQUETAS_TIPO[t]}
                   </option>
                 ))}
-              </select>
+              </Select>
               {errores.tipo && <p className="text-xs text-destructive">{errores.tipo}</p>}
             </div>
             <div className="space-y-1">
               <Etiqueta error={errores.operacion}>Operación</Etiqueta>
-              <select /* sentinel-disable html-nativo-en-vez-de-componente */
+              <Select
                 value={form.operacion}
                 onChange={(e) => cambiar('operacion', e.target.value as InmuebleDraft['operacion'])}
-                className={cn(CLASE_SELECT, errores.operacion && 'border-destructive')}
+                className={errores.operacion ? 'border-destructive' : undefined}
               >
                 <option value="">Seleccionar…</option>
                 <option value="venta">venta</option>
                 <option value="alquiler">alquiler</option>
-              </select>
+              </Select>
               {errores.operacion && <p className="text-xs text-destructive">{errores.operacion}</p>}
             </div>
             <div className="space-y-1">

@@ -5,6 +5,7 @@ import type { FiltrosAvanzados } from '../busqueda';
 import { CLASE_ACTIVO, CLASE_BORDE, CLASE_FONDO, CLASE_TEXTO, CLASE_TINTA, SOLO_MOVIL_TABLETA } from '../disenno';
 import { ButtonPlano } from '@/components/ui/button';
 import { InputPlano } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 
 /* Modal "Filtros avanzados": mismo concepto que el modal publicar (cuadrado,
  * tinta, sin sombras, Söhne 400 sin negritas; cierra con overlay o Escape,
@@ -142,7 +143,7 @@ function TipoFiltro({
   return (
     <label className={`flex-col gap-1 text-sm font-normal ${CLASE_TINTA} ${SOLO_MOVIL_TABLETA} flex`}>
       Tipo de inmueble
-      <select /* sentinel-disable html-nativo-en-vez-de-componente */
+      <Select sinBase
         value={valor ?? ''}
         onChange={(e) => alElegir(e.target.value === '' ? null : (e.target.value as TipoInmueble))}
         className={`w-full rounded-none border ${CLASE_BORDE} bg-transparent px-3 py-2 text-sm font-normal outline-none`}
@@ -153,7 +154,7 @@ function TipoFiltro({
             {ETIQUETAS_TIPO[t]}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

@@ -1,7 +1,8 @@
 import { CHECKLIST_ASK, COMUNES, NO_SE, claveNoSe, type ExtrasAsk } from '@/domain/ficha-ask';
 import type { TipoInmueble } from '@/domain/inmueble';
-import { CLASE_SELECT, Etiqueta } from './campos-formulario';
+import { Etiqueta } from './campos-formulario';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 
 /* Sección Ficha /ask del modal admin: las mismas preguntas que /ask,
  * editables aquí (pisan lo guardado; vacío = sin responder). Sin tipo aún
@@ -45,7 +46,7 @@ export function FichaFormulario(props: {
           return (
             <div key={p.clave} className="space-y-1">
               <Etiqueta>{p.etiqueta}</Etiqueta>
-              <select /* sentinel-disable html-nativo-en-vez-de-componente */
+              <Select
                 value={actual === true ? 'si' : actual === false ? 'no' : actual === NO_SE ? 'nose' : ''}
                 onChange={(e) =>
                   props.alCambiarExtra(
@@ -53,13 +54,12 @@ export function FichaFormulario(props: {
                     e.target.value === 'si' ? true : e.target.value === 'no' ? false : e.target.value === 'nose' ? NO_SE : null,
                   )
                 }
-                className={CLASE_SELECT}
               >
                 <option value="">Sin responder</option>
                 <option value="si">Sí</option>
                 <option value="no">No</option>
                 <option value="nose">No lo sé</option>
-              </select>
+              </Select>
             </div>
           );
         }
@@ -68,7 +68,7 @@ export function FichaFormulario(props: {
           return (
             <div key={p.clave} className="space-y-1">
               <Etiqueta>{p.etiqueta}</Etiqueta>
-              <select /* sentinel-disable html-nativo-en-vez-de-componente */
+              <Select
                 value={valorActual}
                 onChange={(e) =>
                   props.alCambiarExtra(
@@ -76,7 +76,6 @@ export function FichaFormulario(props: {
                     e.target.value === 'si' ? true : e.target.value === 'no' ? false : e.target.value === '' ? null : e.target.value,
                   )
                 }
-                className={CLASE_SELECT}
               >
                 <option value="">Sin responder</option>
                 <option value="si">Sí</option>
@@ -88,7 +87,7 @@ export function FichaFormulario(props: {
                       {o.etiqueta}
                     </option>
                   ))}
-              </select>
+              </Select>
             </div>
           );
         }

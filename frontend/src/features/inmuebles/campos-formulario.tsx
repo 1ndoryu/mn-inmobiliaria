@@ -3,10 +3,7 @@ import { History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 /* Piezas compartidas de los formularios de inmueble: etiqueta y estilo de
- * selects. Extraído de `modal-inmueble` (Sentinel limite-lineas). */
-
-export const CLASE_SELECT =
-  'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30';
+ * banner de borrador. Extraído de `modal-inmueble` (Sentinel limite-lineas). */
 
 export function Etiqueta(props: { children: ReactNode; error?: string }) {
   return <span className="block text-sm font-medium">{props.children}</span>;
