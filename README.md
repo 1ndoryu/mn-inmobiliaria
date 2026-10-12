@@ -151,6 +151,20 @@ npm run type-check           # Verificar tipos TypeScript
 npm run codegen              # Regenerar cliente API desde OpenAPI
 ```
 
+## Lock de calidad (Sentinel y VarSense)
+
+`sentinel.lock.json` fija versión, commit y sha256 de las herramientas declaradas en `quality-tools.json`. No se edita a mano. Desde la raíz de MN, con el checkout de las herramientas instalado:
+
+```bash
+# Validar (sin escribir): sale con 0 si el lock coincide
+node "<area-trabajo>/workspace-manager/scripts/quality/lock-generator.mjs" --check
+
+# Regenerar tras cambiar la versión fijada (escribe con backup previo)
+node "<area-trabajo>/workspace-manager/scripts/quality/lock-generator.mjs" --write
+```
+
+`varsense.config.json` exime por patrón las clases que VarSense no puede seguir desde constantes TS (`texto-publica`, `fases-presentacion`, `parpadeo-cursor`; ver `frontend/src/features/publica/disenno.ts`).
+
 ## Clippy nivel paranoia
 
 El proyecto tiene configurado clippy en modo estricto (`[lints.clippy]` en Cargo.toml):

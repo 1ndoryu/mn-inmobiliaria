@@ -49,6 +49,6 @@
   },
   "orphanClassDetection": {
     "minClassLength": 3,
-    "excludeClassPatterns": ["fases-presentacion", "parpadeo-cursor"]
+    "excludeClassPatterns": ["texto-publica", "fases-presentacion", "parpadeo-cursor"]
   }
 }
