@@ -28,7 +28,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 
 - **Estado del globo, dueña y apertura (10AA-28/29, cerrado e integrado en `main` 2026-10-10, commit `73548f32`; detalle en `Agente/completados/tareas-2026-10-10.md`):**
   - Pendiente de prueba viva: ver en el admin que las burbujas de la dueña aparecen como «Tú»; chip «Precio»/«Valor» en un mensaje real; continuación con cliente real.
-  - Pendiente de prueba viva (10AA-31, 2026-10-11): las 55 filas `VEF0` previas al fix quedaron caducadas (copia en `C:\tmp\mn-10aa31\`, detalle en `Agente/completados/tareas-2026-10-11.md`); comprobar que al reabrir Yennifer y demás hilos se regeneran con la respuesta de continuación.
+  - Pendiente de prueba viva (10AA-31, 2026-10-11): las 55 filas de hilos con título `VEF0` (precio 0 del anuncio) previas al fix se caducaron y después las borró la purga de arranque (copia en `C:\tmp\mn-10aa31\`, detalle en `Agente/completados/tareas-2026-10-11.md`); comprobar que al reabrir Yennifer y demás hilos se regeneran con la respuesta de continuación.
 - **Regenerar automático (cerrado en código 2026-10-10, 10AA-17; detalle en `Agente/completados/tareas-2026-10-10.md`):**
   - Promoción del lab a `opencode-propio`: no se hace por iniciativa del agente (decisión de ella, 2026-10-10). La cola de lo pendiente vive en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promover»); la prueba viva con `MP_NUCLEO=on` va tras promover.
   - Abierto: `floatDraftCache` de main no se invalida al borrar en MN (cubierto por `force`).
