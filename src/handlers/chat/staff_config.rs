@@ -9,7 +9,7 @@ use axum::extract::State;
 use axum::Json;
 
 use crate::errors::AppError;
-use crate::middleware::AuthUser;
+use crate::middleware::AuthStaff;
 use crate::AppState;
 
 use super::staff::fail;
@@ -93,7 +93,7 @@ fn config_valida(clave: &str, valor: &str) -> bool {
 }
 
 pub(super) async fn leer_config(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
 ) -> Result<Json<std::collections::HashMap<String, Option<String>>>, AppError> {
     let mut mapa = std::collections::HashMap::new();
@@ -109,7 +109,7 @@ pub(super) async fn leer_config(
 /// Guarda config. Cada clave valida con `config_valida` (pura, testeada);
 /// lo inválido es 400 y nunca se persiste.
 pub(super) async fn guardar_config(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Json(input): Json<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, AppError> {

@@ -5,7 +5,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::errors::AppError;
-use crate::middleware::AuthUser;
+use crate::middleware::AuthStaff;
 use crate::repositories::chat::staff::{ClienteResumen, SesionDeCliente, SesionResumen};
 use crate::AppState;
 use glory_agent::errors::AgentError;
@@ -13,7 +13,7 @@ use glory_agent::errors::AgentError;
 use super::staff_config::{guardar_config, leer_config}; // [08AA-6] dominio config
 
 /* [169A-4] Atención humana del chat (panel admin). Cada ruta requiere JWT
- * (`AuthUser`); vive en el router `AppState` porque el extractor pide ese
+ * (`AuthStaff`); vive en el router `AppState` porque el extractor pide ese
  * estado, y emite por `AppState.hub` (mismo `ChatHub` que el visitante).
  * Enviar un mensaje como staff implica tomar el hilo: apaga la IA y marca
  * el ciclo `escalated` (como la pestaña Mensajes de Nakomi). */
@@ -64,7 +64,7 @@ struct FiltroSesiones {
 /// Bandeja staff: sesiones con último mensaje y avisos pendientes, en UNA
 /// consulta (LATERAL + subselect; prohibido N+1 por regla 7).
 async fn listar_sesiones(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Query(f): Query<FiltroSesiones>,
 ) -> Result<Json<Vec<SesionResumen>>, AppError> {
@@ -98,7 +98,7 @@ struct HistorialQuery {
 /// Orden ASC de lectura; `list_messages` del núcleo no acepta cursor, así
 /// que la consulta es propia (columnas en el orden de `ChatMessage`).
 async fn historial(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Query(q): Query<HistorialQuery>,
@@ -128,7 +128,7 @@ struct RespuestaStaff {
 /// al outbox `whatsapp` (`motivo: manual`): antes solo quedaba en el panel
 /// y al cliente de `WhatsApp` no le llegaba nada.
 async fn responder(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Json(input): Json<RespuestaStaff>,
@@ -204,7 +204,7 @@ struct DevolucionIA {
 /// como mensaje `staff`, el ciclo pasa a `answered`, la IA se reactiva y la
 /// máquina propia vuelve a `activa`. Solo humanos (JWT).
 async fn devolver_a_ia(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Json(input): Json<DevolucionIA>,
@@ -255,7 +255,7 @@ struct CambioSesion {
 /// Soltar la IA (`aiEnabled: true`), tomarla (`false`) o cerrar/archivar
 /// (`status`). Validado en boundary.
 async fn actualizar_sesion(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Json(input): Json<CambioSesion>,
@@ -313,7 +313,7 @@ struct FiltroClientes {
 
 /// Lista de clientes con nº de sesiones (UNA consulta, sin N+1).
 async fn listar_clientes(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Query(f): Query<FiltroClientes>,
 ) -> Result<Json<Vec<ClienteResumen>>, AppError> {
@@ -333,7 +333,7 @@ struct NuevoCliente {
 
 /// Alta manual de cliente (la dueña lo crea y luego le envía por `/enviar`).
 async fn crear_cliente(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Json(input): Json<NuevoCliente>,
 ) -> Result<Json<crate::models::Cliente>, AppError> {
@@ -380,7 +380,7 @@ struct CambioCliente {
 /// Ficha comercial editable (interés/presupuesto/zona/notas los completa F4
 /// con memoria; hoy los edita la dueña a mano).
 async fn actualizar_cliente(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     Json(input): Json<CambioCliente>,
@@ -428,7 +428,7 @@ async fn actualizar_cliente(
 
 /// Sesiones de un cliente (sus hilos web/WhatsApp enlazados por `clientes`).
 async fn sesiones_de_cliente(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<SesionDeCliente>>, AppError> {

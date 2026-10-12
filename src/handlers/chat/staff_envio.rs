@@ -14,7 +14,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::errors::AppError;
-use crate::middleware::AuthUser;
+use crate::middleware::AuthStaff;
 use crate::repositories::chat::envio::{AuditoriaFila, UsoDia};
 use crate::AppState;
 
@@ -155,7 +155,7 @@ async fn resolver_destino_envio(
 /// Enviar manual («dime y lo envío»): valida, resuelve hilo+destino y encola
 /// outbox `whatsapp` con `destino`+`media_url`; el worker lo manda.
 pub(super) async fn enviar_manual(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Json(input): Json<EnvioManual>,
 ) -> Result<Json<serde_json::Value>, AppError> {
@@ -191,7 +191,7 @@ pub(super) struct FiltroUso {
 /// Uso (mensajes y tokens por día×remitente; `tokens_in/out` exactos del
 /// núcleo F0 en mensajes `ai`, estima `len/4` del trigger en el resto).
 pub(super) async fn uso_mensajes(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Query(f): Query<FiltroUso>,
 ) -> Result<Json<Vec<UsoDia>>, AppError> {
@@ -208,7 +208,7 @@ pub(super) struct Limite {
 /// Auditoría: últimas tomas humanas con contexto + conteo IA/humano/visitante
 /// por hilo (UNA consulta, sin N+1).
 pub(super) async fn auditoria(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     State(state): State<AppState>,
     Query(q): Query<Limite>,
 ) -> Result<Json<Vec<AuditoriaFila>>, AppError> {
@@ -250,7 +250,7 @@ fn cliente_gateway() -> reqwest::Client {
 /// consola. El gateway caído es error explícito (nunca lista vacía
 /// silenciosa que parezca "sin sesiones").
 pub(super) async fn sesiones_whatsapp(
-    _auth: AuthUser,
+    _auth: AuthStaff,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let mut peticion = cliente_gateway().get(format!("{}/sesiones", gateway_base()));
     if let Ok(s) = std::env::var("GATEWAY_SEND_SECRET") {
@@ -279,7 +279,7 @@ pub(super) async fn sesiones_whatsapp(
 /// validado en el boundary; sin QR pendiente (ya vinculada o gateway sin
 /// esa sesión) devuelve 404 explícito, no imagen vacía.
 pub(super) async fn qr_whatsapp(
-    _auth: AuthUser,
+    _auth: AuthStaff,
     Path(canal): Path<String>,
 ) -> Result<impl axum::response::IntoResponse, AppError> {
     if !matches!(canal.as_str(), "wa_a" | "wa_b") {

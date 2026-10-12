@@ -11,11 +11,16 @@ use crate::models::{AuthResponse, LoginRequest, RegisterRequest, User};
 use crate::repositories::UserRepository;
 use crate::services::jwt;
 
-/// Claims del JWT — `sub` es el `user_id`, `exp` la expiración Unix
+/// Claims del JWT — `sub` es el `user_id`, `exp` la expiración Unix y `role`
+/// el rol de la cuenta al emitir el token. Los tokens anteriores a 09AA-9 no
+/// traen `role`: `serde(default)` lo deja vacío y la consola staff los
+/// rechaza (401), así que hay que volver a entrar para renovarlos.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: Uuid,
     pub exp: usize,
+    #[serde(default)]
+    pub role: String,
 }
 
 pub struct AuthService;
@@ -52,7 +57,7 @@ impl AuthService {
 
         let password_hash = Self::hash_password(&req.password)?;
         let user = UserRepository::create(pool, &req.email, &password_hash, "owner").await?;
-        let token = Self::generate_token(user.id, jwt_secret)?;
+        let token = Self::generate_token(user.id, &user.role, jwt_secret)?;
 
         Ok(AuthResponse {
             token,
@@ -105,7 +110,7 @@ impl AuthService {
             .verify_password(req.password.as_bytes(), &parsed_hash)
             .map_err(|_| AppError::Unauthorized)?;
 
-        let token = Self::generate_token(user.id, jwt_secret)?;
+        let token = Self::generate_token(user.id, &user.role, jwt_secret)?;
 
         Ok(AuthResponse {
             token,
@@ -118,7 +123,7 @@ impl AuthService {
      * "Salir" o secreto rotado (`JWT_SECRET` estable en `.env`, gitignored).
      * Tras este cambio hay que entrar una vez para renovar el token. */
     /// Genera un JWT con expiración de 10 años (3650 días)
-    pub fn generate_token(user_id: Uuid, secret: &str) -> Result<String, AppError> {
+    pub fn generate_token(user_id: Uuid, role: &str, secret: &str) -> Result<String, AppError> {
         let timestamp = chrono::Utc::now()
             .checked_add_signed(chrono::Duration::days(3650))
             .ok_or_else(|| AppError::Internal("Error calculando expiración del token".into()))?
@@ -126,7 +131,11 @@ impl AuthService {
         let exp = usize::try_from(timestamp)
             .map_err(|_| AppError::Internal("Timestamp fuera de rango".into()))?;
 
-        let claims = Claims { sub: user_id, exp };
+        let claims = Claims {
+            sub: user_id,
+            exp,
+            role: role.to_string(),
+        };
 
         jwt::firmar(&claims, secret.as_bytes())
             .map_err(|e| AppError::Internal(format!("Error generando token: {e:?}")))
@@ -136,5 +145,52 @@ impl AuthService {
     pub fn verify_token(token: &str, secret: &str) -> Result<Claims, AppError> {
         jwt::verificar::<Claims>(token, secret.as_bytes(), None, None)
             .map_err(|_| AppError::Unauthorized)
+    }
+
+    /// [09AA-9] Roles con acceso a la consola staff (`AuthStaff`). Espeja el
+    /// CHECK de `users.role` (owner/admin).
+    #[must_use]
+    pub fn es_rol_staff(role: &str) -> bool {
+        matches!(role, "owner" | "admin")
+    }
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    const SECRETO: &str = "secreto-de-prueba";
+
+    #[test]
+    fn token_lleva_el_rol_al_verificarlo() {
+        let id = Uuid::new_v4();
+        let token = AuthService::generate_token(id, "admin", SECRETO).expect("token");
+        let claims = AuthService::verify_token(&token, SECRETO).expect("claims");
+        assert_eq!(claims.sub, id);
+        assert_eq!(claims.role, "admin");
+    }
+
+    #[test]
+    fn token_anterior_sin_rol_queda_con_rol_vacio() {
+        #[derive(Serialize)]
+        struct ClaimsAnteriores {
+            sub: Uuid,
+            exp: usize,
+        }
+        let antiguo = ClaimsAnteriores {
+            sub: Uuid::new_v4(),
+            exp: 4_102_444_800,
+        };
+        let token = jwt::firmar(&antiguo, SECRETO.as_bytes()).expect("token");
+        let claims = AuthService::verify_token(&token, SECRETO).expect("claims");
+        assert!(claims.role.is_empty());
+    }
+
+    #[test]
+    fn solo_owner_y_admin_son_rol_staff() {
+        assert!(AuthService::es_rol_staff("owner"));
+        assert!(AuthService::es_rol_staff("admin"));
+        assert!(!AuthService::es_rol_staff(""));
+        assert!(!AuthService::es_rol_staff("usuario"));
     }
 }

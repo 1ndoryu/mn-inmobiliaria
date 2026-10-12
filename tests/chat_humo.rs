@@ -51,6 +51,7 @@ fn jwt_staff(secreto: &str) -> String {
     let claims = Claims {
         sub: Uuid::new_v4(),
         exp,
+        role: "admin".to_string(),
     };
     glory_backend::services::jwt::firmar(&claims, secreto.as_bytes()).unwrap()
 }
