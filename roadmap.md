@@ -63,7 +63,6 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 ## 6. Desarrollo pendiente (por dependencia)
 
 - **09AA-6 §8 — chat backend:**
-  - **09AA-7** invariante de persistencia (espera a 09AA-4/5 o serializar).
   - **09AA-8** tope de media hecho (§1); webhook fail-closed según §2.
   - **09AA-10** dedup y espejo M3 (decidir qué lado gana).
   - **09AA-11** proveedores IA (coordinado con 09AA-4).

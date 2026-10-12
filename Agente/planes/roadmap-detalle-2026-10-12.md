@@ -150,10 +150,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   Jorge y espera ~60s; promover el timeout a opencode-propio SOLO cuando
   ella dé ventana (guardar archivos rompe su app viva); después, fix del
    scraper (lee chrome, no burbujas).
-- **09AA-7 — Invariante persistencia mensajería (09AA-6 §8.1, siguiente
-  bloque ejecutable):** `responder` idempotente + transaccional,
-  dead-letter `pending`. NO toca regenerar. Sin empezar hasta cerrar
-  09AA-4/09AA-5 (mismo pipeline) o serializar con esas sesiones.
+- **09AA-7 — hecho 2026-10-12** (`responder` idempotente + transaccional, dead-letter `pending`): evidencia y límites en `Agente/completados/tareas-2026-10-12.md`.
 - **09AA-8 — Webhook fail-closed + tope media (09AA-6 §8.2).**
 - **09AA-10 — Dedup + espejo M3 (09AA-6 §8.4).**
 - **09AA-11 — Proveedores IA: abstracción + reintento glory coordinado con
