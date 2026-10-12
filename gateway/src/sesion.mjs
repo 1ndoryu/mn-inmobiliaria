@@ -68,6 +68,19 @@ async function aPayload(msg, numeroDestino) {
   };
 }
 
+/* Intentos de reconexión seguidos por sesión (12AA-1). Backoff exponencial
+ * desde 5 s hasta 60 s: antes era fijo a 5 s y, con DNS caído, martilleaba
+ * `web.whatsapp.com` cada 5 s (242 `ENOTFOUND` en el log). Se resetea al abrir. */
+const intentosReconexion = new Map();
+const ESPERA_BASE_MS = 5000;
+const ESPERA_MAX_MS = 60000;
+
+function esperaReconexion(via) {
+  const n = intentosReconexion.get(via) ?? 0;
+  intentosReconexion.set(via, n + 1);
+  return Math.min(ESPERA_BASE_MS * 2 ** n, ESPERA_MAX_MS);
+}
+
 export async function conectarSesion(via, sockets) {
   const sesion = config.sesiones[via];
   /* `useMultiFileAuthState` exige ruta string (un URL revienta en
@@ -77,6 +90,10 @@ export async function conectarSesion(via, sockets) {
   const sock = makeWASocket({
     auth: state,
     browser: ["MN Gateway", "Chrome", "1.0"],
+    /* 12AA-1: sin las consultas iniciales (`props`, blocklist…). Su timeout
+     * («Timed Out» tras cada apertura) no cortaba la sesión; se desactiva
+     * para no depender de ellas. Si algo del envío falla, revertir esta línea. */
+    fireInitQueries: false,
   });
   sockets.set(via, sock);
   sock.ev.on("creds.update", saveCreds);
@@ -99,6 +116,7 @@ export async function conectarSesion(via, sockets) {
     }
     if (connection === "open") {
       setEstado(via, "abierta");
+      intentosReconexion.delete(via);
       console.log(`[${sesion.nombre}] sesión abierta`);
     }
     if (connection === "close") {
@@ -107,10 +125,11 @@ export async function conectarSesion(via, sockets) {
       if (codigo === DisconnectReason.loggedOut) {
         console.log(`[${sesion.nombre}] desvinculado: borro auth, re-escanea para reconectar`);
         await rm(dirAuth, { recursive: true, force: true });
-        setTimeout(() => conectarSesion(via, sockets), 5000);
+        setTimeout(() => conectarSesion(via, sockets), ESPERA_BASE_MS);
       } else {
-        console.log(`[${sesion.nombre}] conexión cerrada (${codigo}), reconecto en 5s`);
-        setTimeout(() => conectarSesion(via, sockets), 5000);
+        const espera = esperaReconexion(via);
+        console.log(`[${sesion.nombre}] conexión cerrada (${codigo}), reconecto en ${espera / 1000}s`);
+        setTimeout(() => conectarSesion(via, sockets), espera);
       }
     }
   });
