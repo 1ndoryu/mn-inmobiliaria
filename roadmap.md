@@ -195,9 +195,6 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   bloque ejecutable):** `responder` idempotente + transaccional,
   dead-letter `pending`. NO toca regenerar. Sin empezar hasta cerrar
   09AA-4/09AA-5 (mismo pipeline) o serializar con esas sesiones.
-- **09AA-13 — Regenerar: loop + conserva (BLOQUEADA, la testea él):**
-  `regenerar_todo` retirado en 09AA-31 (2026-10-09); queda la ruta por fila
-  `/marketplace/regenerar`. No tocar hasta que avise; coordinar con 09AA-4.
 - **09AA-8 — Webhook fail-closed + tope media (09AA-6 §8.2).**
 - **09AA-9 — Auth con rol en consola staff (09AA-6 §8.3, requiere verificar
   contrato float opencode-propio antes de codificar).**
