@@ -89,7 +89,9 @@ export function arrancarServidor(sockets) {
           return;
         }
         const cuerpo = await leerJson(req);
-        const via = cuerpo.via === "wa_b" ? "wa_b" : "wa_a";
+        /* Cualquier vía configurada (wa_a, wa_b, wa_c) sale por su sesión; lo
+         * desconocido sigue cayendo en A como antes. */
+        const via = Object.hasOwn(config.sesiones, cuerpo.via) ? cuerpo.via : "wa_a";
         const sock = sockets.get(via);
         if (!sock) {
           res.writeHead(503, { "content-type": "application/json" }).end('{"error":"sesion no lista"}');

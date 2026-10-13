@@ -6,4 +6,5 @@ const sockets = new Map();
 arrancarServidor(sockets);
 await conectarSesion("wa_a", sockets);
 await conectarSesion("wa_b", sockets);
+await conectarSesion("wa_c", sockets);
 console.log("gateway listo: escanea los QR que aparezcan arriba");

@@ -4,7 +4,7 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 
 ## 1. Siguiente bloque ejecutable
 
-- **12AA-1 — Gateway WhatsApp (3102), cierre por plazo.** Mitigación en `gateway/src/sesion.mjs` (`fireInitQueries: false`, backoff 5→60 s). Cierra si hasta 2026-10-13 05:12 local (09:12Z) no hay `ENOTFOUND` ni 428 repetidos con `wa_a`/`wa_b` estables. **Comprobación 2026-10-13 (investigador, `logs/dev-up-MN-Inmobiliaria.log`): no cumple el criterio.** Desde 09:12Z: 2 `ENOTFOUND` (último 10:28Z) y 2 `428` (A y B, un corte entre 09:59Z y 10:28Z). Desde 10:28Z ambas sesiones quedan abiertas, sin bucle. Tras el último reinicio (12:36Z) solo hay ~6 min de observación: no hay base para cerrar. Estado: **abierta**. **Decidido 2026-10-13 (la usuaria):** dejarla abierta y revisar el registro unas horas después; cerrar solo si no hay cortes en ese tiempo. Pendiente: resolución DNS de `web.whatsapp.com`. Detalle: `Agente/planes/roadmap-detalle-2026-10-12.md` (entrada 12AA-1).
+- **12AA-1 — Gateway WhatsApp (3102), cierre por plazo.** Mitigación en `gateway/src/sesion.mjs` (`fireInitQueries: false`, backoff 5→60 s). Cierra si hasta 2026-10-13 05:12 local (09:12Z) no hay `ENOTFOUND` ni 428 repetidos con `wa_a`/`wa_b` estables. **Comprobación 2026-10-13 (investigador, `logs/dev-up-MN-Inmobiliaria.log`): no cumple el criterio.** Desde 09:12Z: 2 `ENOTFOUND` (último 10:28Z) y 2 `428` (A y B, un corte entre 09:59Z y 10:28Z). Desde 10:28Z ambas sesiones quedan abiertas, sin bucle. Tras el último reinicio (12:36Z) solo hay ~6 min de observación: no hay base para cerrar. **Reinicio ~13:19Z para añadir wa_c:** A y B reconectaron solas; la observación cuenta desde ahí. Estado: **abierta**. **Decidido 2026-10-13 (la usuaria):** dejarla abierta y revisar el registro unas horas después; cerrar solo si no hay cortes en ese tiempo. Pendiente: resolución DNS de `web.whatsapp.com`. Detalle: `Agente/planes/roadmap-detalle-2026-10-12.md` (entrada 12AA-1).
   **Decidido 2026-10-12 (la usuaria):** la tarea programada del 13/10 05:15 que lo cerraba se cancela. El cierre queda manual: comprobar el gateway y decidir a mano.
 
 ## 2. Decisiones de la usuaria (bloqueos)
@@ -19,6 +19,7 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 - **Deploy 239A-1, Fase 5.4:** confirmar la password admin rotada (o pedir otra).
 - **169A-1 — `AGENTE_CONTACTO`:** confirmar el valor real que va en `.env` (no se muestra aquí).
 - **Entrada de personal en producción:** acción de la usuaria (entrar una vez en la app); el agente no entra en producción.
+- **Tercer número de WhatsApp (wa_c), decidido 2026-10-13 (la usuaria):** no responde solo a clientes; se activa hoy. Código listo y gateway reiniciado. Falta que escanees el código QR `gateway/qr-wa_c.png` con el teléfono del número nuevo (WhatsApp → Dispositivos vinculados → Vincular). El código caduca en ~1 min: si caduca, el gateway crea otro en el mismo archivo. Ningún envío desde este número sin tu permiso.
 
 ## 3. Pruebas de la usuaria (en vivo)
 
