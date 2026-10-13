@@ -274,6 +274,49 @@ fn clave_hilo_deshace_precio_inyectado_y_respeta_lo_demas() {
 }
 
 #[test]
+fn clave_hilo_separa_dos_compradores_con_el_mismo_nombre_y_aviso() {
+    /* [13AA-13] Dos personas llamadas igual preguntan por el mismo aviso:
+     * el id de perfil del comprador (último segmento) las separa. */
+    let ana_a = clave_hilo("ana|casa en venta|100000000001");
+    let ana_b = clave_hilo("ana|casa en venta|100000000002");
+    assert_ne!(ana_a, ana_b);
+    assert_eq!(ana_a, "ana|casa en venta|100000000001");
+    /* La cifra inyectada parpadea; el id no. Misma clave con y sin cifra. */
+    assert_eq!(
+        clave_hilo("ana|$43.000 casa en venta|100000000001"),
+        ana_a
+    );
+}
+
+#[test]
+fn clave_hilo_sin_id_valido_es_la_clave_de_hoy() {
+    /* [13AA-13] Sin id, o con algo que no es un id de perfil, la clave no
+     * cambia: las filas `nombre|aviso` existentes conservan su llave. */
+    assert_eq!(clave_hilo("ana|casa en venta"), "ana|casa en venta");
+    assert_eq!(clave_hilo("ana|casa|1234"), "ana|casa|1234");
+    assert_eq!(clave_hilo("ana|casa|12a456"), "ana|casa|12a456");
+    let largo = "1".repeat(41);
+    assert_eq!(
+        clave_hilo(&format!("ana|casa|{largo}")),
+        format!("ana|casa|{largo}")
+    );
+    /* Sin aviso: el número es el aviso, no un id. */
+    assert_eq!(clave_hilo("ana|123456"), "ana|123456");
+}
+
+#[test]
+fn nombre_y_aviso_ignoran_el_id_final() {
+    assert_eq!(
+        nombre_de_thread("ana|casa en venta|100000000001").as_deref(),
+        Some("Ana")
+    );
+    assert_eq!(
+        aviso_fb_de_thread("ana|casa en venta|100000000001").as_deref(),
+        Some("casa en venta")
+    );
+}
+
+#[test]
 fn clave_cache_hilo_es_solo_firma() {
     /* [11AA] La llave no lleva nombre: el cuerpo del borrador es el mismo para
      * todos los compradores con esa firma; el saludo se añade al servir. */

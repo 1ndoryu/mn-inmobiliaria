@@ -61,6 +61,29 @@ pub fn aviso_fb_de_thread(thread_id: &str) -> Option<String> {
 #[must_use]
 pub fn clave_hilo(thread_id: &str) -> String {
     let texto = thread_id.trim();
+    match separar_id_hilo(texto) {
+        Some((base, id)) => format!("{}|{id}", clave_sin_id(base)),
+        None => clave_sin_id(texto),
+    }
+}
+
+/// [13AA-13] Separa el id de perfil del comprador (último segmento,
+/// `nombre|aviso|id`, solo dígitos, 5–40). Exige `nombre|aviso` delante:
+/// `tina|123456` es un hilo sin id (el número es el aviso). Un id fuera de
+/// formato no se separa: queda dentro del aviso, como hoy.
+fn separar_id_hilo(texto: &str) -> Option<(&str, &str)> {
+    let (base, id) = texto.rsplit_once('|')?;
+    let id = id.trim();
+    let valido = base.contains('|')
+        && (5..=40).contains(&id.len())
+        && id.bytes().all(|b| b.is_ascii_digit());
+    valido.then_some((base, id))
+}
+
+/// Clave sin id: `nombre|aviso` con la cifra inyectada deshecha (ver
+/// `clave_hilo`).
+fn clave_sin_id(thread_id: &str) -> String {
+    let texto = thread_id.trim();
     let Some((nombre, aviso)) = texto.split_once('|') else {
         return texto.to_string();
     };
