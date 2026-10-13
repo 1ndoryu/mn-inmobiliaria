@@ -134,20 +134,11 @@ pub struct CursorChats {
     pub thread_id: String,
 }
 
-/// Chats con borradores, ordenados por el más reciente, de `limite` en
-/// `limite` (keyset, sin OFFSET). Una consulta para el total y dos para el
-/// vínculo (títulos e IDs publicados, una vez, sin N+1): cada hilo resuelve en
-/// memoria si su aviso es conocido.
-/// [10AA-4] `solo_huerfanos`: solo hilos sin ficha conocida. El vínculo no vive
-/// en SQL, así que se recorre por lotes hasta reunir `limite + 1` huérfanos.
-/// Si las auxiliares fallan, todo queda `false` (el panel jamás se bloquea).
-pub async fn resumen_chats(
+/// Títulos publicados y vínculos aviso→inmueble, una vez por página. Si una
+/// consulta falla, se usa vacío y se registra: el panel jamás se bloquea.
+async fn cargar_vinculos(
     pool: &sqlx::PgPool,
-    limite: i64,
-    antes: Option<&CursorChats>,
-    solo_huerfanos: bool,
-) -> Result<PaginaResumen, AppError> {
-    let tope = usize::try_from(limite).unwrap_or(usize::MAX);
+) -> (Vec<(uuid::Uuid, String, Vec<String>)>, VinculosAviso) {
     let candidatos: Vec<(uuid::Uuid, String, Vec<String>)> =
         match InmuebleRepository::titulos_alias_publicados(pool).await {
             Ok(c) => c,
@@ -166,6 +157,24 @@ pub async fn resumen_chats(
             std::collections::HashMap::new()
         }
     };
+    (candidatos, vinculos)
+}
+
+/// Chats con borradores, ordenados por el más reciente, de `limite` en
+/// `limite` (keyset, sin OFFSET). Una consulta para el total y dos para el
+/// vínculo (títulos e IDs publicados, una vez, sin N+1): cada hilo resuelve en
+/// memoria si su aviso es conocido.
+/// [10AA-4] `solo_huerfanos`: solo hilos sin ficha conocida. El vínculo no vive
+/// en SQL, así que se recorre por lotes hasta reunir `limite + 1` huérfanos.
+/// Si las auxiliares fallan, todo queda `false` (el panel jamás se bloquea).
+pub async fn resumen_chats(
+    pool: &sqlx::PgPool,
+    limite: i64,
+    antes: Option<&CursorChats>,
+    solo_huerfanos: bool,
+) -> Result<PaginaResumen, AppError> {
+    let tope = usize::try_from(limite).unwrap_or(usize::MAX);
+    let (candidatos, vinculos) = cargar_vinculos(pool).await;
     /* Sin filtro: una consulta de `limite + 1` filas; la sobrante prueba que hay
      * otra página. Con filtro: lotes hasta llenar la página o agotar la BD. */
     let mut salida: Vec<(FilaChat, Option<(uuid::Uuid, String)>)> = Vec::new();
