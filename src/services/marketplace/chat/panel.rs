@@ -385,14 +385,11 @@ pub(in crate::services::marketplace) async fn datos_extra_hilos(
  * nombrar cualquiera de los nombres del inmueble, pero el badge muestra
  * siempre el título canónico.
  * [09AA-28] Devuelve (id, título): el id resuelve la portada del panel.
- * [09AA-29] La rama por título compara contra TODOS los candidatos, no solo
- * contra las fichas sin vínculo: el filtro `solo_sin_vinculo` de
- * `ficha_por_titulo` existe para el fallback de un ID de aviso sin dueño (no
- * puede citar la ficha de OTRO aviso). Aquí el texto tras `|` es un título
- * (no un ID numérico), así que el hilo ya lo nombra y la ficha vinculada a su
- * propio aviso sí debe verse. Pendiente de decisión: la rama de dígitos NO cae
- * al título, a diferencia del borrador (F2); el badge puede decir «Sin ficha»
- * donde el borrador cita precio. */
+ * [09AA-29] La rama por título compara contra TODOS los candidatos: aquí el
+ * texto tras `|` es un título (no un ID numérico), así que el hilo ya lo
+ * nombra y la ficha vinculada a su propio aviso sí debe verse.
+ * [13AA-4] La rama de dígitos sin dueño tampoco cae al título, igual que el
+ * borrador: el badge muestra «Sin ficha» y el borrador va sin precio. */
 pub(in crate::services::marketplace) fn titulo_vinculado_del_hilo(
     thread_id: &str,
     candidatos: &[(uuid::Uuid, String, Vec<String>)],

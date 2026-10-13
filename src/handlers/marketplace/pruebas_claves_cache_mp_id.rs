@@ -101,12 +101,12 @@ async fn matriz_id_valido_inexistente_titulo_y_uuid_legacy() {
         .unwrap();
 }
 
-/* [09AA-29] Fallback por título de un ID sin dueño: una ficha vinculada a
- * OTRO aviso jamás se cita (aunque el título empareje); una sin vínculo sí.
+/* [13AA-4] ID de aviso sin dueño: va sin ficha aunque el título empareje, con
+ * ficha vinculada a OTRO aviso o sin vincular (no hay fallback por título).
  * Títulos con ≤2 palabras comunes entre sí: sin solape que confunda el
  * emparejamiento. */
 #[tokio::test]
-async fn id_sin_dueno_no_cita_ficha_vinculada_a_otro_aviso() {
+async fn id_sin_dueno_no_cita_ninguna_ficha() {
     let Some(pool) = pool_si_hay() else { return };
     let titulo_vinculada = "Zarzal clavescache Vinculado Alfa";
     let titulo_libre = "Pinares clavescache Libre Beta";
@@ -136,10 +136,15 @@ async fn id_sin_dueno_no_cita_ficha_vinculada_a_otro_aviso() {
     );
     assert_eq!(precio, SIN_FICHA);
 
-    let (ficha, _, _, conocido) = claves_cache(&pool, Some("999999999088801"), Some(titulo_libre))
-        .await
-        .unwrap();
-    assert!(ficha.is_some() && conocido, "ficha sin vínculo sí se cita");
+    let (ficha, precio, _, conocido) =
+        claves_cache(&pool, Some("999999999088801"), Some(titulo_libre))
+            .await
+            .unwrap();
+    assert!(
+        ficha.is_none() && !conocido,
+        "ficha sin vínculo tampoco se cita si el ID no tiene dueño"
+    );
+    assert_eq!(precio, SIN_FICHA);
 
     InmuebleService::delete(&pool, std::path::Path::new("."), vinculada.id)
         .await

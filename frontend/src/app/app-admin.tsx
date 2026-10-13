@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogOut, Plus, Search, Settings2 } from 'lucide-react';
+import { Link2, LogOut, Plus, Search, Settings2 } from 'lucide-react';
 import { Layout, type VistaApp } from './layout';
 import { ModalesApp } from './modales-app';
 import { PantallaLogin } from '../features/sesion/pantalla-login';
@@ -50,6 +50,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
   const { inmuebles, total, cargando, crear, eliminar, actualizar, publicar, reponer, aviso, error } = useInmuebles();
   const borrador = useBorrador();
   const [modalNuevo, setModalNuevo] = useState(false);
+  const [vinculandoFb, setVinculandoFb] = useState(false);
   const [editando, setEditando] = useState<Inmueble | null>(null);
   const [viendo, setViendo] = useState<Inmueble | null>(null);
   const [busqueda, setBusqueda] = useState('');
@@ -195,9 +196,14 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
               <Settings2 /> Configurar mejora
             </Button>
           ) : (
-            <Button className="ml-auto" onClick={() => setModalNuevo(true)}>
-              <Plus /> Añadir inmueble
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setVinculandoFb(true)}>
+                <Link2 /> Vincular con Facebook
+              </Button>
+              <Button className="ml-auto" onClick={() => setModalNuevo(true)}>
+                <Plus /> Añadir inmueble
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -322,6 +328,11 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
           borrador,
           alCrear: crearConCopy,
           alActualizar: actualizar,
+        }}
+        vinculacion={{
+          abierto: vinculandoFb,
+          alCambiar: setVinculandoFb,
+          alVincular: (inmueble, avisoId) => actualizar({ ...inmueble, marketplaceId: avisoId }),
         }}
       />
     </Layout>
