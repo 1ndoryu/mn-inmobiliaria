@@ -9,6 +9,7 @@ import { ModalConfig } from '@/features/configuracion/modal-config';
 import { ModalCopy } from '@/features/inmuebles/modal-copy';
 import { ModalInmueble } from '@/features/inmuebles/modal-inmueble';
 import { ModalVerInmueble } from '@/features/inmuebles/modal-ver-inmueble';
+import { ModalVincularFacebook } from '@/features/inmuebles/modal-vincular-facebook';
 
 interface GrupoVista {
   viendo: Inmueble | null;
@@ -45,6 +46,12 @@ interface GrupoEdicion {
   alActualizar: (inmueble: Inmueble) => Promise<boolean>;
 }
 
+interface GrupoVincular {
+  abierto: boolean;
+  alCambiar: (abierto: boolean) => void;
+  alVincular: (inmueble: Inmueble, avisoId: string) => Promise<boolean>;
+}
+
 interface ModalesAppProps {
   nuevos: ReturnType<typeof useAnadirFotos>;
   inmuebles: Inmueble[];
@@ -53,10 +60,11 @@ interface ModalesAppProps {
   ajustes: GrupoAjustes;
   copia: GrupoCopia;
   edicion: GrupoEdicion;
+  vinculacion: GrupoVincular;
 }
 
-/* Los seis modales del panel en un solo punto de composición. */
-export function ModalesApp({ nuevos, inmuebles, fotos, vista, ajustes, copia, edicion }: ModalesAppProps) {
+/* Los modales del panel en un solo punto de composición. */
+export function ModalesApp({ nuevos, inmuebles, fotos, vista, ajustes, copia, edicion, vinculacion }: ModalesAppProps) {
   const b = edicion.borrador;
 
   return (
@@ -132,6 +140,13 @@ export function ModalesApp({ nuevos, inmuebles, fotos, vista, ajustes, copia, ed
         }}
         alGuardarNuevo={edicion.alCrear}
         alGuardarEdicion={edicion.alActualizar}
+      />
+
+      <ModalVincularFacebook
+        abierto={vinculacion.abierto}
+        alCambiarAbierto={vinculacion.alCambiar}
+        inmuebles={inmuebles}
+        alVincular={vinculacion.alVincular}
       />
     </>
   );
