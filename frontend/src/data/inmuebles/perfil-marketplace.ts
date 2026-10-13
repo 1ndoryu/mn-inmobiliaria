@@ -18,6 +18,8 @@ export interface AvisoPendiente {
   titulo: string;
   precio: string | null;
   url: string;
+  /** Foto principal del aviso en Facebook (`null` si la lab no la leyó). */
+  imagen_url: string | null;
   /** Los más parecidos primero. */
   candidatos: CandidatoAviso[];
 }

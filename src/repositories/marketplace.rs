@@ -41,6 +41,7 @@ pub(crate) struct AvisoPerfilNuevo {
     pub titulo: String,
     pub precio: Option<String>,
     pub url: String,
+    pub imagen_url: Option<String>,
 }
 
 /// [13AA-4] Aviso del perfil presente y sin inmueble vinculado.
@@ -50,6 +51,7 @@ pub(crate) struct AvisoPerfilRow {
     pub titulo: String,
     pub precio: Option<String>,
     pub url: String,
+    pub imagen_url: Option<String>,
 }
 
 /// [13AA-4] Inmueble sin `marketplace_id`: candidato del modal de vinculación.
@@ -80,15 +82,17 @@ pub(crate) async fn reemplazar_avisos_perfil(
     .rows_affected();
     for a in avisos {
         sqlx::query(
-            "INSERT INTO marketplace_avisos_perfil (aviso_id, titulo, precio, url, visto_en, presente) \
-             VALUES ($1, $2, $3, $4, now(), TRUE) \
+            "INSERT INTO marketplace_avisos_perfil (aviso_id, titulo, precio, url, imagen_url, visto_en, presente) \
+             VALUES ($1, $2, $3, $4, $5, now(), TRUE) \
              ON CONFLICT (aviso_id) DO UPDATE SET titulo = EXCLUDED.titulo, \
-             precio = EXCLUDED.precio, url = EXCLUDED.url, visto_en = now(), presente = TRUE",
+             precio = EXCLUDED.precio, url = EXCLUDED.url, imagen_url = EXCLUDED.imagen_url, \
+             visto_en = now(), presente = TRUE",
         )
         .bind(&a.aviso_id)
         .bind(&a.titulo)
         .bind(&a.precio)
         .bind(&a.url)
+        .bind(&a.imagen_url)
         .execute(&mut *tx)
         .await?;
     }
@@ -102,7 +106,7 @@ pub(crate) async fn avisos_perfil_sin_vincular(
 ) -> Result<Vec<AvisoPerfilRow>, sqlx::Error> {
     // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL fijo sin macro: no se regenera la caché `.sqlx/` para una consulta de lectura nueva
     sqlx::query_as::<_, AvisoPerfilRow>(
-        "SELECT aviso_id, titulo, precio, url FROM marketplace_avisos_perfil \
+        "SELECT aviso_id, titulo, precio, url, imagen_url FROM marketplace_avisos_perfil \
          WHERE presente AND aviso_id NOT IN \
          (SELECT marketplace_id FROM inmuebles WHERE marketplace_id IS NOT NULL) \
          ORDER BY titulo",

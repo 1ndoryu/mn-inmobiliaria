@@ -6,17 +6,21 @@ import { Building2 } from 'lucide-react';
  * panel de chats de Marketplace. `respaldo` es la URL a la que se cae si la
  * primera falla (la `min160-` puede no existir en fotos viejas: entonces se
  * pide el original); sin ninguna que cargue se pinta el icono, no un hueco.
- * El llamador pone `key={src}` para reiniciar el estado al cambiar la foto. */
+ * El llamador pone `key={src}` para reiniciar el estado al cambiar la foto.
+ * `sinReferrer`: fotos de terceros (CDN de Facebook), que no deben recibir la
+ * URL del panel. */
 export function MiniaturaFoto({
   src,
   respaldo,
   titulo,
   tamano = 'h-14 w-20',
+  sinReferrer = false,
 }: {
   src?: string;
   respaldo?: string;
   titulo: string;
   tamano?: string;
+  sinReferrer?: boolean;
 }) {
   const [fallos, setFallos] = useState(0);
   const actual = [src, respaldo].filter((u): u is string => !!u && u !== '')[fallos];
@@ -32,6 +36,7 @@ export function MiniaturaFoto({
       src={actual}
       alt={titulo}
       className={`shrink-0 rounded-md object-cover ${tamano}`}
+      referrerPolicy={sinReferrer ? 'no-referrer' : undefined}
       onError={() => setFallos((n) => n + 1)}
     />
   );

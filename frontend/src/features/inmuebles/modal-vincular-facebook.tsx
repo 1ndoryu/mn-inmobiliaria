@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Link2, Loader2 } from 'lucide-react';
 import {
   cargarPerfilAvisos,
@@ -6,8 +6,9 @@ import {
   type PerfilAvisos,
 } from '@/data/inmuebles/perfil-marketplace';
 import type { Inmueble } from '@/domain/inmueble';
-import { formatearFecha, formatearPrecio } from '@/domain/inmueble';
+import { formatearFecha, formatearPrecio, miniaturaDe, portadaDe } from '@/domain/inmueble';
 import { Button } from '@/components/ui/button';
+import { MiniaturaFoto } from '@/components/ui/miniatura-foto';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,20 @@ interface Props {
   alVincular: (inmueble: Inmueble, avisoId: string) => Promise<boolean>;
 }
 
+/* Portada del inmueble en pequeño (la `min160-` si existe; si no, el original). */
+function FotoInmueble({ inmueble, titulo, tamano }: { inmueble: Inmueble | undefined; titulo: string; tamano: string }) {
+  const portada = inmueble ? portadaDe(inmueble) : '';
+  return (
+    <MiniaturaFoto
+      key={portada}
+      src={portada ? miniaturaDe(portada) : undefined}
+      respaldo={portada || undefined}
+      titulo={titulo}
+      tamano={tamano}
+    />
+  );
+}
+
 /* [13AA-4] Vincula avisos del perfil de Facebook con sus inmuebles. Los
  * candidatos llegan ya ordenados (más parecido primero) y el primero queda
  * elegido, pero nada se vincula sin pulsar «Vincular». «No es este» oculta
@@ -35,6 +50,7 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
   const [ocultos, setOcultos] = useState<string[]>([]);
   const [vinculando, setVinculando] = useState<string | null>(null);
   const [fallo, setFallo] = useState<string | null>(null);
+  const porId = useMemo(() => new Map(inmuebles.map((i) => [i.id, i])), [inmuebles]);
 
   const cargar = useCallback(
     () =>
@@ -65,7 +81,7 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
 
   async function vincular(aviso: AvisoPendiente) {
     const id = elegidoDe(aviso);
-    const inmueble = inmuebles.find((i) => i.id === id);
+    const inmueble = id ? porId.get(id) : undefined;
     if (!inmueble) {
       setFallo('Ese inmueble ya no está en la lista. Recarga la página e inténtalo de nuevo.');
       return;
@@ -116,13 +132,24 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
               const ocupado = vinculando !== null;
               return (
                 <section key={aviso.aviso_id} className="rounded-lg border p-3">
-                  <p className="font-medium">{aviso.titulo}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {aviso.precio ? `Precio en Facebook: ${aviso.precio} · ` : ''}
-                    <a href={aviso.url} target="_blank" rel="noreferrer" className="underline">
-                      Ver en Facebook
-                    </a>
-                  </p>
+                  <div className="flex items-start gap-3">
+                    <MiniaturaFoto
+                      key={aviso.imagen_url ?? aviso.aviso_id}
+                      src={aviso.imagen_url ?? undefined}
+                      titulo={aviso.titulo}
+                      tamano="h-20 w-20"
+                      sinReferrer
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium">{aviso.titulo}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {aviso.precio ? `Precio en Facebook: ${aviso.precio} · ` : ''}
+                        <a href={aviso.url} target="_blank" rel="noreferrer" className="underline">
+                          Ver en Facebook
+                        </a>
+                      </p>
+                    </div>
+                  </div>
 
                   {aviso.candidatos.length === 0 ? (
                     <p className="mt-2 text-sm text-muted-foreground">
@@ -139,10 +166,11 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
                               aria-pressed={elegidoAhora}
                               disabled={ocupado}
                               onClick={() => setElegido((e) => ({ ...e, [aviso.aviso_id]: c.inmueble_id }))}
-                              className={`flex w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm transition disabled:opacity-60 ${
+                              className={`flex w-full items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left text-sm transition disabled:opacity-60 ${
                                 elegidoAhora ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
                               }`}
                             >
+                              <FotoInmueble inmueble={porId.get(c.inmueble_id)} titulo={c.titulo} tamano="h-10 w-14" />
                               <span className="min-w-0 flex-1 truncate">{c.titulo}</span>
                               <span className="shrink-0 text-xs text-muted-foreground">
                                 {c.directo ? 'Muy parecido' : 'Parecido'} · {formatearPrecio(c.precio)}
@@ -181,8 +209,9 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
             </summary>
             <ul className="mt-2 space-y-1">
               {perfil.inmuebles_sin_aviso.map((i) => (
-                <li key={i.inmueble_id} className="flex justify-between gap-2">
-                  <span className="truncate">{i.titulo}</span>
+                <li key={i.inmueble_id} className="flex items-center gap-2">
+                  <FotoInmueble inmueble={porId.get(i.inmueble_id)} titulo={i.titulo} tamano="h-8 w-11" />
+                  <span className="min-w-0 flex-1 truncate">{i.titulo}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">{formatearPrecio(i.precio)}</span>
                 </li>
               ))}
