@@ -132,6 +132,7 @@ Consecuencia: los tokens que emite MN para el laboratorio (`opencode-propio-dev`
 
 - **Automático:** al arrancar el backend con `run` en una rama distinta de `main`, `scripts/run-with-db.mjs` copia a la base de la rama los tokens de `main` (`copiarTokensLabABdRama`). Es idempotente y nunca escribe en `main`.
 - **Se copian también los revocados**, para que una revocación en `main` llegue a la rama.
+- **Inmuebles y fotos ([13AA-9]):** al arrancar con `run` también se copian de `main` los inmuebles y fotos que la rama no tenga (`copiarInmueblesABdRama`). No se copian las visitas (datos personales). Un cambio hecho en `main` a un inmueble ya copiado no llega a la rama.
 - **Tokens nuevos:** los emitidos después del arranque se copian en el siguiente arranque del backend en esa rama.
 - **Comprobar:** en `Arranque logs "MN-Inmobiliaria"` debe aparecer `[db] Tokens del laboratorio vigentes en esta rama: N`.
 - **Si falla:** sale un aviso `[db]` y el backend sigue; el laboratorio no se conectará en esa rama hasta que se resuelva la causa (suele ser `psql` no disponible o la base de `main` inaccesible).
