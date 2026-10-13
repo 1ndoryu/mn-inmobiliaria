@@ -280,42 +280,43 @@ pub(super) async fn guardar_generado(
     Ok(())
 }
 
-/// [11AA] Franja del saludo según la hora del mensaje, en Venezuela (UTC-4).
-/// `None` si la hora no se puede leer: el saludo sale sin franja.
-fn franja_de(hora: &str) -> Option<&'static str> {
-    let ven = chrono::FixedOffset::west_opt(4 * 3600)?;
-    let local = chrono::DateTime::parse_from_rfc3339(hora.trim())
-        .ok()?
-        .with_timezone(&ven);
-    Some(crate::handlers::chat::periodo_venezuela(local.hour()).1)
+/// [11AA] Franja del saludo en el instante dado, en Venezuela (UTC-4).
+fn franja_en(instante: chrono::DateTime<chrono::Utc>) -> &'static str {
+    let ven = instante - chrono::Duration::hours(4);
+    crate::handlers::chat::periodo_venezuela(ven.hour()).1
+}
+
+/// [11AA] Franja del saludo según la hora de Venezuela AHORA. No se usa la hora
+/// del mensaje del cliente: un borrador cacheado de noche se leía de día como
+/// «buenas noches» (la hora del mensaje, no la de envío).
+fn franja_actual() -> &'static str {
+    franja_en(chrono::Utc::now())
 }
 
 /// [11AA] Antepone «Hola, <nombre>, <franja>.» al cuerpo. El saludo no pasa por
-/// el modelo: depende del hilo (nombre) y de la hora del mensaje, así que no
+/// el modelo: depende del hilo (nombre) y de la hora de servir, así que no
 /// puede vivir en la caché compartida por firma.
-pub(super) fn con_saludo(cuerpo: &str, nombre: Option<&str>, hora: &str) -> String {
+pub(super) fn con_saludo(cuerpo: &str, nombre: Option<&str>, franja: &str) -> String {
     let mut saludo = String::from("Hola");
     if let Some(n) = nombre.map(str::trim).filter(|n| !n.is_empty()) {
         saludo.push_str(", ");
         saludo.push_str(n);
     }
-    if let Some(franja) = franja_de(hora) {
-        saludo.push_str(", ");
-        saludo.push_str(franja);
-    }
+    saludo.push_str(", ");
+    saludo.push_str(franja);
     format!("{saludo}. {cuerpo}")
 }
 
 /// [11AA] Lo que recibe la dueña: el cuerpo cacheado con el saludo de este
-/// hilo. Quita antes cualquier saludo que traiga (filas viejas lo llevaban).
-/// Las continuaciones nunca llevan saludo.
+/// hilo y la franja de la hora actual. Quita antes cualquier saludo que traiga
+/// (filas viejas lo llevaban). Las continuaciones nunca llevan saludo.
 pub(super) fn servir_cuerpo(cuerpo: &str, r: &BorradorRequest) -> String {
     if continuacion::es_continuacion(&r.excerpt.texto) {
         return cuerpo.to_string();
     }
     let nombre = nombre_de_thread(r.thread_id.trim());
     let sin_saludo = crate::services::marketplace::quitar_saludo(cuerpo, nombre.as_deref());
-    con_saludo(&sin_saludo, nombre.as_deref(), &r.excerpt.hora)
+    con_saludo(&sin_saludo, nombre.as_deref(), franja_actual())
 }
 
 /// Ficha o precio del aviso y lo ya dicho en el hilo: el contexto de datos del prompt.
@@ -519,23 +520,24 @@ pub(super) async fn generar_borrador(
 
 #[cfg(test)]
 mod tests {
-    use super::{con_saludo, franja_de};
+    use super::{con_saludo, franja_en};
     use crate::services::marketplace::quitar_saludo;
+
+    fn utc(rfc3339: &str) -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::parse_from_rfc3339(rfc3339)
+            .expect("fecha de prueba válida")
+            .with_timezone(&chrono::Utc)
+    }
 
     #[test]
     fn franja_sigue_la_hora_de_venezuela() {
-        assert_eq!(franja_de("2026-10-11T08:00:00-04:00"), Some("buenos días"));
-        assert_eq!(
-            franja_de("2026-10-11T14:00:00-04:00"),
-            Some("buenas tardes")
-        );
-        assert_eq!(
-            franja_de("2026-10-11T22:00:00-04:00"),
-            Some("buenas noches")
-        );
-        /* 12:30 UTC son las 08:30 en Venezuela: la franja sale de la hora local. */
-        assert_eq!(franja_de("2026-10-11T12:30:00+00:00"), Some("buenos días"));
-        assert_eq!(franja_de("sin-hora"), None);
+        /* 12:00 UTC son las 08:00 en Venezuela (UTC-4). */
+        assert_eq!(franja_en(utc("2026-10-11T12:00:00Z")), "buenos días");
+        assert_eq!(franja_en(utc("2026-10-11T18:00:00Z")), "buenas tardes");
+        /* 02:00 UTC del día siguiente son las 22:00 del día anterior en Venezuela. */
+        assert_eq!(franja_en(utc("2026-10-12T02:00:00Z")), "buenas noches");
+        /* 12:30 UTC son las 08:30 en Venezuela. */
+        assert_eq!(franja_en(utc("2026-10-11T12:30:00Z")), "buenos días");
     }
 
     #[test]
@@ -544,21 +546,24 @@ mod tests {
             con_saludo(
                 "El apartamento sigue disponible.",
                 Some("Ana"),
-                "2026-10-11T08:00:00-04:00"
+                "buenos días"
             ),
             "Hola, Ana, buenos días. El apartamento sigue disponible."
         );
     }
 
     #[test]
-    fn saludo_sin_nombre_ni_hora_legible() {
-        assert_eq!(con_saludo("Cuerpo.", None, "sin-hora"), "Hola. Cuerpo.");
+    fn saludo_sin_nombre() {
+        assert_eq!(
+            con_saludo("Cuerpo.", None, "buenas noches"),
+            "Hola, buenas noches. Cuerpo."
+        );
     }
 
     #[test]
     fn el_saludo_añadido_se_quita_al_releer() {
         let cuerpo = "El apartamento sigue disponible.";
-        let servido = con_saludo(cuerpo, Some("Ana"), "2026-10-11T08:00:00-04:00");
+        let servido = con_saludo(cuerpo, Some("Ana"), "buenos días");
         assert_eq!(quitar_saludo(&servido, Some("Ana")), cuerpo);
     }
 
