@@ -283,8 +283,8 @@ pub(super) async fn qr_whatsapp(
     _auth: AuthStaff,
     Path(canal): Path<String>,
 ) -> Result<impl axum::response::IntoResponse, AppError> {
-    if !matches!(canal.as_str(), "wa_a" | "wa_b") {
-        return Err(AppError::BadRequest("canal debe ser wa_a|wa_b".to_string()));
+    if !matches!(canal.as_str(), "wa_a" | "wa_b" | "wa_c") {
+        return Err(AppError::BadRequest("canal debe ser wa_a|wa_b|wa_c".to_string()));
     }
     let mut peticion = cliente_gateway().get(format!("{}/sesiones/{canal}/qr", gateway_base()));
     if let Ok(s) = std::env::var("GATEWAY_SEND_SECRET") {
