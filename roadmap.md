@@ -4,11 +4,12 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 
 ## 1. Siguiente bloque ejecutable
 
-- **12AA-1 — Gateway WhatsApp (3102), cierre por plazo.** Mitigación en `gateway/src/sesion.mjs` (`fireInitQueries: false`, backoff 5→60 s). Cierra si hasta 2026-10-13 05:12 local (09:12Z) no hay `ENOTFOUND` ni 428 repetidos con `wa_a`/`wa_b` estables. PID vigente 9032 (verificado: `node src/index.mjs --gateway-mn`; el registro decía 18784). Pendiente: revisar la resolución DNS del host (`ENOTFOUND web.whatsapp.com`). Detalle: `Agente/planes/roadmap-detalle-2026-10-12.md` (entrada 12AA-1).
+- **12AA-1 — Gateway WhatsApp (3102), cierre por plazo.** Mitigación en `gateway/src/sesion.mjs` (`fireInitQueries: false`, backoff 5→60 s). Cierra si hasta 2026-10-13 05:12 local (09:12Z) no hay `ENOTFOUND` ni 428 repetidos con `wa_a`/`wa_b` estables. **Comprobación 2026-10-13 (investigador, `logs/dev-up-MN-Inmobiliaria.log`): no cumple el criterio.** Desde 09:12Z: 2 `ENOTFOUND` (último 10:28Z) y 2 `428` (A y B, un corte entre 09:59Z y 10:28Z). Desde 10:28Z ambas sesiones quedan abiertas, sin bucle. Tras el último reinicio (12:36Z) solo hay ~6 min de observación: no hay base para cerrar. Estado: **abierta**. Pendiente: resolución DNS de `web.whatsapp.com`. Detalle: `Agente/planes/roadmap-detalle-2026-10-12.md` (entrada 12AA-1).
   **Decidido 2026-10-12 (la usuaria):** la tarea programada del 13/10 05:15 que lo cerraba se cancela. El cierre queda manual: comprobar el gateway y decidir a mano.
 
 ## 2. Decisiones de la usuaria (bloqueos)
 
+- **13AA-3 — Límite 429 en borradores (2026-10-13):** causa: tope por usuario de 30/min (`TOPE_BORRADOR_MINUTO`, `src/handlers/marketplace/borrador.rs:9`) y ventanas del lab que reintentan cada 30 s; 64 avisos 429 en el log. Decidido por la usuaria: su cuenta no debe tener ese límite («se reintenta despacio»). Ajuste: `MP_SIN_LIMITE_SUB` en `MN-Inmobiliaria/.env` (local, no versionado) con el `sub` de su cuenta. Verificado tras reinicio: sin 429 nuevos en la ventana de prueba. Deshacer: quitar esa línea y reiniciar con `Arranque`. El límite global por IP (120/min, `src/handlers/cuentas/rate_limit.rs:27-32`) sigue activo.
 - **08AA-6 barrido Sentinel:** 0 hallazgos Sentinel/Varsense, análisis 2026-10-12 (HEAD `8d3f6bfd`). La cifra de ~518 era histórica y ya no aplica. Ver `Agente/completados/tareas-2026-10-12.md`.
 - **Riesgo aceptado — 10AA-21 (`rsa` 0.9.10, RUSTSEC-2023-0071):** decidido 2026-10-12. Se reabre al subir `sqlx` sin `sqlx-mysql`; criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
 - **Webhook del gateway (09AA-8) — secreto `WA_WEBHOOK_SECRETO`:** decidido «tras 12AA-1» (2026-10-12). Al cerrar 12AA-1: fijar el secreto en `.env` y en el gateway, y hacer fail-closed `secreto_valido` (`src/services/transporte.rs:95-103`), que hoy acepta cualquier valor si el esperado está vacío.
@@ -50,6 +51,7 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 - 08AA-9 (botón Releer).
 - 03AA-3 y 07AA-6: C1b cancelado por ella 2026-10-07 (`Agente/planes/plan-flujo-lab-opencode-propio-2026-10-07.md:100`). Queda la promoción en su ventana y, en 07AA-6, la prueba viva.
 - 07AA-8 (V4 de `marketplace-float.ts`).
+- 13AA-2 (saludo por franja en burbujas, lab 2026-10-13): en la ventana de la usuaria; detalle en `opencode-propio-dev/PROMOCION-VENTANA.md` («0. 13AA-2»). Prueba viva: tras reiniciar el lab, el saludo cambia solo al cambiar de franja.
 
 ## 5. Bloqueados por terceros o configuración
 
@@ -74,6 +76,7 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 - **199A-7** — Decidido 2026-10-12: no implementar. Opcional, sin ficha ni urgencia; el reordenado por DELETE+POST (199A-6) funciona. Se reabre si lo pide la usuaria.
 - **299A-3** — pendiente de proveedor IA operativo (§5) para reproducir las dos notas de voz (`src/services/turno.rs:511-517`).
 - **279A** — en pausa por decisión de la usuaria (§2): ficha pública sin extras. Sin trabajo pendiente. Si decide mostrar alguno, se abre la revisión lista por lista (`Agente/planes/plan-extras-publicos-2026-10-12.md`).
+- **13AA-4 — Aviso pedantic de clippy:** `resumen_chats` (`src/services/marketplace/chat/panel.rs:144`) tiene 101 líneas (límite 100). No bloquea (`clippy::all` pasa); partir la función es un cambio con riesgo, va como tarea aparte.
 - **03AA-5** — bloqueado por el corpus de la usuaria (5+2+1 HTML y dataset; `Agente/planes/plan-detector-captacion-2026-10-03.md:42-51`).
 - **Fuera de MN:** configurar `coolify-manager-rs` para desplegar proyectos Rust (repo separado).
 
