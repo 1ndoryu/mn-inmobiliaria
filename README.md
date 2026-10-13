@@ -124,6 +124,18 @@ git checkout otro-sitio
 
 La estructura es idéntica en cada rama. Solo cambia el contenido específico del sitio.
 
+## Base de datos por rama
+
+Cada rama usa su propia base de datos: `<base>_<rama>`. `main` usa la base de `DATABASE_URL`. Los comandos `node scripts/run-with-db.mjs ...` eligen la base de la rama actual (`scripts/branch-db.mjs`).
+
+Consecuencia: los tokens que emite MN para el laboratorio (`opencode-propio-dev`) están en la base de `main`. Una rama nueva empieza sin ellos, y el laboratorio recibe 401 y aparece como «no conectado» ([13AA-8]).
+
+- **Automático:** al arrancar el backend con `run` en una rama distinta de `main`, `scripts/run-with-db.mjs` copia a la base de la rama los tokens de `main` (`copiarTokensLabABdRama`). Es idempotente y nunca escribe en `main`.
+- **Se copian también los revocados**, para que una revocación en `main` llegue a la rama.
+- **Tokens nuevos:** los emitidos después del arranque se copian en el siguiente arranque del backend en esa rama.
+- **Comprobar:** en `Arranque logs "MN-Inmobiliaria"` debe aparecer `[db] Tokens del laboratorio vigentes en esta rama: N`.
+- **Si falla:** sale un aviso `[db]` y el backend sigue; el laboratorio no se conectará en esa rama hasta que se resuelva la causa (suele ser `psql` no disponible o la base de `main` inaccesible).
+
 ## Comandos útiles
 
 ```bash

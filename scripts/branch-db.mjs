@@ -228,7 +228,10 @@ export function getBranchDbContext({ verbose = true, ensureExists = true } = {})
     }
   }
 
-  return { branch, branchSlug, pkgName, dbName, dbUrl, cargoTargetBase, cargoTargetDir };
+  /* [13AA-8] `baseDbUrl` es la BD de main (la que usa el laboratorio). Las
+   * ramas la necesitan para copiar sus tokens (ver run-with-db.mjs). */
+  const baseUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${baseDbName}`;
+  return { branch, branchSlug, pkgName, isDefaultBranch, dbName, dbUrl, baseDbUrl: baseUrl, cargoTargetBase, cargoTargetDir };
 }
 
 export function getBranchDbUrl(options = {}) {
