@@ -62,10 +62,20 @@ function textoMetricas(f: ChatFila): string[] {
 /* El hilo es `comprador|aviso` (clave del puente). El título del chat es el
  * comprador; el aviso distingue dos chats del mismo comprador. Sin `|` el hilo
  * es solo el comprador. El hilo entero queda en el `title` del elemento. */
+/* [13AA-13] El hilo puede acabar en `|` + id de perfil del comprador (5–40
+ * dígitos, ver `clave_hilo` del backend). Ese id separa a dos compradores con el
+ * mismo nombre; es clave, no texto de presentación: el aviso se muestra sin él. */
+function quitarIdHilo(aviso: string): string {
+  return aviso.replace(/\|\d{5,40}$/, '');
+}
+
 function partirHilo(hilo: string): { comprador: string; aviso: string } {
   const i = hilo.indexOf('|');
   if (i < 0) return { comprador: hilo.trim(), aviso: '' };
-  return { comprador: hilo.slice(0, i).trim() || hilo.trim(), aviso: hilo.slice(i + 1).trim() };
+  return {
+    comprador: hilo.slice(0, i).trim() || hilo.trim(),
+    aviso: quitarIdHilo(hilo.slice(i + 1).trim()),
+  };
 }
 
 export function ChatsMarketplace() {
