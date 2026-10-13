@@ -101,6 +101,61 @@ function sembrarBdRama(dbUrl) {
   }
 }
 
+/* [13AA-8] El laboratorio (opencode-propio-dev) se autentica en MN con tokens
+ * emitidos en la BD de main. Cada rama tiene su propia BD, sin esos tokens: al
+ * cambiar de rama, MN responde 401 al laboratorio y este aparece como
+ * «no conectado». Aquí se copian a la BD de la rama los tokens de main. Se
+ * copian también los revocados: así una revocación en main llega a la rama
+ * (ON CONFLICT mantiene `revocada` a verdadero). Solo lee main, idempotente;
+ * si falla, avisa y sigue sin bloquear. */
+function copiarTokensLabABdRama(baseDbUrl, ramaDbUrl) {
+  const psqlBin = findPsql();
+  if (!psqlBin) {
+    console.warn('[db] Aviso: psql no disponible; el laboratorio no tendrá sus tokens en esta rama.');
+    return;
+  }
+  const conexion = (url) => {
+    const match = url.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
+    const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
+    return { args: ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName], env: { ...process.env, PGPASSWORD: dbPass } };
+  };
+  const origen = conexion(baseDbUrl);
+  const leido = spawnSync(psqlBin, [...origen.args, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-c', "SELECT COALESCE(json_agg(t), '[]'::json) FROM mp_tokens_emitidos t"],{ encoding: 'utf8', env: origen.env, shell: false });
+  if (leido.status !== 0) {
+    console.warn(`[db] Aviso: no pude leer los tokens del laboratorio en main: ${(leido.stderr || '').trim()}`);
+    console.warn('[db] El laboratorio aparecerá como no conectado en esta rama.');
+    return;
+  }
+  const json = leido.stdout.trim();
+  /* El JSON va por stdin con cita dólar: nunca como argumento (límite de
+   * longitud de Windows) ni interpolado en la línea de comandos. */
+  if (json.includes('$payload$')) {
+    console.warn('[db] Aviso: tokens del laboratorio con texto inesperado; no los copio.');
+    return;
+  }
+  const sql = `
+INSERT INTO mp_tokens_emitidos (jti, sub, emitida_en, expira_en, revocada)
+SELECT jti, sub, emitida_en, expira_en, revocada
+FROM json_populate_recordset(NULL::mp_tokens_emitidos, $payload$${json}$payload$::json)
+ON CONFLICT (jti) DO UPDATE SET revocada = mp_tokens_emitidos.revocada OR EXCLUDED.revocada;
+SELECT count(*) FROM mp_tokens_emitidos WHERE NOT revocada AND expira_en > now();
+`;
+  const destino = conexion(ramaDbUrl);
+  const escrito = spawnSync(psqlBin, [...destino.args, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-f', '-'], {
+    input: sql,
+    encoding: 'utf8',
+    env: destino.env,
+    shell: false,
+  });
+  if (escrito.status !== 0) {
+    console.warn(`[db] Aviso: no pude copiar los tokens del laboratorio a esta rama: ${(escrito.stderr || '').trim()}`);
+    console.warn('[db] El laboratorio aparecerá como no conectado en esta rama.');
+    return;
+  }
+  const vigentes = escrito.stdout.trim().split(/\r?\n/).pop();
+  console.log(`[db] Tokens del laboratorio vigentes en esta rama: ${vigentes}`);
+}
+
 const cargoArgs = process.argv.slice(2);
 if (cargoArgs.length === 0) {
   console.error('Uso: node scripts/run-with-db.mjs <subcomando cargo> [...args]');
@@ -108,7 +163,7 @@ if (cargoArgs.length === 0) {
 }
 
 console.log('');
-const { branch, dbName, dbUrl, cargoTargetDir } = getBranchDbContext();
+const { branch, isDefaultBranch, dbName, dbUrl, baseDbUrl, cargoTargetDir } = getBranchDbContext();
 console.log('');
 
 /* [011A-3] La BD de rama se crea vacia y los macros `query_*!` validan
@@ -141,6 +196,9 @@ if (branch !== 'main' && branch !== 'master') sembrarBdRama(dbUrl);
 /* [10AA-27] Solo al arrancar el backend: deja el admin local con la clave de
  * `frontend/.env.local` para que la auto-entrada del panel no dé 401. */
 if (cargoArgs[0] === 'run') sincronizarClaveDevSilencioso(dbUrl);
+/* [13AA-8] Solo al arrancar el backend, en ramas: el laboratorio necesita sus
+ * tokens en la BD de la rama (ver copiarTokensLabABdRama). */
+if (!isDefaultBranch && cargoArgs[0] === 'run') copiarTokensLabABdRama(baseDbUrl, dbUrl);
 liberarBinariosDeLaRama(cargoTargetDir);
 
 const child = spawn(cargoCommand(), cargoArgs, {
