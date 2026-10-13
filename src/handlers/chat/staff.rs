@@ -230,7 +230,7 @@ async fn persistir_respuesta(
 
 fn es_unique_violation(e: &sqlx::Error) -> bool {
     e.as_database_error()
-        .and_then(|d| d.code())
+        .and_then(sqlx::error::DatabaseError::code)
         .is_some_and(|c| c == "23505")
 }
 
