@@ -83,3 +83,10 @@ cada escenario parte de conversación virgen.
 ## Orden de ejecución
 Fase 0 → Fase 1 (responde "qué pasa hoy") → decidir con usuaria qué builds E11–E16
 entran (propuesta: E16 + E12-aviso + E14 primero) → Fase 2 por bloques → Fase 3.
+
+## Estado (2026-10-13)
+
+- Fase 0 y Fase 1: hechas (hallazgos en este plan).
+- E14, E15 y E16 verificados (ver roadmap, 299A-1).
+- **Bloqueado:** la batería completa (Fase 3) necesita proveedor IA operativo. Depende de `GLORY_API_KEY` real en `.env` (roadmap, 199A-1/199A-2). Hecho externo: clave de la usuaria.
+- **Próximo paso:** cuando haya clave, correr la Fase 3 en BD limpia y registrar resultados en `Agente/completados/tareas-2026-09-29.md`. Sin clave, el plan queda en espera; no se archiva.
