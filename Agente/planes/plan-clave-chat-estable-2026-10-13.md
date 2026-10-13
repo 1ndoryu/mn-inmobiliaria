@@ -1,7 +1,7 @@
 # Plan: clave de chat estable por conversación (Marketplace)
 
 - **Fecha:** 2026-10-13
-- **Estado:** en ejecución. F0 resuelta (§6). F1 y F2 escritas, sin commit; F3 escrita, sin commit; verificación en curso. Roadmap: 13AA-13.
+- **Estado:** integrada en `main` (MN) el 2026-10-13. F0–F3 hechas; gate fuera de banda sin hallazgos nuevos. Pendiente de hechos externos: prueba viva y promoción del puente. Roadmap: 13AA-13.
 - **Rama:** `clave-chat-estable-2026-10-13` (worktree `C:/tmp/wt-clave-chat-estable`, base `main` d0840175).
 - **Origen:** la usuaria pregunta si dos clientes con el mismo nombre se sobrescriben en Mensajes → Marketplace → Chats.
 
@@ -41,9 +41,9 @@ No verificado: consultas a la base de datos, ejecución en vivo.
     - Verificación de estabilidad (2026-10-13, dos lecturas con 6 s de diferencia, 8 floats): mismo id en cada float en ambas lecturas; 2 enlaces por float; un solo id por float.
     - **Sin verificar:** que el id sea estable entre sesiones de Facebook; que pertenezca al comprador y no a una cuenta compartida (el nombre no se puede cruzar con el id en el DOM). Se confirma en la prueba viva.
   - **Estado:** resuelta (§6).
-- **F1 — Backend MN.** Hecha, sin commit. `clave_hilo` acepta el tercer segmento validado (`separar_id_hilo`, solo dígitos, 5–40, exige `nombre|aviso` delante). `chats_admin.rs` no se toca (§6). Tests: `clave_hilo_separa_dos_compradores_con_el_mismo_nombre_y_aviso`, `clave_hilo_sin_id_valido_es_la_clave_de_hoy`, `nombre_y_aviso_ignoran_el_id_final` (`src/services/marketplace/pruebas/hilos/hilo.rs`). Verificado: `node scripts/run-cargo.mjs test clave_hilo` (3 OK) y `test nombre_y_aviso` (2 OK).
-- **F2 — Frontend.** Hecha, sin commit. `partirHilo` oculta el tercer segmento (`quitarIdHilo` en `frontend/src/features/chat/marketplace/chats-marketplace.tsx`). El `title` muestra el hilo completo (decidido, admin). `hilos-huerfanos.tsx` tolera el tercer segmento: sin cambios. Verificación: type-check y lint en curso.
-- **F3 — Puente.** Hecha, sin commit (repos distintos, ver abajo).
+- **F1 — Backend MN.** Hecha: commit `858ee9b2`. `clave_hilo` acepta el tercer segmento validado (`separar_id_hilo`, solo dígitos, 5–40, exige `nombre|aviso` delante). `chats_admin.rs` no se toca (§6). Tests: `clave_hilo_separa_dos_compradores_con_el_mismo_nombre_y_aviso`, `clave_hilo_sin_id_valido_es_la_clave_de_hoy`, `nombre_y_aviso_ignoran_el_id_final` (`src/services/marketplace/pruebas/hilos/hilo.rs`). Verificado: `node scripts/run-cargo.mjs test clave_hilo` (3 OK) y `test nombre_y_aviso` (2 OK).
+- **F2 — Frontend.** Hecha: commit `858ee9b2`. `partirHilo` oculta el tercer segmento (`quitarIdHilo` en `frontend/src/features/chat/marketplace/chats-marketplace.tsx`). El `title` muestra el hilo completo (decidido, admin). `hilos-huerfanos.tsx` tolera el tercer segmento: sin cambios. Verificación: type-check y lint sin errores.
+- **F3 — Puente.** Hecha (repos distintos, ver abajo): `plugins-opencode` en `main` `3390dad`; `opencode-propio-dev` no es git y queda pendiente de promoción.
   - `plugins-opencode` (git): `extraerPerfilId` y `floatKeyFor(buyer, listing, perfilId)` en `src/burbujas/parseo/cabecera.ts`; `perfilDelHilo` y la clave en `leerHilos` (`src/burbujas/adaptador-fb/lector.ts`). Tests en `test/burbujas/burbujas-parseo.test.ts`.
   - `opencode-propio-dev` (sin git): `mpPerfilId` y `mpKey(buyer, listing, perfilId)` en `marketplace-float.ts` (en `mpScan` y `mpReposition`; `mpReposition` calcula ahora `root` antes de la clave); `recortarThreadId` en `marketplace-nucleo.ts` (`buildBorradorRequest` y `buildReleerRequest`); tests [13AA-13] en `marketplace-nucleo.test.ts`.
   - Respaldo previo a la edición: `C:/tmp/respaldo-13aa-13-<fecha>/`.
@@ -63,7 +63,7 @@ No verificado: consultas a la base de datos, ejecución en vivo.
 - **Backend (Rust):** hecha (§5 F1): tests de `clave_hilo` y `nombre_y_aviso` en verde.
 - **Puente:** `threadIdConPrecio` con y sin id; recorte de 120 con id; `floatKeyFor` y `extraerPerfilId` (tests de `plugins-opencode` y `marketplace-nucleo.test.ts`). Los tests existentes siguen en verde.
 - **Frontend:** `npm run type-check` y `npm run lint` en `frontend/`.
-- **Gate:** `Arranque gate "13AA-13" --cierre`, una vez, al final.
+- **Gate:** `Arranque gate "MN-Inmobiliaria" --cierre` no mide el worktree (analiza la carpeta principal). Se hizo fuera de banda con el mismo CLI Sentinel sobre `d0840175` y sobre el worktree: 0 hallazgos nuevos (`completados/tareas-2026-10-13.md`, 13AA-13).
 - **Viva:** dos chats reales del mismo nombre (la usuaria). Confirma que el id de perfil es estable entre sesiones.
 
 ## 8. Definition of Done
@@ -72,4 +72,4 @@ Según AGENTS §8: pruebas, gate sin hallazgos nuevos, documentación (roadmap, 
 
 ## 9. Próximo paso
 
-Esperar los resultados de verificación (plugins-opencode, desktop, frontend). Después: gate (`Arranque gate "13AA-13" --cierre`), documentación, commit por repo con `git add` explícito (`plugins-opencode` y worktree; `opencode-propio-dev` no es git: sus cambios quedan para la promoción) e integración en `main`. La prueba viva con dos chats del mismo nombre queda pendiente de la usuaria.
+Integrado en `main` (MN). Pendiente de la usuaria: prueba viva con dos chats del mismo nombre, y la promoción del puente en su ventana (`opencode-propio-dev/PROMOCION-VENTANA.md`, «0c»: regenerar `vendor/burbujas.iife.js`).
