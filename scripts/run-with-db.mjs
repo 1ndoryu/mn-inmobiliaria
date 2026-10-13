@@ -108,11 +108,16 @@ function sembrarBdRama(dbUrl) {
  * copian también los revocados: así una revocación en main llega a la rama
  * (ON CONFLICT mantiene `revocada` a verdadero). Solo lee main, idempotente;
  * si falla, avisa y sigue sin bloquear. */
-function copiarTokensLabABdRama(baseDbUrl, ramaDbUrl) {
+/* [13AA-9] Copia las filas de `tabla` de main a la BD de la rama sin borrar
+ * nada (ON CONFLICT: lo que la rama ya tiene se deja). Solo lee main.
+ * `sqlEscritura(json)` devuelve el SQL que inserta esas filas y acaba en un
+ * SELECT de conteo. Devuelve ese conteo, o null si falla (aviso `[db]`, sin
+ * bloquear el arranque). */
+function copiarDesdeMain(baseDbUrl, ramaDbUrl, tabla, sqlEscritura) {
   const psqlBin = findPsql();
   if (!psqlBin) {
-    console.warn('[db] Aviso: psql no disponible; el laboratorio no tendrá sus tokens en esta rama.');
-    return;
+    console.warn(`[db] Aviso: psql no disponible; no copio ${tabla} de main a esta rama.`);
+    return null;
   }
   const conexion = (url) => {
     const match = url.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
@@ -120,40 +125,69 @@ function copiarTokensLabABdRama(baseDbUrl, ramaDbUrl) {
     return { args: ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName], env: { ...process.env, PGPASSWORD: dbPass } };
   };
   const origen = conexion(baseDbUrl);
-  const leido = spawnSync(psqlBin, [...origen.args, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-c', "SELECT COALESCE(json_agg(t), '[]'::json) FROM mp_tokens_emitidos t"],{ encoding: 'utf8', env: origen.env, shell: false });
+  const leido = spawnSync(psqlBin, [...origen.args, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-c', `SELECT COALESCE(json_agg(t), '[]'::json) FROM ${tabla} t`], { encoding: 'utf8', env: origen.env, shell: false });
   if (leido.status !== 0) {
-    console.warn(`[db] Aviso: no pude leer los tokens del laboratorio en main: ${(leido.stderr || '').trim()}`);
-    console.warn('[db] El laboratorio aparecerá como no conectado en esta rama.');
-    return;
+    console.warn(`[db] Aviso: no pude leer ${tabla} en main: ${(leido.stderr || '').trim()}`);
+    return null;
   }
   const json = leido.stdout.trim();
   /* El JSON va por stdin con cita dólar: nunca como argumento (límite de
    * longitud de Windows) ni interpolado en la línea de comandos. */
   if (json.includes('$payload$')) {
-    console.warn('[db] Aviso: tokens del laboratorio con texto inesperado; no los copio.');
-    return;
+    console.warn(`[db] Aviso: ${tabla} de main con texto inesperado; no lo copio.`);
+    return null;
   }
-  const sql = `
-INSERT INTO mp_tokens_emitidos (jti, sub, emitida_en, expira_en, revocada)
-SELECT jti, sub, emitida_en, expira_en, revocada
-FROM json_populate_recordset(NULL::mp_tokens_emitidos, $payload$${json}$payload$::json)
-ON CONFLICT (jti) DO UPDATE SET revocada = mp_tokens_emitidos.revocada OR EXCLUDED.revocada;
-SELECT count(*) FROM mp_tokens_emitidos WHERE NOT revocada AND expira_en > now();
-`;
   const destino = conexion(ramaDbUrl);
   const escrito = spawnSync(psqlBin, [...destino.args, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-f', '-'], {
-    input: sql,
+    input: sqlEscritura(json),
     encoding: 'utf8',
     env: destino.env,
     shell: false,
   });
   if (escrito.status !== 0) {
-    console.warn(`[db] Aviso: no pude copiar los tokens del laboratorio a esta rama: ${(escrito.stderr || '').trim()}`);
+    console.warn(`[db] Aviso: no pude copiar ${tabla} a esta rama: ${(escrito.stderr || '').trim()}`);
+    return null;
+  }
+  return escrito.stdout.trim().split(/\r?\n/).pop();
+}
+
+/* [13AA-8] El laboratorio (opencode-propio-dev) se autentica en MN con tokens
+ * emitidos en la BD de main. Cada rama tiene su propia BD, sin esos tokens: al
+ * cambiar de rama, MN responde 401 al laboratorio y este aparece como
+ * «no conectado». Aquí se copian a la BD de la rama los tokens de main. Se
+ * copian también los revocados: así una revocación en main llega a la rama
+ * (ON CONFLICT mantiene `revocada` a verdadero). */
+function copiarTokensLabABdRama(baseDbUrl, ramaDbUrl) {
+  const vigentes = copiarDesdeMain(baseDbUrl, ramaDbUrl, 'mp_tokens_emitidos', (json) => `
+INSERT INTO mp_tokens_emitidos (jti, sub, emitida_en, expira_en, revocada)
+SELECT jti, sub, emitida_en, expira_en, revocada
+FROM json_populate_recordset(NULL::mp_tokens_emitidos, $payload$${json}$payload$::json)
+ON CONFLICT (jti) DO UPDATE SET revocada = mp_tokens_emitidos.revocada OR EXCLUDED.revocada;
+SELECT count(*) FROM mp_tokens_emitidos WHERE NOT revocada AND expira_en > now();
+`);
+  if (vigentes === null) {
     console.warn('[db] El laboratorio aparecerá como no conectado en esta rama.');
     return;
   }
-  const vigentes = escrito.stdout.trim().split(/\r?\n/).pop();
   console.log(`[db] Tokens del laboratorio vigentes en esta rama: ${vigentes}`);
+}
+
+/* [13AA-9] Los inmuebles y sus fotos viven en la BD de main. Una rama nueva
+ * solo tiene el registro sintético de los tests (ver sembrarBdRama) y el panel
+ * no muestra los inmuebles reales. Se copian las filas que la rama no tiene.
+ * Cambios posteriores hechos en main a filas ya copiadas no llegan. No se
+ * copian las visitas: tienen nombres y teléfonos. */
+function copiarInmueblesABdRama(baseDbUrl, ramaDbUrl) {
+  const inmuebles = copiarDesdeMain(baseDbUrl, ramaDbUrl, 'inmuebles', (json) => `
+INSERT INTO inmuebles SELECT * FROM json_populate_recordset(NULL::inmuebles, $payload$${json}$payload$::json) ON CONFLICT DO NOTHING;
+SELECT count(*) FROM inmuebles;
+`);
+  if (inmuebles === null) return;
+  const fotos = copiarDesdeMain(baseDbUrl, ramaDbUrl, 'fotos', (json) => `
+INSERT INTO fotos SELECT * FROM json_populate_recordset(NULL::fotos, $payload$${json}$payload$::json) ON CONFLICT DO NOTHING;
+SELECT count(*) FROM fotos;
+`);
+  console.log(`[db] Inmuebles en esta rama: ${inmuebles}; fotos: ${fotos ?? 'no copiadas'}`);
 }
 
 const cargoArgs = process.argv.slice(2);
@@ -198,7 +232,10 @@ if (branch !== 'main' && branch !== 'master') sembrarBdRama(dbUrl);
 if (cargoArgs[0] === 'run') sincronizarClaveDevSilencioso(dbUrl);
 /* [13AA-8] Solo al arrancar el backend, en ramas: el laboratorio necesita sus
  * tokens en la BD de la rama (ver copiarTokensLabABdRama). */
-if (!isDefaultBranch && cargoArgs[0] === 'run') copiarTokensLabABdRama(baseDbUrl, dbUrl);
+if (!isDefaultBranch && cargoArgs[0] === 'run') {
+  copiarTokensLabABdRama(baseDbUrl, dbUrl);
+  copiarInmueblesABdRama(baseDbUrl, dbUrl);
+}
 liberarBinariosDeLaRama(cargoTargetDir);
 
 const child = spawn(cargoCommand(), cargoArgs, {
