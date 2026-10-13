@@ -33,7 +33,7 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 - 08AA-9 (botón Releer).
 - 03AA-3 y 07AA-6: C1b cancelado por ella 2026-10-07 (`Agente/planes/plan-flujo-lab-opencode-propio-2026-10-07.md:100`). Queda la promoción en su ventana; la prueba viva de 07AA-6 se cerró 2026-10-13.
 - 07AA-8 (V4 de `marketplace-float.ts`).
-- 13AA-2 (saludo por franja en burbujas, lab 2026-10-13): en la ventana de la usuaria; detalle en `opencode-propio-dev/PROMOCION-VENTANA.md` («0. 13AA-2»). Prueba viva cerrada 2026-10-13 (sin reinicio del lab).
+- 13AA-2 (saludo por franja en burbujas, lab 2026-10-13): en la ventana de la usuaria; detalle en `opencode-propio-dev/PROMOCION-VENTANA.md` («0. 13AA-2»). Prueba viva cerrada 2026-10-13. **Decidido 2026-10-13 (la usuaria): no reiniciar el lab.** El cambio no está activo en el lab en marcha; se activa en su próximo reinicio, cuando ella lo decida.
 
 ## 5. Bloqueados por terceros o configuración
 
