@@ -427,7 +427,7 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
 ## Optimizacion PageSpeed movil + SEO profundo (249A-1, completada 2026-09-24)
 
 - Cerrada y desplegada: ver `Agente/completados/tareas-2026-09-24.md` y plan en
-  `Agente/planes/completados/plan-optimizacion-pagespeed-seo-2026-09-24.md`.
+  `Agente/planes/plan-optimizacion-pagespeed-seo-2026-09-24.md`.
 - Restos abiertos: F8 SEO profundo (h1/alt/canonical/JSON-LD `ItemList` si falta);
   rerun PageSpeed movil (la API devolvia 429 por cuota).
 - 249A-3 (2026-09-24, desplegada): preload del heroe muerto eliminado

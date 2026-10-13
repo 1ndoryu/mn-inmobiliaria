@@ -1,5 +1,7 @@
 # Plan 10AA-24/25/26 — Chats en tiempo real, continuación automática y dos opciones en la burbuja
 
+> Estado: activo. Código hecho (2026-10-10, ver `Agente/completados/tareas-2026-10-10.md`). Falta la prueba en vivo de la usuaria: chat nuevo visible en el admin en menos de 2 s y borrador breve con cliente real (roadmap §3). Se archiva al cerrar esa prueba.
+
 > Origen: pedido de la usuaria, 2026-10-10. Tres deseos: (1) ver los chats en el admin al instante de abrirse; (2) que un mensaje nuevo relea la conversación y la IA conteste el último, breve y siguiendo el hilo; (3) dos textos en la burbuja (plantilla + IA). Prioridad: fluidez.
 
 ## Hallazgos (verificados en código, 2026-10-10)

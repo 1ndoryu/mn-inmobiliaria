@@ -1,6 +1,6 @@
 # Plan deploy producción mn-inmobiliaria.com — 2026-09-23
 
-> Estado: plan. Sin ejecución remota todavía.
+> Estado: en curso. Ejecutado en gran parte (registros en completados: 2026-09-24, 2026-09-26 y 2026-10-11). Pendiente: confirmar la contraseña admin rotada (fase 5.4, la usuaria) y endurecer los respaldos del front (plan líneas 282-284). Fases 1.7 y 1.8 sin registro: revisar.
 > Decisiones del usuario: estructura **monorepo**; en producción se conserva
 > **admin@admin.com** con contraseña nueva segura; DNS en Contabo = paso final (lo hace el usuario).
 

@@ -1,5 +1,7 @@
 # Plan — Detección fiable del mensaje del cliente + caché por inmueble (09AA-29, 2026-10-09)
 
+> Estado: parcialmente superado. F3 y F4 los sustituye 09AA-30; la fuente activa es `Agente/planes/plan-cache-inmueble-automatica-2026-10-09.md`. Se archiva al cerrar 09AA-30.
+
 ## Objetivo
 Que el borrador (a) lea SOLO lo que el cliente escribió y (b) cite el precio
 de la ficha cuando el hilo pertenece a un inmueble publicado. Con eso como

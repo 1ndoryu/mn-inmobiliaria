@@ -1,6 +1,6 @@
 # Plan 279A — Extras públicos: candidatos para la ficha
 
-Fecha: 2026-10-12. Estado: **propuesta. Nada se publica** hasta que la usuaria revise la lista, lista por lista.
+Fecha: 2026-10-12. Estado: **en pausa por decisión de la usuaria (2026-10-12): no se muestra ningún extra**, tampoco el precio negociable. Se reabre solo si ella decide mostrar alguno; entonces se revisa lista por lista.
 
 ## Objetivo y alcance
 

@@ -1,5 +1,7 @@
 # Plan optimización PageSpeed + SEO — 249A-1 (2026-09-24)
 
+> Estado: activo. Desplegado el 2026-09-24. Pendiente: repetir la medición PageSpeed móvil y escritorio (la API dio 429 por cuota) y el SEO profundo F8 (roadmap §3). Se archiva al cerrar esos puntos.
+
 > Origen: pedido usuario tras incidencia `Servidor no disponible` cerrada.
 > PageSpeed mobile medido en captura: 75 Rendimiento / 100 Accesibilidad / 100
 > Recomendaciones / 92 SEO (PSI API devolvió 429, no hay desglose de oportunidades).

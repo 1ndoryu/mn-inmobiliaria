@@ -1,5 +1,7 @@
 # Plan Sentinel + VarSense editor-agnostico - 2026-05-04
 
+> Estado: cerrado el 2026-05-10 (105A-2, `Agente/completados/tareas-2026-05-10.md`). Pendientes no bloqueantes: publicar los empaquetados de VS Code y Zed, y ampliar las pruebas con cada regla nueva. No están en el roadmap.
+
 ## Objetivo
 
 Convertir Glory Sentinel y VarSense en herramientas con un motor real independiente del editor, manteniendo la extension de VS Code como adaptador y habilitando primero reportes por CLI y despues diagnosticos nativos en Zed mediante LSP.

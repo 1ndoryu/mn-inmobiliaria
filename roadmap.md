@@ -5,6 +5,7 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 ## 1. Siguiente bloque ejecutable
 
 - **12AA-1 — Gateway WhatsApp (3102), cierre por plazo.** Mitigación en `gateway/src/sesion.mjs` (`fireInitQueries: false`, backoff 5→60 s). Cierra si hasta 2026-10-13 05:12 local (09:12Z) no hay `ENOTFOUND` ni 428 repetidos con `wa_a`/`wa_b` estables. PID vigente 9032 (verificado: `node src/index.mjs --gateway-mn`; el registro decía 18784). Pendiente: revisar la resolución DNS del host (`ENOTFOUND web.whatsapp.com`). Detalle: `Agente/planes/roadmap-detalle-2026-10-12.md` (entrada 12AA-1).
+  **Decidido 2026-10-12 (la usuaria):** la tarea programada del 13/10 05:15 que lo cerraba se cancela. El cierre queda manual: comprobar el gateway y decidir a mano.
 
 ## 2. Decisiones de la usuaria (bloqueos)
 
@@ -14,7 +15,7 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 - **08AA-30 — filas duplicadas en `mp_respuestas_cache`:** decidido «Dejarlas» (161 filas, 48 `thread_id` repetidos, 82 sobrantes). No se borran; la unificación de `thread_id` sigue en §6.
 - **289A-5 — sesión `739bb63e` con `devolver_a_ia`:** decidido «No, pendiente». No se reintenta ahora.
 - **03AA-3 Asistente Marketplace:** falta la firma de ella para M1, el remoto y la fecha.
-- **279A-4..8 Extras públicos:** decidido 2026-10-12: la ficha pública no muestra extras todavía. Criterio de la usuaria: solo extras positivos que agreguen valor, con revisión lista por lista (el valor depende del caso: planta baja frente a último piso según el edificio). La lista candidata está en `Agente/planes/plan-extras-publicos-2026-10-12.md`; decidido 2026-10-12: el precio negociable se publica; el resto, lista por lista. Nada más se publica sin su confirmación. La IA sigue leyéndolos (ver 279A, §6).
+- **279A-4..8 Extras públicos:** decidido 2026-10-12 (la usuaria): la ficha pública no muestra ningún extra, tampoco el precio negociable (revierte la decisión previa de publicarlo). Si mañana decide mostrar algo, se revisa lista por lista. La lista candidata y el criterio quedan en `Agente/planes/plan-extras-publicos-2026-10-12.md`. La IA sigue leyéndolos (ver 279A, §6).
 - **Deploy 239A-1, Fase 5.4:** confirmar la password admin rotada (o pedir otra).
 - **169A-1 — `AGENTE_CONTACTO`:** confirmar el valor real que va en `.env` (no se muestra aquí).
 - **Entrada de personal en producción:** acción de la usuaria (entrar una vez en la app); el agente no entra en producción.
@@ -73,7 +74,7 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 - **08AA-8b** — Decidido: el camino principal de marcas no usa geometría (`opencode-propio/.../marketplace-float.ts:671-695`). Pestaña en fondo en vivo (§3); trabajo en `opencode-propio-dev`.
 - **199A-7** — Decidido 2026-10-12: no implementar. Opcional, sin ficha ni urgencia; el reordenado por DELETE+POST (199A-6) funciona. Se reabre si lo pide la usuaria.
 - **299A-3** — pendiente de proveedor IA operativo (§5) para reproducir las dos notas de voz (`src/services/turno.rs:511-517`).
-- **279A** — ficha pública sin extras hasta la revisión de la usuaria (§2). Lista candidata con motivo y criterio: `Agente/planes/plan-extras-publicos-2026-10-12.md`. Decidido: `negociable` se publica. Pendiente de la usuaria: revisar el resto de la lista lista por lista y confirmar el criterio; después, filtro backend y prueba (fases 2–3 del plan).
+- **279A** — en pausa por decisión de la usuaria (§2): ficha pública sin extras. Sin trabajo pendiente. Si decide mostrar alguno, se abre la revisión lista por lista (`Agente/planes/plan-extras-publicos-2026-10-12.md`).
 - **03AA-5** — bloqueado por el corpus de la usuaria (5+2+1 HTML y dataset; `Agente/planes/plan-detector-captacion-2026-10-03.md:42-51`).
 - **Fuera de MN:** configurar `coolify-manager-rs` para desplegar proyectos Rust (repo separado).
 
