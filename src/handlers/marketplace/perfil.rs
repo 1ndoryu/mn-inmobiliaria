@@ -33,6 +33,8 @@ const MAX_AVISOS: usize = 500;
 const MAX_CANDIDATOS: usize = 10;
 const MAX_TITULO: usize = 300;
 const MAX_PRECIO: usize = 40;
+/// Las URLs firmadas de fbcdn son largas; más allá de esto no es una foto normal.
+const MAX_IMAGEN: usize = 1000;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct AvisoLeido {
@@ -41,6 +43,10 @@ pub struct AvisoLeido {
     pub titulo: String,
     /// Precio tal como lo muestra Facebook.
     pub precio: Option<String>,
+    /// Foto principal del aviso (https de Facebook o de su CDN). Si no es una URL
+    /// válida se descarta: la foto es solo ayuda visual, no invalida la lectura.
+    #[serde(default)]
+    pub imagen_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -65,6 +71,8 @@ pub struct AvisoPendiente {
     pub titulo: String,
     pub precio: Option<String>,
     pub url: String,
+    /// Foto principal del aviso en Facebook (`null` si la lab no la leyó).
+    pub imagen_url: Option<String>,
     pub candidatos: Vec<CandidatoInmueble>,
 }
 
@@ -136,6 +144,7 @@ pub async fn listar(State(state): State<AppState>, _auth: AuthStaff) -> Result<R
             titulo: fila.titulo,
             precio: fila.precio,
             url: fila.url,
+            imagen_url: fila.imagen_url,
         });
     }
     let inmuebles_sin_aviso = inmuebles
@@ -194,10 +203,28 @@ fn validar_lectura(lectura: LecturaPerfil) -> Result<Vec<AvisoPerfilNuevo>, AppE
             url: format!("https://www.facebook.com/marketplace/item/{aviso_id}"),
             titulo: titulo.chars().take(MAX_TITULO).collect(),
             precio,
+            imagen_url: leido.imagen_url.as_deref().and_then(imagen_valida),
             aviso_id,
         });
     }
     Ok(avisos)
+}
+
+/// La foto se pinta en una `<img>` del panel: solo se guarda una URL https que
+/// apunte a Facebook o a su CDN (`fbcdn.net`), sin credenciales ni puerto. Una
+/// URL ajena o torcida no rechaza la lectura: el aviso queda sin foto.
+fn imagen_valida(url: &str) -> Option<String> {
+    let url = url.trim();
+    if url.is_empty() || url.len() > MAX_IMAGEN || url.chars().any(|c| c.is_whitespace()) {
+        return None;
+    }
+    let resto = url.strip_prefix("https://")?;
+    let host = resto.split(['/', '?', '#']).next()?.to_ascii_lowercase();
+    if host.contains(['@', ':']) {
+        return None;
+    }
+    let es_facebook = |dominio: &str| host == dominio || host.ends_with(&format!(".{dominio}"));
+    (es_facebook("fbcdn.net") || es_facebook("facebook.com")).then(|| url.to_string())
 }
 
 /// Inmuebles más parecidos al título del aviso, primero. Usa el mismo criterio
@@ -234,6 +261,7 @@ mod tests {
             aviso_id: id.to_string(),
             titulo: titulo.to_string(),
             precio: None,
+            imagen_url: None,
         }
     }
 
@@ -283,6 +311,40 @@ mod tests {
     }
 
     #[test]
+    fn imagen_solo_de_facebook_o_su_cdn() {
+        let foto = "https://scontent-lga3-1.xx.fbcdn.net/v/t45.5328-4/1_n.jpg?stp=c0.43.261.261";
+        assert_eq!(imagen_valida(foto).as_deref(), Some(foto));
+        assert!(imagen_valida("https://www.facebook.com/a.jpg").is_some());
+        for mala in [
+            "",
+            "http://scontent.xx.fbcdn.net/a.jpg",
+            "https://fbcdn.net.evil.test/a.jpg",
+            "https://evilfbcdn.net/a.jpg",
+            "https://usuario@scontent.xx.fbcdn.net/a.jpg",
+            "https://scontent.xx.fbcdn.net:8443/a.jpg",
+            "https://scontent.xx.fbcdn.net/a b.jpg",
+            "data:image/png;base64,AAAA",
+        ] {
+            assert!(imagen_valida(mala).is_none(), "{mala}");
+        }
+        assert!(imagen_valida(&format!("https://scontent.xx.fbcdn.net/{}", "a".repeat(MAX_IMAGEN))).is_none());
+    }
+
+    #[test]
+    fn foto_invalida_no_rechaza_la_lectura() {
+        let mut con_foto = leido("123456789012", "Casa en Los Samanes");
+        con_foto.imagen_url = Some("https://scontent.xx.fbcdn.net/a.jpg".into());
+        let mut ajena = leido("123456789013", "Casa en Naguanagua");
+        ajena.imagen_url = Some("https://evil.test/a.jpg".into());
+        let avisos = validar_lectura(LecturaPerfil {
+            avisos: vec![con_foto, ajena],
+        })
+        .unwrap();
+        assert_eq!(avisos[0].imagen_url.as_deref(), Some("https://scontent.xx.fbcdn.net/a.jpg"));
+        assert_eq!(avisos[1].imagen_url, None);
+    }
+
+    #[test]
     fn ids_repetidos_cuentan_una_vez() {
         let lectura = LecturaPerfil {
             avisos: vec![
@@ -321,6 +383,7 @@ mod tests {
             titulo: format!("Aviso {id}"),
             precio: None,
             url: format!("https://www.facebook.com/marketplace/item/{id}"),
+            imagen_url: Some(format!("https://scontent.xx.fbcdn.net/{id}.jpg")),
         }
     }
 
@@ -349,14 +412,16 @@ mod tests {
             .await
             .unwrap();
         assert!(ausentes >= 1, "b dejó de venir y debe contarse como ausente");
-        let despues: Vec<String> = avisos_perfil_sin_vincular(&pool)
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|f| f.aviso_id)
-            .collect();
-        assert!(despues.contains(&a.to_string()));
-        assert!(!despues.contains(&b.to_string()));
+        let filas = avisos_perfil_sin_vincular(&pool).await.unwrap();
+        let despues: Vec<&str> = filas.iter().map(|f| f.aviso_id.as_str()).collect();
+        assert!(despues.contains(&a));
+        assert!(!despues.contains(&b));
+        let fila_a = filas.iter().find(|f| f.aviso_id == a).unwrap();
+        assert_eq!(
+            fila_a.imagen_url.as_deref(),
+            Some(format!("https://scontent.xx.fbcdn.net/{a}.jpg").as_str()),
+            "la foto del aviso se guarda y se devuelve"
+        );
 
         let presente_b: bool = sqlx::query_scalar(
             "SELECT presente FROM marketplace_avisos_perfil WHERE aviso_id = $1",
