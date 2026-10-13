@@ -1,70 +1,72 @@
 # Plan 13AA-4 — Vincular inmuebles con sus avisos de Facebook Marketplace
 
-Fecha: 2026-10-13. Estado: **planificado, sin código**. Decisiones D1–D3 pendientes de la usuaria (§6).
+Fecha: 2026-10-13. Estado: **planificado, decisiones cerradas por la usuaria, sin código**. Pendiente: su visto bueno para empezar por F1.
 
 ## 1. Objetivo
 
-Saber qué inmuebles de la app ya están publicados en el perfil de Facebook Marketplace (`https://www.facebook.com/marketplace/profile/1659274025/`) y vincular cada uno a su aviso (`inmuebles.marketplace_id`). Con el vínculo, los borradores usan el aviso exacto y no un inmueble parecido.
+Saber qué inmuebles ya están publicados en el perfil de Facebook Marketplace (`https://www.facebook.com/marketplace/profile/1659274025/`) y vincular cada uno a su aviso (`inmuebles.marketplace_id`). Con el vínculo, los borradores usan el aviso exacto y no un inmueble parecido.
 
 ## 2. Estado verificado (2026-10-13)
 
-- La columna `inmuebles.marketplace_id` existe (`migrations/20261009000033_marketplace_id.up.sql`). La tabla de inmuebles ya muestra «verificado» o «sin vincular» (`frontend/src/features/inmuebles/tabla/celdas-tabla-inmuebles.tsx:56-74`).
+- La columna `inmuebles.marketplace_id` existe (`migrations/20261009000033_marketplace_id.up.sql`). La tabla de inmuebles muestra «verificado» o «sin vincular» (`frontend/src/features/inmuebles/tabla/celdas-tabla-inmuebles.tsx:56-74`).
 - Vincular hoy es a mano, ficha por ficha, pegando el ID o la URL del aviso (`src/services/inmueble/vinculo.rs:21-44`).
-- La coincidencia exacta por ID solo se usa si el borrador trae `avisoId`. El piloto lo envía siempre `null` (`src/services/marketplace/pruebas.rs:63`), así que hoy todo va por título.
+- El match exacto por ID solo se usa si el borrador trae `avisoId`. El piloto lo envía siempre `null` (`src/services/marketplace/pruebas.rs:63`), así que hoy todo va por título.
 - Con `avisoId` presente y sin dueño, el código cae al título entre fichas sin vincular (`src/handlers/marketplace/claves.rs:78-89`). Ahí está el riesgo de inmueble parecido.
-- El navegador del agente no abre `facebook.com` (política, 2026-10-13). La lista del perfil tiene que salir de la navegadora de la usuaria, donde ella ya tiene la sesión. El agente no guarda ni pide su contraseña.
+- La navegación del agente no abre `facebook.com` (bloqueado, 2026-10-13). La lectura del perfil tiene que hacerla la app de la lab, que ya tiene la sesión de Facebook de la usuaria (`persist:propio-browser-shared`, `opencode-propio/src/packages/desktop/src/main/browser-tabs.ts:22`). El agente no guarda ni pide su contraseña.
+- `opencode-propio` y `opencode-propio-dev` no tienen Git: antes de editar, copia de respaldo.
 
-## 3. Alcance y no alcance
+## 3. Decisiones de la usuaria (2026-10-13)
 
-**Dentro:** lista del perfil (bookmarklet), pantalla de vinculación en MN, decisión sobre el fallback por título (`claves.rs`), pruebas y vínculo de los inmuebles reales.
+- **D1 — Cómo llega la lista:** automático en segundo plano desde la lab, sin abrir opencode. La lab lee el perfil con su sesión de Facebook.
+- **D2 — Aviso sin inmueble vinculado:** no citar otra ficha por título. Se resuelve con un modal de elección.
+- **D3 — Vincular:** modal para confirmar y elegir. Aparece primero el inmueble más parecido. Lo ya vinculado no vuelve a aparecer.
+
+Decisiones mías (técnicas, reversibles, se pueden cambiar):
+- La lab lee el perfil cada 30 min mientras esté abierta, y al arrancar. Nada en bucle ni con clics. Así se limita el riesgo con Facebook.
+- La lista se guarda en MN (no en la lab). El modal lee de MN; funciona aunque la lab esté cerrada, con la fecha de la última lectura visible.
+- El modal vive en la página de Inmuebles, con un botón «Vincular con Facebook» y el número de avisos pendientes.
+
+## 4. Alcance y no alcance
+
+**Dentro:** lectura automática del perfil (lab), tabla y endpoints de avisos (MN), modal de vinculación (MN frontend), fallback sin título cuando hay aviso sin dueño (MN), pruebas.
 
 **Fuera:**
 - Que el agente abra o scrapee Facebook.
-- Tocar la app viva `opencode-propio`. Los cambios van en `opencode-propio-dev` y la promoción en la ventana de la usuaria (`lab-opencode`).
+- Tocar la app viva `opencode-propio`. Los cambios van en `opencode-propio-dev`, y la promoción en la ventana de la usuaria (`lab-opencode`).
 - Borrar filas de `mp_respuestas_cache` (08AA-30, decidido «Dejarlas»).
 
-## 4. Fases
+## 5. Fases
 
-**F1 — Lista del perfil (bookmarklet).** Un marcador que, abierto en la página del perfil, lee cada enlace `/marketplace/item/<id>` con su título y precio, y copia el resultado al portapapeles. Criterio: en el perfil real salen todos los avisos visibles, sin duplicados. Se prueba con la página real, ejecutada por la usuaria.
+**F1 — Lectura del perfil en la lab (`opencode-propio-dev`).** Ventana oculta con la misma sesión de Facebook. Carga el perfil, extrae cada enlace `/marketplace/item/<id>` con título y precio, y los envía a MN. Se repite cada 30 min mientras la lab esté abierta, y al arrancar. Criterio: en el perfil real salen todos los avisos visibles, sin duplicados. Antes, confirmar cómo autentica la lab sus llamadas a MN (`MP_MN_TOKEN`, `marketplace-nucleo.ts:51-52`).
 
-**F2 — Pantalla «Publicados en Facebook» (MN frontend).** Pega la lista y muestra, por aviso:
-- **Vinculado:** ya tiene inmueble con ese ID.
-- **Propuesto:** un único inmueble con título parecido y precio igual.
-- **Ambiguo:** varios candidatos; la usuaria elige.
-- **Sin ficha:** aviso sin inmueble en la app.
+**F2 — Tabla y endpoints de avisos (MN backend).** Tabla `marketplace_avisos_perfil`: `aviso_id` (clave), `titulo`, `precio`, `url`, `visto_en`, `presente`. Endpoint para que la lab envíe la lista; cada lectura reemplaza el estado: los avisos que ya no aparecen quedan `presente = false` (vendidos o borrados), sin borrar la fila. Endpoint de lectura para el modal (solo staff).
 
-Y, por inmueble, los que **no están publicados** (no aparecen en la lista). Ningún enlace se guarda sin confirmación fila a fila (D3).
+**F3 — Modal «Vincular con Facebook» (MN frontend).** En la página de Inmuebles:
+- Lista de avisos presentes y sin vincular. Por cada uno, los inmuebles sin aviso ordenados por parecido (título y alias, usando la puntuación que ya existe en `src/services/marketplace/hilo/titulo.rs`; precio como dato visible). Botón «Vincular» o «No es este».
+- Lista de inmuebles publicados sin aviso (informativa).
+- Lo ya vinculado no aparece en ninguna de las dos listas.
+- Muestra la fecha de la última lectura.
 
-**F3 — Vincular.** Guarda `marketplace_id` con la actualización que ya existe (`ActualizacionInmueble`). El UNIQUE evita que dos fichas reclamen el mismo aviso (422 claro).
+**F4 — Borradores sin título inseguro (MN backend).** Si el borrador trae `avisoId` y ningún inmueble lo reclama, responder «sin ficha». Quitar la caída al título en esa rama (`claves.rs:78-89`). Sin `avisoId` (el piloto de hoy), la ruta por título se mantiene hasta F5; es el riesgo que queda.
 
-**F4 — Borradores.** Según D2:
-- *Si D2 = no citar por título:* con `avisoId` presente y sin dueño, devolver «sin ficha» en vez de caer al título. Prueba: aviso no vinculado → sin ficha, nunca otra ficha.
-- *Si D2 = mantener:* sin cambio en código; se documenta el riesgo.
-
-**F5 — Lab (fuera de MN).** Que la float de Marketplace envíe `avisoId` (tarea F7b). Sin esto, el ID exacto no entra en los borradores aunque los inmuebles estén vinculados. Va en la ventana de promoción de la usuaria (`opencode-propio-dev/PROMOCION-VENTANA.md`), no la hace el agente.
+**F5 — Lab: la float envía `avisoId` (tarea F7b).** Sin esto el vínculo no entra en los borradores de chat. Va en la ventana de promoción de la usuaria (`opencode-propio-dev/PROMOCION-VENTANA.md`). No la hace el agente.
 
 **F6 — Verificación y cierre.**
-- Tests de `normalizar_marketplace_id`, del matcher de F2 y de `claves_por_marketplace_id` con ID no vinculado.
+- Tests: el orden de parecido del modal, `normalizar_marketplace_id`, `claves_por_marketplace_id` con ID no vinculado (sin ficha), la clave única al vincular dos veces (422).
 - Typecheck del frontend y gate del proyecto, una vez, al final.
-- Vincular los inmuebles reales con la pantalla y revisar que ningún inmueble parecido quede vinculado al aviso equivocado.
+- Prueba con el perfil real: los avisos aparecen, vincular uno lo quita de la lista, y ningún inmueble parecido queda vinculado por error.
 
-## 5. Dependencias y riesgos
+## 6. Dependencias y riesgos
 
-- F1 depende de que la usuaria ejecute el marcador en su navegador (un clic, con su sesión).
-- F5 depende de la ventana de promoción de la usuaria. Mientras tanto, el beneficio de F3 se limita a no-regresión de la coincidencia por título.
-- Los selectores de Facebook cambian; el marcador usa solo enlaces `/marketplace/item/` y puede fallar si Facebook cambia el enlace.
-- Tercer riesgo: un aviso mal vinculado hace que el borrador cite un inmueble equivocado. Por eso F2 exige confirmación por fila.
-
-## 6. Decisiones pendientes de la usuaria
-
-- **D1 — Cómo llega la lista del perfil:** marcador de un clic (Recomendada) o pegar a mano las URLs.
-- **D2 — Aviso con ID sin inmueble vinculado:** no citar otra ficha por título (Recomendada) o mantener el fallback actual (09AA-29).
-- **D3 — Vincular:** confirmar cada aviso (Recomendada) o vincular solo si hay una coincidencia exacta de título y precio.
+- F1 depende de que la lab esté abierta y de que la sesión de Facebook siga iniciada (si caduca, la lectura falla y lo dice en la pantalla).
+- Los selectores de Facebook cambian. La lectura usa solo los enlaces `/marketplace/item/`; si Facebook cambia eso, F1 deja de leer y hay que ajustarlo.
+- F5 depende de la ventana de la usuaria. Hasta entonces, los borradores sin `avisoId` siguen por título.
+- Un aviso mal vinculado hace que el borrador cite un inmueble equivocado. Por eso el modal exige confirmar cada vínculo.
 
 ## 7. Definición de hecho
 
-- F1–F4 hechas y probadas con la lista real del perfil; F5 pendiente de la ventana de la usuaria (queda registrada en `PROMOCION-VENTANA.md`).
-- Los inmuebles publicados aparecen vinculados y los no publicados como «no publicado».
-- Registro en `Agente/completados/tareas-YYYY-MM-DD.md` con evidencia (tests y prueba con la lista real).
+- F1–F4 hechas y probadas con el perfil real. F5 pendiente de la ventana de la usuaria, registrada en `PROMOCION-VENTANA.md`.
+- Los inmuebles publicados aparecen vinculados, y los no publicados aparecen como «sin aviso en Facebook».
+- Registro en `Agente/completados/tareas-YYYY-MM-DD.md` con evidencia.
 
-Relacionado: [[09AA-21]] (`marketplace_id`), [[09AA-23]] (inmueble equivocado), [[09AA-29]] (fallback por título), F7b (`avisoId` desde la float).
+Relacionado: 09AA-21 (`marketplace_id`), 09AA-23 (inmueble equivocado), 09AA-29 (fallback por título), F7b (`avisoId` desde la float).
