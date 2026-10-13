@@ -51,6 +51,7 @@ use logs::{hilo8, log_borrador_cache, log_borrador_ia, mp_log, LogNivel};
 pub(crate) mod estructuradas;
 pub(crate) mod lab_estado;
 pub(crate) mod logs;
+pub(crate) mod perfil;
 pub(crate) mod token;
 
 pub mod chats_admin;
@@ -137,6 +138,11 @@ pub fn routes() -> Router<AppState> {
         .route("/marketplace/releer", post(releer))
         .route("/marketplace/corregir", post(corregir))
         .route("/marketplace/audit", post(audit))
+        /* [13AA-4] Lab: lectura del perfil (token mp). Staff: estado para el modal. */
+        .route(
+            "/marketplace/perfil/avisos",
+            get(perfil::listar).post(perfil::registrar),
+        )
         .route("/marketplace/uso", get(uso))
         .route(
             "/marketplace/chats",

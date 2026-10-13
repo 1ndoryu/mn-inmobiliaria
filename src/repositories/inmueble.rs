@@ -161,17 +161,9 @@ impl InmuebleRepository {
         Self::titulos_publicados(pool, false).await
     }
 
-    /* [09AA-29] Como `titulos_alias_publicados`, sin las fichas ya vinculadas a
-     * un aviso: el fallback por título de un ID de aviso sin dueño no puede
-     * citar la ficha de OTRO aviso. Vacío = NULL (`inmueble_vinculo`). */
-    pub async fn titulos_alias_publicados_sin_vinculo(
-        pool: &PgPool,
-    ) -> Result<Vec<(Uuid, String, Vec<String>)>, sqlx::Error> {
-        Self::titulos_publicados(pool, true).await
-    }
-
-    /* [09AA-29] Una sola query para las dos variantes: el SQL vive en un único
-     * sitio y la variante sin vínculo solo cambia el parámetro. */
+    /* [09AA-29] Parámetro del SQL: `true` = solo fichas sin vínculo. Hoy solo se
+     * llama con `false` (13AA-4 quitó el fallback que lo usaba); se deja el
+     * SQL intacto porque su entrada está en el caché `.sqlx/`. */
     async fn titulos_publicados(
         pool: &PgPool,
         solo_sin_vinculo: bool,

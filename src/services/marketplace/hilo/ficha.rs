@@ -58,19 +58,14 @@ pub fn strip_ficha_para_prompt(ficha: &InmuebleRow, strip: &str) -> Result<Promp
 /// caída = `None` (nunca se cita un precio dudoso; quien llama decide si
 /// lo registra: el borrador jamás se bloquea por esto).
 /// [09AA-24] Cada ficha puntúa con su título + alias (`mejor_puntaje_con_alias`).
-/// [09AA-29] `solo_sin_vinculo` (fallback de un ID exacto sin dueño) excluye
-/// las fichas ya vinculadas ANTES de puntuar: así no hay falso negativo si la
-/// mejor coincidencia es de otro aviso.
+/// [13AA-4] Ya no hay fallback por título para un ID de aviso sin dueño (ver
+/// `claves_por_marketplace_id`), así que esta búsqueda compara contra todos los
+/// publicados, también los ya vinculados.
 pub async fn ficha_por_titulo(
     pool: &sqlx::PgPool,
     titulo_fb: &str,
-    solo_sin_vinculo: bool,
 ) -> Result<Option<InmuebleRow>, AppError> {
-    let candidatos = if solo_sin_vinculo {
-        InmuebleRepository::titulos_alias_publicados_sin_vinculo(pool).await?
-    } else {
-        InmuebleRepository::titulos_alias_publicados(pool).await?
-    };
+    let candidatos = InmuebleRepository::titulos_alias_publicados(pool).await?;
     let mut mejor: Option<(uuid::Uuid, usize, usize)> = None;
     let mut empate = false;
     for (id, titulo, alias) in &candidatos {

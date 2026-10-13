@@ -48,24 +48,22 @@ pub(super) async fn claves_cache(
             }
             /* Dígitos de aviso: rama exacta prioritaria. */
             match crate::services::InmuebleService::normalizar_marketplace_id(Some(a)) {
-                Ok(Some(mp)) => claves_por_marketplace_id(pool, &mp, titulo_fb).await,
+                Ok(Some(mp)) => claves_por_marketplace_id(pool, &mp).await,
                 /* Vacío normalizado o forma inválida: cae al título como antes. */
-                Ok(None) | Err(_) => claves_por_titulo(pool, titulo_fb, false).await,
+                Ok(None) | Err(_) => claves_por_titulo(pool, titulo_fb).await,
             }
         }
-        _ => claves_por_titulo(pool, titulo_fb, false).await,
+        _ => claves_por_titulo(pool, titulo_fb).await,
     }
 }
 
 /// Ficha por ID exacto de aviso (`WHERE marketplace_id = $1`): con vínculo,
-/// hashes reales de la fila. [09AA-29] Si el ID no lo reclama nadie, cae al
-/// título del hilo, pero solo a una ficha SIN vínculo propio: una ficha
-/// vinculada a OTRO aviso jamás se cita por aproximación. La BD caída sí
-/// degrada a sin ficha.
+/// hashes reales de la fila. [13AA-4] Si el ID no lo reclama ningún inmueble,
+/// va sin ficha: nunca se cae al título, porque el título podría ser de un
+/// inmueble parecido. La BD caída también degrada a sin ficha.
 pub(super) async fn claves_por_marketplace_id(
     pool: &sqlx::PgPool,
     marketplace_id: &str,
-    titulo_fb: Option<&str>,
 ) -> Result<
     (
         Option<crate::services::marketplace::PromptSeguro>,
@@ -82,7 +80,7 @@ pub(super) async fn claves_por_marketplace_id(
             let catalogo = hash_ficha(&f);
             Ok((Some(seguro), precio, catalogo, true))
         }
-        Ok(None) => claves_por_titulo(pool, titulo_fb, true).await,
+        Ok(None) => Ok((None, SIN_FICHA.to_string(), SIN_FICHA.to_string(), false)),
         Err(e) => {
             tracing::warn!("claves_cache: buscar por marketplace_id falló ({e}), va sin ficha");
             Ok((None, SIN_FICHA.to_string(), SIN_FICHA.to_string(), false))
@@ -91,12 +89,10 @@ pub(super) async fn claves_por_marketplace_id(
 }
 
 /// Ficha por título del hilo (ver `ficha_por_titulo`): con emparejamiento,
-/// hashes reales de la fila; si no, ruta sin-ficha. `solo_sin_vinculo` (fallback
-/// de un ID exacto sin dueño) descarta una ficha ya vinculada a otro aviso.
+/// hashes reales de la fila; si no, ruta sin-ficha.
 pub(super) async fn claves_por_titulo(
     pool: &sqlx::PgPool,
     titulo_fb: Option<&str>,
-    solo_sin_vinculo: bool,
 ) -> Result<
     (
         Option<crate::services::marketplace::PromptSeguro>,
@@ -110,7 +106,7 @@ pub(super) async fn claves_por_titulo(
     if titulo.is_empty() {
         return Ok((None, SIN_FICHA.to_string(), SIN_FICHA.to_string(), false));
     }
-    match crate::services::marketplace::ficha_por_titulo(pool, titulo, solo_sin_vinculo).await {
+    match crate::services::marketplace::ficha_por_titulo(pool, titulo).await {
         Ok(Some(f)) => {
             let seguro = strip_ficha_para_prompt(&f, STRIP_VERSION)?;
             let precio = precio_hash_seguro(&seguro);
