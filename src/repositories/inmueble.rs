@@ -11,7 +11,7 @@ use crate::models::{ActualizacionInmueble, FiltrosPublicos, Foto, InmuebleRow};
  * [229A-1] Todas las SELECT/RETURNING usan `{COLUMNAS}` (constante única):
  * añadir una columna al modelo es editar un solo sitio. */
 
-const COLUMNAS: &str = "id, titulo, descripcion, ubicacion, puestos, residencia, precio, \
+pub(crate) const COLUMNAS: &str = "id, titulo, descripcion, ubicacion, puestos, residencia, precio, \
     tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, publicado, \
     slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, receta, extras, \
     precio_minimo, marketplace_id, created_at, updated_at, alias_titulos";

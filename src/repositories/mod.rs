@@ -5,6 +5,7 @@ pub(crate) mod marketplace;
 mod note;
 mod solicitud;
 mod suscriptor;
+pub(crate) mod sync;
 mod user;
 mod visita;
 

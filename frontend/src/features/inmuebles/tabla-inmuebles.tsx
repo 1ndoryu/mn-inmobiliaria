@@ -14,6 +14,9 @@ import { cn } from '@/lib/utils';
 import { claseEstadoDe, precioVisible, Publico, SemaforoFicha, VinculoBadge } from './tabla/celdas-tabla-inmuebles';
 import { MenuAcciones } from './tabla/menu-acciones-inmueble';
 import { ButtonPlano } from '@/components/ui/button';
+/* [13AA-12] Columna Sync: estado frente al servidor, en tiempo real. */
+import { useSyncInmuebles } from '@/hooks/sync/use-sync-inmuebles';
+import { BannerSync, SyncBadge } from './tabla/celda-sync-inmueble';
 
 interface Props {
   inmuebles: Inmueble[];
@@ -40,6 +43,8 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
   const descargandoFresco = descargandoFotosDe
     ? (inmuebles.find((i) => i.id === descargandoFotosDe.id) ?? descargandoFotosDe)
     : null;
+  /* [13AA-12] Estado de sync por slug; cada celda Sync abre su propio modal de diferencias. */
+  const { estado: sync, entradas, error: errorSync, comprobarAhora } = useSyncInmuebles();
 
   /* Descarga la imagen publicitaria (JPG) con la receta vigente (manda
    * la del servidor, la que ve el frente público; la local es reserva). */
@@ -78,20 +83,39 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
     };
   }
 
+  /* [13AA-12] Banner también con la lista vacía: puede haber inmuebles solo en el servidor. */
+  const banner = <BannerSync estado={sync} error={errorSync} alComprobar={comprobarAhora} />;
+
+  /* Columna Sync de una fila (borradores sin slug muestran «Sin guardar»). */
+  function badgeSync(inmueble: Inmueble) {
+    return (
+      <SyncBadge
+        slug={inmueble.slug}
+        titulo={inmueble.titulo}
+        estado={sync}
+        entrada={inmueble.slug ? entradas.get(inmueble.slug) : undefined}
+      />
+    );
+  }
+
   if (inmuebles.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-6 py-16 text-center">
-        <Building2 className="h-10 w-10 text-muted-foreground" />
-        <p className="font-medium">Sin inmuebles todavía</p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Pulsa «Añadir inmueble» para registrar el primero: fotos, descripción, ubicación y precio.
-        </p>
-      </div>
+      <>
+        {banner}
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-6 py-16 text-center">
+          <Building2 className="h-10 w-10 text-muted-foreground" />
+          <p className="font-medium">Sin inmuebles todavía</p>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            Pulsa «Añadir inmueble» para registrar el primero: fotos, descripción, ubicación y precio.
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      {banner}
       {fallo && (
         <p className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {fallo}
@@ -109,6 +133,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
               <TableHead>Público</TableHead>
               <TableHead>Ficha</TableHead>
               <TableHead>Vínculo</TableHead>
+              <TableHead>Sync</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -147,6 +172,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
                 <TableCell>
                   <VinculoBadge inmueble={i} />
                 </TableCell>
+                <TableCell>{badgeSync(i)}</TableCell>
                 <TableCell>
                   <div className="flex justify-end">
                     <MenuAcciones inmueble={i} {...acciones(i)} />
@@ -194,6 +220,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
               <p className="flex items-center gap-1 text-sm text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" /> {i.ubicacion || '—'}{i.residencia ? ` · ${i.residencia}` : ''}
               </p>
+              <div>{badgeSync(i)}</div>
               {i.descripcion && <p className="line-clamp-2 text-sm">{i.descripcion}</p>}
               <p className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                 <span className="capitalize">

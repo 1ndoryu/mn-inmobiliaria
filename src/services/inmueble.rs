@@ -10,6 +10,8 @@ use crate::models::{
     FORMATOS_RECETA, MAX_FOTO_BYTES, OPERACIONES, ORIGENES_FOTO, TIPOS,
 };
 use crate::repositories::InmuebleRepository;
+use crate::services::sync::huella::registrar_huella_subida;
+use crate::services::sync::vigilancia::notificar;
 
 pub(crate) mod alias;
 pub(crate) mod slug;
@@ -103,7 +105,10 @@ impl InmuebleService {
                 alias_titulos: alias_titulos.clone(),
             };
             match InmuebleRepository::create(pool, &nuevo).await {
-                Ok(row) => return Ok(Inmueble::from_row(row, Vec::new())),
+                Ok(row) => {
+                    notificar();
+                    return Ok(Inmueble::from_row(row, Vec::new()));
+                }
                 Err(e) if vinculo::es_conflicto(&e) => {
                     return Err(vinculo::error_duplicado());
                 }
@@ -242,6 +247,7 @@ impl InmuebleService {
             resto => resto?,
         }
         .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
+        notificar();
         Self::con_fotos(pool, vec![row])
             .await?
             .pop()
@@ -256,6 +262,7 @@ impl InmuebleService {
         let row = InmuebleRepository::set_publicado(pool, id, publicado)
             .await?
             .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
+        notificar();
         Self::con_fotos(pool, vec![row])
             .await?
             .pop()
@@ -270,6 +277,7 @@ impl InmuebleService {
         let row = InmuebleRepository::set_estado(pool, id, &estado)
             .await?
             .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
+        notificar();
         Self::con_fotos(pool, vec![row])
             .await?
             .pop()
@@ -284,6 +292,7 @@ impl InmuebleService {
         if !InmuebleRepository::delete(pool, id).await? {
             return Err(AppError::NotFound("Inmueble no encontrado".into()));
         }
+        notificar();
         /* Fila fuera (fotos en cascada); los archivos se limpian best-effort */
         for foto in fotos {
             Self::borrar_archivo(upload_dir, &foto.storage_key).await;
@@ -308,10 +317,11 @@ impl InmuebleService {
             .map(|v| Self::normalizar(v, ORIGENES_FOTO, "origen"))
             .transpose()?
             .unwrap_or_else(|| "original".to_string());
-        Ok(FotoPublica::from(
+        let foto =
             InmuebleRepository::add_foto(pool, inmueble_id, &req.storage_key, req.orden, &origen)
-                .await?,
-        ))
+                .await?;
+        notificar();
+        Ok(FotoPublica::from(foto))
     }
 
     pub async fn delete_foto(
@@ -324,6 +334,7 @@ impl InmuebleService {
         let Some(claves) = InmuebleRepository::delete_foto_en_cascada(pool, foto_id).await? else {
             return Err(AppError::NotFound("Foto no encontrada".into()));
         };
+        notificar();
         for clave in &claves {
             Self::borrar_archivo(upload_dir, clave).await;
             /* El thumb muere con su original (si no existe, no pasa nada):
@@ -404,6 +415,9 @@ impl InmuebleService {
             Ok(foto) => {
                 /* [249A-1] Invalida la caché de fotos (`?v=<updated_at>`). */
                 InmuebleRepository::tocar_inmueble(pool, inmueble_id).await?;
+                /* [13AA-12] Huella al subir (los bytes ya están en memoria). */
+                registrar_huella_subida(pool, &storage_key, bytes).await;
+                notificar();
                 /* Thumb best-effort: si falla, la tabla usa el original. */
                 if let Some(clave_thumb) = Self::clave_miniatura(&storage_key) {
                     if let Some(mini) = Self::miniatura(bytes) {

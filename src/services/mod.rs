@@ -6,6 +6,7 @@ pub mod marketplace;
 mod mensajeria;
 pub mod politica;
 pub mod sesion;
+pub mod sync;
 mod tope_uso;
 pub mod triage;
 pub mod turno;

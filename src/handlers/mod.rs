@@ -97,8 +97,28 @@ impl utoipa::Modify for SecurityAddon {
         public::list_public,
         public::get_public,
         comercial::suscriptor::suscribir,
+        inmobiliario::sync::get_manifiesto,
+        inmobiliario::sync::get_estado,
+        inmobiliario::sync::post_comprobar,
+        inmobiliario::sync::get_detalle,
+        inmobiliario::sync::get_diferencias,
     ),
     components(schemas(
+        crate::services::sync::huella::Manifiesto,
+        crate::services::sync::huella::InmuebleHuella,
+        crate::services::sync::huella::FotoHuella,
+        crate::services::sync::vigilancia::EstadoSync,
+        crate::services::sync::vigilancia::EstadoRemoto,
+        crate::services::sync::detalle::DetalleSync,
+        crate::services::sync::detalle::DiferenciasSync,
+        crate::services::sync::detalle::FilaDiferencia,
+        crate::services::sync::comparar::Comparacion,
+        crate::services::sync::comparar::Entrada,
+        crate::services::sync::comparar::Resultado,
+        crate::services::sync::comparar::Diferencia,
+        crate::services::sync::comparar::Estado,
+        crate::services::sync::comparar::SoloServidor,
+        crate::services::sync::comparar::Lado,
         health::HealthResponse,
         crate::models::RegisterRequest,
         crate::models::LoginRequest,
@@ -306,6 +326,8 @@ fn admin_routes() -> Router<AppState> {
         .merge(comercial::solicitud::admin_routes())
         .merge(comercial::visita::admin_routes())
         .merge(inmobiliario::uploads::routes())
+        /* [13AA-12] Manifiesto de huellas para comparar entornos. */
+        .merge(inmobiliario::sync::routes())
         .merge(cuentas::users::routes())
         /* [03AA-3 M3] Asistente Marketplace: token mp, borrador y audit. */
         .merge(marketplace::routes())

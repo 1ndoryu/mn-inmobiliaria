@@ -2,4 +2,5 @@
 
 pub mod inmuebles;
 pub mod superficie;
+pub mod sync;
 pub mod uploads;

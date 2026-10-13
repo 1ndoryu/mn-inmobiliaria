@@ -84,6 +84,9 @@ export interface Inmueble
     AuditoriaInmueble,
     VinculoMarketplace {
   precio: number;
+  /* [13AA-12] Slug del servidor: identifica el inmueble en el panel Sync.
+   * Ausente en borradores sin guardar (aún no existen en el servidor). */
+  slug?: string;
   /* [279A-3] Ficha /ask: respuestas por tipo (`extras`) y
    * mínimo privado. Opcionales: registros leídos antes de existir la
    * ficha y borradores aún sin ficha los omiten. Nunca viajan a la web

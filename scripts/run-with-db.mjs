@@ -102,13 +102,13 @@ function sembrarBdRama(dbUrl) {
   }
 }
 
-/* [13AA-8] El laboratorio (opencode-propio-dev) se autentica en MN con tokens
- * emitidos en la BD de main. Cada rama tiene su propia BD, sin esos tokens: al
- * cambiar de rama, MN responde 401 al laboratorio y este aparece como
- * «no conectado». Aquí se copian a la BD de la rama los tokens de main. Se
- * copian también los revocados: así una revocación en main llega a la rama
- * (ON CONFLICT mantiene `revocada` a verdadero). Solo lee main, idempotente;
- * si falla, avisa y sigue sin bloquear. */
+/* Parámetros de conexión psql a partir de una URL postgres://. */
+function conexionPsql(url) {
+  const match = url.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
+  const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
+  return { args: ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName], env: { ...process.env, PGPASSWORD: dbPass } };
+}
+
 /* [13AA-9] Copia las filas de `tabla` de main a la BD de la rama sin borrar
  * nada (ON CONFLICT: lo que la rama ya tiene se deja). Solo lee main.
  * `sqlEscritura(json)` devuelve el SQL que inserta esas filas y acaba en un
@@ -120,12 +120,7 @@ function copiarDesdeMain(baseDbUrl, ramaDbUrl, tabla, sqlEscritura) {
     console.warn(`[db] Aviso: psql no disponible; no copio ${tabla} de main a esta rama.`);
     return null;
   }
-  const conexion = (url) => {
-    const match = url.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
-    const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
-    return { args: ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName], env: { ...process.env, PGPASSWORD: dbPass } };
-  };
-  const origen = conexion(baseDbUrl);
+  const origen = conexionPsql(baseDbUrl);
   const leido = spawnSync(psqlBin, [...origen.args, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-c', `SELECT COALESCE(json_agg(t), '[]'::json) FROM ${tabla} t`], { encoding: 'utf8', env: origen.env, shell: false });
   if (leido.status !== 0) {
     console.warn(`[db] Aviso: no pude leer ${tabla} en main: ${(leido.stderr || '').trim()}`);
@@ -138,7 +133,7 @@ function copiarDesdeMain(baseDbUrl, ramaDbUrl, tabla, sqlEscritura) {
     console.warn(`[db] Aviso: ${tabla} de main con texto inesperado; no lo copio.`);
     return null;
   }
-  const destino = conexion(ramaDbUrl);
+  const destino = conexionPsql(ramaDbUrl);
   const escrito = spawnSync(psqlBin, [...destino.args, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-f', '-'], {
     input: sqlEscritura(json),
     encoding: 'utf8',
@@ -173,12 +168,34 @@ SELECT count(*) FROM mp_tokens_emitidos WHERE NOT revocada AND expira_en > now()
   console.log(`[db] Tokens del laboratorio vigentes en esta rama: ${vigentes}`);
 }
 
+/* Slug del registro sintético que siembra `test` (scripts/fixtures/seed-test-inmobiliaria.sql). */
+const SLUG_SEMILLA_TESTS = 'seed-test-apartamento-caroni';
+
+/* Inmuebles de la rama sin contar la semilla de tests. `null` si no se puede leer. */
+function inmueblesPropiosEnRama(ramaDbUrl) {
+  const psqlBin = findPsql();
+  if (!psqlBin) return null;
+  const destino = conexionPsql(ramaDbUrl);
+  const leido = spawnSync(psqlBin, [...destino.args, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-c', `SELECT count(*) FROM inmuebles WHERE slug <> '${SLUG_SEMILLA_TESTS}'`], { encoding: 'utf8', env: destino.env, shell: false });
+  if (leido.status !== 0) return null;
+  return Number(leido.stdout.trim());
+}
+
 /* [13AA-9] Los inmuebles y sus fotos viven en la BD de main. Una rama nueva
  * solo tiene el registro sintético de los tests (ver sembrarBdRama) y el panel
- * no muestra los inmuebles reales. Se copian las filas que la rama no tiene.
- * Cambios posteriores hechos en main a filas ya copiadas no llegan. No se
- * copian las visitas: tienen nombres y teléfonos. */
+ * no muestra los inmuebles reales. Se copian desde main solo si la rama no
+ * tiene inmuebles propios: si ya los tiene, sus cambios mandan y no se toca
+ * nada. No se copian las visitas: tienen nombres y teléfonos. */
 function copiarInmueblesABdRama(baseDbUrl, ramaDbUrl) {
+  const propios = inmueblesPropiosEnRama(ramaDbUrl);
+  if (propios === null) {
+    console.warn('[db] Aviso: no pude contar los inmuebles de esta rama; no copio desde main.');
+    return;
+  }
+  if (propios > 0) {
+    console.log(`[db] La rama ya tiene ${propios} inmueble(s) propio(s); no copio desde main.`);
+    return;
+  }
   const inmuebles = copiarDesdeMain(baseDbUrl, ramaDbUrl, 'inmuebles', (json) => `
 INSERT INTO inmuebles SELECT * FROM json_populate_recordset(NULL::inmuebles, $payload$${json}$payload$::json) ON CONFLICT DO NOTHING;
 SELECT count(*) FROM inmuebles;

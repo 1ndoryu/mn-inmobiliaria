@@ -111,6 +111,16 @@ El template incluye un CRUD de notas con autenticación:
 | PUT    | /api/notes/:id     | Actualizar nota         | Sí   |
 | DELETE | /api/notes/:id     | Eliminar nota           | Sí   |
 
+## Sincronización con el servidor (panel de inmuebles)
+
+La columna **Sync** de la tabla de inmuebles compara cada inmueble local con el servidor (fotos, descripción y detalles) y dice qué lado va por delante: Igual, Local adelante, Servidor adelante, Ambos cambiaron, Solo local; «Solo en el servidor» es un aviso sobre la tabla. Es de solo lectura: no escribe en el servidor. Tarea 13AA-12.
+
+- **Activación:** `SYNC_REMOTO_ENV` apunta a un fichero dotenv con `PROD_BASE`, `PROD_EMAIL` y `PROD_PASSWORD`. Sin la variable o sin el fichero, el estado es «desactivado». Se relee en cada consulta. Las credenciales nunca se muestran ni se registran.
+- **Intervalo:** `SYNC_INTERVALO_SEG` (20 s por defecto, mínimo 5) para consultar el servidor. Los cambios locales se reflejan en ~1 s.
+- **Base de tres vías:** tabla `sync_base`, escrita solo por la tarea de fondo al observar un inmueble igual. Sin base, el estado sale como «estimado» (usa `updated_at`).
+- **Fotos:** se comparan por `(origen, orden)` y sha256 de los bytes. Las `mejorada` solo por presencia, porque el servidor las recodifica.
+- **Endpoints admin (JWT):** `GET /api/admin/sync/estado?desde=<rev>` (long-poll, 25 s), `POST /api/admin/sync/comprobar` (202), `GET /api/admin/sync/manifiesto`, `GET /api/admin/sync/inmuebles/{slug}`, `GET /api/admin/sync/diferencias/{slug}`.
+
 ## Ramas por sitio
 
 Este template está diseñado para usar **una rama por sitio/proyecto**:

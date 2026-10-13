@@ -48,6 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Servidor iniciando en {addr}");
     tracing::info!("Swagger UI disponible en http://{addr}/swagger-ui/");
 
+    /* [13AA-12] Ruta de uploads para la huella de fotos; `config` se mueve al router. */
+    let upload_dir = std::path::PathBuf::from(&config.upload_dir);
     let app = handlers::create_router(pool.clone(), config);
     /* [169A-4] Worker de avisos WhatsApp (outbox kind='whatsapp').
      * Sin `GLORY_ALERT_GATEWAY_URL` avisa en logs y no itera: los avisos
@@ -55,6 +57,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(glory_backend::services::vigilar_alertas_whatsapp(
         pool.clone(),
         std::env::var("GLORY_ALERT_GATEWAY_URL").ok(),
+    ));
+    /* [13AA-12] Vigilancia de sincronización: consulta al servidor y mantiene el estado en memoria. */
+    tokio::spawn(glory_backend::services::sync::vigilancia::vigilar(
+        pool.clone(),
+        upload_dir,
     ));
     /* [279A-2] Tope diario de tokens LLM: solo alerta (nunca apaga). */
     tokio::spawn(glory_backend::services::vigilar_tope_uso(pool));

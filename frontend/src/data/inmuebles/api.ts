@@ -297,6 +297,8 @@ export function remotoADominio(r: InmuebleRemoto): Inmueble {
     publicado: r.publicado,
     copy: r.copy ? { corta: r.copy.corta, larga: r.copy.larga, modelo: r.copy.modelo, actualizadaEn: r.copy.actualizada_en } : null,
     receta: adaptarRecetaRemota(r.receta),
+    /* [13AA-12] Slug para el panel Sync (diferencias por inmueble). */
+    slug: r.slug,
     /* Ficha /ask (ausente = aún sin responder; nunca sale a lo público). */
     extras: r.extras ?? undefined,
     precioMinimo: r.precio_minimo ?? undefined,
