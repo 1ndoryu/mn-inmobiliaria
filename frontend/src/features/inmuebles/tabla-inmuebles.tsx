@@ -104,8 +104,6 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
             <TableRow>
               <TableHead>Foto</TableHead>
               <TableHead>Título</TableHead>
-              <TableHead>Ubicación</TableHead>
-              <TableHead>Tipo / Operación</TableHead>
               <TableHead>Precio</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Público</TableHead>
@@ -133,10 +131,6 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
                     {i.titulo || 'Sin título'}
                   </p>
                   {i.descripcion && <p className="truncate text-xs text-muted-foreground">{i.descripcion}</p>}
-                </TableCell>
-                <TableCell className="max-w-[180px] truncate">{i.ubicacion || '—'}</TableCell>
-                <TableCell className="whitespace-nowrap capitalize">
-                  {ETIQUETAS_TIPO[i.tipo]} · {i.operacion}
                 </TableCell>
                 <TableCell className="whitespace-nowrap font-semibold">{precioVisible(i.precio)}</TableCell>
                 <TableCell>
