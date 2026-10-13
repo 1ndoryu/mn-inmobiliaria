@@ -63,8 +63,9 @@ function migrarBdRama(dbUrl) {
 const SEMILLA_TESTS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'seed-test-inmobiliaria.sql');
 
 /* [10AA-20] Datos que necesitan los tests de `handlers::chat::tools::pruebas`
- * (sin ellos: `RowNotFound`). Solo en BD de rama: en main, la BD es la de
- * desarrollo de la usuaria. Idempotente (ON CONFLICT), se aplica tras migrar. */
+ * (sin ellos: `RowNotFound`). Solo en BD de rama y solo con `test`: en main,
+ * la BD es la de desarrollo de la usuaria. Idempotente (ON CONFLICT), se
+ * aplica tras migrar. */
 function sembrarBdRama(dbUrl) {
   if (!existsSync(SEMILLA_TESTS)) {
     console.warn(`[db] Aviso: falta ${SEMILLA_TESTS}; los tests de chat_tools fallaran con RowNotFound.`);
@@ -226,7 +227,9 @@ if (divergentes.length > 0) {
   process.exit(1);
 }
 migrarBdRama(dbUrl);
-if (branch !== 'main' && branch !== 'master') sembrarBdRama(dbUrl);
+/* Solo para `test`: con `run` el panel de la usuaria mostraba el inmueble
+ * ficticio y, al borrarlo, volvía en el siguiente arranque. */
+if (branch !== 'main' && branch !== 'master' && cargoArgs[0] === 'test') sembrarBdRama(dbUrl);
 /* [10AA-27] Solo al arrancar el backend: deja el admin local con la clave de
  * `frontend/.env.local` para que la auto-entrada del panel no dé 401. */
 if (cargoArgs[0] === 'run') sincronizarClaveDevSilencioso(dbUrl);
