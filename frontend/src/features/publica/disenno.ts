@@ -76,6 +76,8 @@ export const CABECERA_FIJA =
   'fixed left-1/2 top-4 z-20 w-[calc(100%-20px)] -translate-x-1/2 md:w-[calc(100%-40px)] lg:w-[calc(100%-20px)]';
 /* Cuadro fijo justo bajo la cabecera fija: 16 de aire + 67 de cabecera. */
 export const TOPE_PRESENTACION_FIJA = 'top-[83px]';
+/* Hueco en flujo que ocupa la cabecera fija en las páginas sin presentación. */
+export const ESPACIO_CABECERA_FIJA = 'h-[83px]';
 /* Descanso de la hoja del concepto 1: su tope se clava 200px bajo la
  * cabecera (83+200). Reservado para la caja animada; el concepto 2 va
  * sin snap. */

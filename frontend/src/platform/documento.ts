@@ -19,3 +19,62 @@ export async function copiarTexto(texto: string): Promise<boolean> {
     return false;
   }
 }
+
+/* Cabecera propia de una página (título, meta, canónica, Open Graph,
+ * Twitter y JSON-LD). Los `meta` y la canónica ya existen en `index.html`:
+ * se reescriben y se restauran al desmontar. El JSON-LD se crea y se quita. */
+export interface EtiquetasPagina {
+  titulo: string;
+  descripcion: string;
+  url: string;
+  imagen: string;
+  datosEstructurados: Record<string, unknown>;
+}
+
+const ID_DATOS_PAGINA = 'datos-pagina';
+
+/* Devuelve la función que deja la cabecera como estaba. */
+export function fijarEtiquetasPagina(e: EtiquetasPagina): () => void {
+  const tituloPrevio = document.title;
+  const previos: Array<{ el: Element; nombre: string; valor: string | null }> = [];
+  const poner = (el: Element, nombre: string, valor: string) => {
+    previos.push({ el, nombre, valor: el.getAttribute(nombre) });
+    el.setAttribute(nombre, valor);
+  };
+  const campos: Array<[string, string]> = [
+    ['meta[name="description"]', e.descripcion],
+    ['meta[property="og:title"]', e.titulo],
+    ['meta[property="og:description"]', e.descripcion],
+    ['meta[property="og:url"]', e.url],
+    ['meta[property="og:image"]', e.imagen],
+    ['meta[name="twitter:title"]', e.titulo],
+    ['meta[name="twitter:description"]', e.descripcion],
+    ['meta[name="twitter:image"]', e.imagen],
+  ];
+  document.title = e.titulo;
+  for (const [selector, valor] of campos) {
+    const el = document.head.querySelector(selector);
+    if (el) poner(el, 'content', valor);
+  }
+  const canonica = document.head.querySelector('link[rel="canonical"]');
+  if (canonica) poner(canonica, 'href', e.url);
+
+  // [por que] Si el servidor ya dejó el JSON-LD de la página, se reemplaza en vez de duplicarlo.
+  const existente = document.querySelector<HTMLScriptElement>(`script#${ID_DATOS_PAGINA}`);
+  const script = existente ?? document.createElement('script');
+  const jsonPrevio = script.textContent;
+  script.type = 'application/ld+json';
+  script.id = ID_DATOS_PAGINA;
+  script.textContent = JSON.stringify(e.datosEstructurados);
+  if (!existente) document.head.appendChild(script);
+
+  return () => {
+    document.title = tituloPrevio;
+    for (const p of previos) {
+      if (p.valor === null) p.el.removeAttribute(p.nombre);
+      else p.el.setAttribute(p.nombre, p.valor);
+    }
+    if (existente) script.textContent = jsonPrevio;
+    else script.remove();
+  };
+}

@@ -11,6 +11,10 @@ use axum::response::IntoResponse;
 use crate::errors::AppError;
 use crate::AppState;
 
+/* [13AA-6] Etiquetas SEO por inmueble (`/inmueble/<slug>`) y sus URLs en el sitemap. */
+mod seo_inmueble;
+use seo_inmueble::{responder, slug_de_ruta, urls_sitemap};
+
 /* [239A-1] SPA del monorepo: sirve el fichero tal cual si existe y cae a
  * `index.html` en cualquier otra ruta (el front resuelve sus rutas). Las
  * rutas de API nunca caen aquí: devuelven 404 seco para no enmascarar
@@ -27,6 +31,12 @@ pub(in crate::handlers) async fn fallback_spa(
         .any(|p| ruta == *p || ruta.starts_with(&format!("{p}/")))
     {
         return StatusCode::NOT_FOUND.into_response();
+    }
+    /* [13AA-6] `/inmueble/<slug>`: el `index.html` con las etiquetas del inmueble
+     * (404 si no está publicado). Va antes del SPA genérico. */
+    if let Some(slug) = slug_de_ruta(ruta) {
+        let base = est.static_dir.clone().unwrap_or_default();
+        return responder(&est.pool, &base.join("index.html"), slug).await;
     }
     let base = est.static_dir.unwrap_or_default();
     /* [08AA-3 B3] `ruta` viene de la URI (input externo): un `..` escaparía
@@ -79,9 +89,9 @@ pub(in crate::handlers) async fn fallback_spa(
     }
 }
 
-/* [249A-1] Sitemap mínimo y honesto: el detalle es solo-modal (sin URLs con
- * slug indexables), así que declara `/` con su última modificación. Las URLs
- * `/inmueble/:slug` quedan para el bloque de ruteo futuro. */
+/* [249A-1] Sitemap: `/` con su última modificación y una URL por inmueble
+ * publicado (`/inmueble/<slug>`, [13AA-6]). Si falla la lectura de inmuebles
+ * se sirve solo `/`: un fallo de base de datos no debe tumbar el sitemap. */
 pub(in crate::handlers) async fn sitemap(
     axum::extract::State(est): axum::extract::State<AppState>,
 ) -> impl axum::response::IntoResponse {
@@ -94,10 +104,15 @@ pub(in crate::handlers) async fn sitemap(
             || "2026-09-24".to_string(),
             |f| f.format("%Y-%m-%d").to_string(),
         );
+    let inmuebles = urls_sitemap(&est.pool).await.unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "sitemap sin URLs de inmuebles");
+        String::new()
+    });
     let xml = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
          <urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n\
          <url><loc>https://mn-inmobiliaria.com/</loc><lastmod>{ultima}</lastmod></url>\n\
+         {inmuebles}\
          </urlset>\n"
     );
     (
@@ -195,7 +210,7 @@ pub(in crate::handlers) async fn llms_txt(
 /* [249A-4] Catálogo ARD (`/.well-known/ai-catalog.json`, que Lighthouse
  * prueba aunque no se anuncie): cada publicado es una entrada con URN
  * `urn:air:mn-inmobiliaria:listings:<slug>`, exactamente un `data` (el
- * detalle es solo-modal, sin URLs por inmueble) y 2 consultas
+ * detalle completo vive en `/inmueble/<slug>`, [13AA-6]) y 2 consultas
  * representativas. Sin errores del validador oficial (warnings como
  * mucho): `specVersion` es `"1.0"` y el esquema no admite props extra. */
 pub(in crate::handlers) async fn ai_catalog(

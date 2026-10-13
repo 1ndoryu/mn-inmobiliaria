@@ -24,6 +24,11 @@ export function rutaActual(): string {
   return window.location.pathname;
 }
 
+/* Origen absoluto (esquema + host + puerto): base de los enlaces compartibles. */
+export function origenActual(): string {
+  return window.location.origin;
+}
+
 /* Dominio actual (p. ej. detectar entorno local sin tocar `window` fuera). */
 export function nombreHost(): string {
   return window.location.hostname;
@@ -66,6 +71,16 @@ export function abrirExterna(url: string): void {
 /* Navegación completa a `ruta` (pública ↔ admin son árboles distintos). */
 export function irA(ruta: string): void {
   window.location.assign(ruta);
+}
+
+/* Cambia la URL sin recargar (el modal de inmueble la muestra para copiarla). */
+export function fijarRuta(ruta: string): void {
+  window.history.pushState(null, '', ruta);
+}
+
+/* Vuelve a la entrada anterior del historial (deshace un `fijarRuta`). */
+export function volverAtras(): void {
+  window.history.back();
 }
 
 /* Confirmación nativa (descartes y reinicios destructivos). */
