@@ -1,6 +1,6 @@
 # Plan 13AA-4 — Vincular inmuebles con sus avisos de Facebook Marketplace
 
-Fecha: 2026-10-13. Estado: **planificado, decisiones cerradas por la usuaria, sin código**. Pendiente: su visto bueno para empezar por F1.
+Fecha: 2026-10-13. Estado: **en ejecución.** F2, F3 y F4 hechas (código y pruebas; F3 sin probar en navegador). F1 pendiente de la decisión de la usuaria (tocar la lab). F5 en la ventana de promoción de la lab. F6 al cerrar.
 
 ## 1. Objetivo
 
@@ -22,7 +22,7 @@ Saber qué inmuebles ya están publicados en el perfil de Facebook Marketplace (
 - **D3 — Vincular:** modal para confirmar y elegir. Aparece primero el inmueble más parecido. Lo ya vinculado no vuelve a aparecer.
 
 Decisiones mías (técnicas, reversibles, se pueden cambiar):
-- La lab lee el perfil cada 30 min mientras esté abierta, y al arrancar. Nada en bucle ni con clics. Así se limita el riesgo con Facebook.
+- La lab lee el perfil **una vez al día** (decisión de la usuaria, 2026-10-13): al arrancar, si la última lectura tiene más de 24 h, y luego cada 24 h mientras la lab esté abierta. Nada en bucle ni con clics. Así se limita el riesgo con Facebook.
 - La lista se guarda en MN (no en la lab). El modal lee de MN; funciona aunque la lab esté cerrada, con la fecha de la última lectura visible.
 - El modal vive en la página de Inmuebles, con un botón «Vincular con Facebook» y el número de avisos pendientes.
 
@@ -37,9 +37,9 @@ Decisiones mías (técnicas, reversibles, se pueden cambiar):
 
 ## 5. Fases
 
-**F1 — Lectura del perfil en la lab (`opencode-propio-dev`).** Ventana oculta con la misma sesión de Facebook. Carga el perfil, extrae cada enlace `/marketplace/item/<id>` con título y precio, y los envía a MN. Se repite cada 30 min mientras la lab esté abierta, y al arrancar. Criterio: en el perfil real salen todos los avisos visibles, sin duplicados. Antes, confirmar cómo autentica la lab sus llamadas a MN (`MP_MN_TOKEN`, `marketplace-nucleo.ts:51-52`).
+**F1 — Lectura del perfil en la lab (`opencode-propio-dev`).** Ventana oculta con la misma sesión de Facebook. Carga el perfil, extrae cada enlace `/marketplace/item/<id>` con título y precio, y los envía a MN. Se repite **una vez al día** (decisión de la usuaria): al arrancar si la última lectura tiene más de 24 h, y luego cada 24 h mientras la lab esté abierta. Criterio: en el perfil real salen todos los avisos visibles, sin duplicados. Antes, confirmar cómo autentica la lab sus llamadas a MN (`MP_MN_TOKEN`, `marketplace-nucleo.ts:51-52`). **Estado:** pendiente de la decisión de la usuaria (la lab no se toca sin su petición).
 
-**F2 — Tabla y endpoints de avisos (MN backend).** Tabla `marketplace_avisos_perfil`: `aviso_id` (clave), `titulo`, `precio`, `url`, `visto_en`, `presente`. Endpoint para que la lab envíe la lista; cada lectura reemplaza el estado: los avisos que ya no aparecen quedan `presente = false` (vendidos o borrados), sin borrar la fila. Endpoint de lectura para el modal (solo staff).
+**F2 — Tabla y endpoints de avisos (MN backend).** Tabla `marketplace_avisos_perfil`: `aviso_id` (clave), `titulo`, `precio`, `url`, `visto_en`, `presente`. Endpoint para que la lab envíe la lista; cada lectura reemplaza el estado: los avisos que ya no aparecen quedan `presente = false` (vendidos o borrados), sin borrar la fila. Endpoint de lectura para el modal (solo staff). **Estado:** hecha (migración `20261013000040`; pruebas de BD de rama verdes; sin prueba HTTP contra el backend en marcha).
 
 **F3 — Modal «Vincular con Facebook» (MN frontend).** En la página de Inmuebles:
 - Lista de avisos presentes y sin vincular. Por cada uno, los inmuebles sin aviso ordenados por parecido (título y alias, usando la puntuación que ya existe en `src/services/marketplace/hilo/titulo.rs`; precio como dato visible). Botón «Vincular» o «No es este».
@@ -47,7 +47,9 @@ Decisiones mías (técnicas, reversibles, se pueden cambiar):
 - Lo ya vinculado no aparece en ninguna de las dos listas.
 - Muestra la fecha de la última lectura.
 
-**F4 — Borradores sin título inseguro (MN backend).** Si el borrador trae `avisoId` y ningún inmueble lo reclama, responder «sin ficha». Quitar la caída al título en esa rama (`claves.rs:78-89`). Sin `avisoId` (el piloto de hoy), la ruta por título se mantiene hasta F5; es el riesgo que queda.
+**Estado:** hecha en código (type-check y lint en verde); sin probar en navegador.
+
+**F4 — Borradores sin título inseguro (MN backend).** Si el borrador trae `avisoId` y ningún inmueble lo reclama, responder «sin ficha». Quitar la caída al título en esa rama (`claves.rs:78-89`). Sin `avisoId` (el piloto de hoy), la ruta por título se mantiene hasta F5; es el riesgo que queda. **Estado:** hecha (`claves.rs`; prueba `id_sin_dueno_no_cita_ninguna_ficha` en BD de rama).
 
 **F5 — Lab: la float envía `avisoId` (tarea F7b).** Sin esto el vínculo no entra en los borradores de chat. Va en la ventana de promoción de la usuaria (`opencode-propio-dev/PROMOCION-VENTANA.md`). No la hace el agente.
 
