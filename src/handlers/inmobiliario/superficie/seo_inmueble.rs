@@ -88,7 +88,7 @@ pub(super) async fn urls_sitemap(pool: &PgPool) -> Result<String, AppError> {
         for it in &lote.items {
             let loc = escapar(&format!("{ORIGEN}/inmueble/{}", it.slug));
             let fecha = it.updated_at.format("%Y-%m-%d");
-            let _ = write!(xml, "<url><loc>{loc}</loc><lastmod>{fecha}</lastmod></url>\n");
+            let _ = writeln!(xml, "<url><loc>{loc}</loc><lastmod>{fecha}</lastmod></url>");
         }
         if lote.items.is_empty() || pagina * POR_PAGINA_SITEMAP >= lote.total {
             break;
