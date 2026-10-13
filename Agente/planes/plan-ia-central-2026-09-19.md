@@ -1,4 +1,5 @@
 # Plan 199A-1/199A-2 — Centro de IA: GloryAPI + OpenCode Go vía backend (2026-09-19)
+> **Revisión 2026-10-13:** próximo paso: probar una copia vía `completar` con OpenCode Go; cerrar 199A-2.
 
 ## Objetivo
 Centralizar la IA de texto (redacción de fichas + copy; imágenes excluidas) en el

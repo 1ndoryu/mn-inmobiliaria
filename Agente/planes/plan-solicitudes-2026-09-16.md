@@ -1,4 +1,5 @@
 # Plan 169A-2 — Solicitudes "Publicar mi inmueble" (2026-09-16)
+> **Revisión 2026-10-13:** próximo paso: prueba en vivo del panel admin en el backend dev (no el puerto 3110); actualizar el checklist, que está desactualizado.
 
 ## Objetivo
 Modal público para que clientes propongan inmuebles (pendientes de revisión).

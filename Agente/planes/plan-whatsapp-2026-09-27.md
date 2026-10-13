@@ -1,4 +1,5 @@
 # Plan: Agente MN pulido — dos modos, delegación, clientes, observabilidad (279A-2) — 2026-09-27
+> **Revisión 2026-10-13:** sigue abierto, pendiente de un hecho externo o manual.
 
 > Revisión mayor 2026-09-27 (~18:30): ya no es "solo WhatsApp". Cubre
 > personalidad, 2 números × 2 modos, delegación con congelamiento, gestión

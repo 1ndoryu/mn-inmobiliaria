@@ -1,4 +1,5 @@
 # Plan chat visitante con IA (F5) — 2026-09-16
+> **Revisión 2026-10-13:** sigue abierto, pendiente de un hecho externo o manual.
 
 Tarea: `169A-1`. Estado: activo. Repos: `MN-Inmobiliaria` (rama
 `inmobiliaria`, backend) + `INMOBILIARIA` (rama `inmobiliaria`, front).
