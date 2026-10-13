@@ -803,8 +803,8 @@ Ver `Agente/completados/tareas-2026-03-25.md` para detalles.
   renderiza `MessageMedia`); `aviso_humano` no se espeja (destino staff, no
   visitante). Detalle en `Agente/completados/tareas-2026-09-29.md` (## 299A-4).
 
-## 279A-3 — /ask cuestionario de ficha (F1 verificado local 2026-09-27; pendiente: respuestas usuaria)
-- Plan: `Agente/planes/plan-ask-2026-09-27.md`.
+## 279A-3 — /ask cuestionario de ficha (cerrado 2026-10-12: F1 verificada local 2026-09-27; cuestionario respondido por la usuaria)
+- Plan (archivado): `Agente/planes/completados/plan-ask-2026-09-27.md`.
 - Página privada con login existente; preguntas por tipo (piso solo
   apartamento), condicionales, dinámicas IA opcional; `precio_minimo`
   privado con frontera en API; tabla % + semáforo en admin; alimenta

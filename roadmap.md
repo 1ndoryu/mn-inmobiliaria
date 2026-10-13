@@ -37,7 +37,6 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
 - **199A-3 — Sesión de 10 años:** salir y volver a entrar una vez.
 - **199A-5 y 199A-6 — Fotos y frente público:** revisar la propiedad editada y re-subir fotos; Ctrl+F5 en `:5200` (Townhouse/Orquídea).
 - **279A-2 — Agente MN:** QR de ambos números, batería real F2/F3, limpieza, deploy.
-- **279A-3 — `/ask`:** responder el cuestionario de ficha.
 - **289A-1 — Gateway real:** vincular A y B (temporal) y ejecutar la batería real.
 - **239A-1 — Deploy (cierre del agente 2026-10-11):** revisar https://mn-inmobiliaria.com con la lista visible.
 - **249A-1 — PageSpeed:** rerun móvil y escritorio (cuota API 429 el 2026-09-24).
