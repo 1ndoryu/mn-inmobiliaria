@@ -15,6 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
+    /* [14AA-1] Comentario sin efecto: ensayo del deploy con build en builder (89). */
     let config = AppConfig::from_env()?;
 
     let pool = sqlx::postgres::PgPoolOptions::new()
