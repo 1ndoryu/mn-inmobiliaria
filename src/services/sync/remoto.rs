@@ -11,6 +11,7 @@ use std::time::Duration;
 use axum::http::StatusCode;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::detalle::DetalleSync;
 use super::huella::{Manifiesto, VERSION};
@@ -85,6 +86,12 @@ impl Credenciales {
             email,
             password,
         })
+    }
+
+    /// Origen del servidor, sin barra final. Solo para armar URL públicas (`/uploads/...`).
+    #[must_use]
+    pub fn base(&self) -> &str {
+        &self.base
     }
 }
 
@@ -255,6 +262,50 @@ pub async fn manifiesto(cred: &Credenciales) -> Result<Manifiesto, ErrorRemoto> 
 /// Detalle de un inmueble en el servidor. `Ok(None)` = no existe allí.
 pub async fn detalle(cred: &Credenciales, slug: &str) -> Result<Option<DetalleSync>, ErrorRemoto> {
     get_con(cred, &SESION, &format!("/api/admin/sync/inmuebles/{slug}")).await
+}
+
+/// Foto del servidor. `url` ya es absoluta: los bytes son públicos (`/uploads`),
+/// así que el navegador las carga sin token.
+#[derive(Debug, Clone)]
+pub struct FotoRemota {
+    pub origen: String,
+    pub orden: i32,
+    pub url: String,
+}
+
+#[derive(Deserialize)]
+struct FotoRemotaRespuesta {
+    origen: String,
+    orden: i32,
+    url: String,
+}
+
+#[derive(Deserialize)]
+struct InmuebleRemotoRespuesta {
+    #[serde(default)]
+    fotos: Vec<FotoRemotaRespuesta>,
+}
+
+/// Fotos de un inmueble del servidor, por su id remoto. El detalle de sync no
+/// trae URLs; la vista admin sí, con token.
+pub async fn fotos(cred: &Credenciales, remote_id: Uuid) -> Result<Vec<FotoRemota>, ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{remote_id}");
+    let inmueble: InmuebleRemotoRespuesta = get_con(cred, &SESION, &ruta)
+        .await?
+        .ok_or_else(|| ErrorRemoto::SinSoporte(format!("el servidor no tiene {remote_id}")))?;
+    Ok(inmueble
+        .fotos
+        .into_iter()
+        .map(|f| FotoRemota {
+            url: if f.url.starts_with('/') {
+                format!("{}{}", cred.base(), f.url)
+            } else {
+                f.url
+            },
+            origen: f.origen,
+            orden: f.orden,
+        })
+        .collect())
 }
 
 #[cfg(test)]

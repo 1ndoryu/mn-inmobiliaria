@@ -11,4 +11,5 @@ pub mod detalle;
 pub mod huella;
 pub mod manifiesto;
 pub mod remoto;
+pub mod resolver;
 pub mod vigilancia;

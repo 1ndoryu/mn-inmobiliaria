@@ -88,7 +88,7 @@ export function SyncBadge({ slug, titulo, estado, entrada }: SyncBadgeProps) {
           onClick={() => setVerDiferencias(true)}
           className="rounded text-xs font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
         >
-          Ver diferencias
+          Resolver
         </ButtonPlano>
       )}
       {verDiferencias && (

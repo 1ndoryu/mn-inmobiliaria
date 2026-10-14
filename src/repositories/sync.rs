@@ -23,6 +23,14 @@ pub struct FotoSync {
     pub bytes: Option<i32>,
 }
 
+/// Foto con la clave de su archivo: para las miniaturas del plan de resolución.
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct FotoClave {
+    pub origen: String,
+    pub orden: i32,
+    pub storage_key: String,
+}
+
 /// Fila de `sync_base`: contenido de la última vez que coincidieron.
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct BaseFila {
@@ -74,6 +82,18 @@ impl SyncRepository {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- columnas nuevas fuera de `.sqlx`; ver cabecera del módulo
         sqlx::query_as::<_, FotoSync>(
             "SELECT inmueble_id, orden, origen, sha256, bytes FROM fotos \
+             WHERE inmueble_id = $1 ORDER BY orden, origen",
+        )
+        .bind(inmueble_id)
+        .fetch_all(pool)
+        .await
+    }
+
+    /// Claves de archivo de las fotos de un inmueble (sin huella: solo para miniaturas).
+    pub async fn claves_de_fotos(pool: &PgPool, inmueble_id: Uuid) -> Result<Vec<FotoClave>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- columnas nuevas fuera de `.sqlx`; ver cabecera del módulo
+        sqlx::query_as::<_, FotoClave>(
+            "SELECT origen, orden, storage_key FROM fotos \
              WHERE inmueble_id = $1 ORDER BY orden, origen",
         )
         .bind(inmueble_id)

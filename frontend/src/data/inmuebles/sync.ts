@@ -46,18 +46,31 @@ export interface EstadoSync {
   comparacion: ComparacionSync | null;
 }
 
-export interface FilaDiferenciaSync {
+/* Lado cuyo valor queda; `accion` es lo que se hace en el otro lado. */
+export type EleccionSync = 'local' | 'servidor';
+export type AccionSync = 'escribir' | 'quitar';
+
+export interface FilaPlanSync {
   clave: string;
   lado: LadoSync;
+  elegido: EleccionSync;
+  accion: AccionSync;
   /* `null` = el elemento no existe en ese lado. */
   local: string | null;
   servidor: string | null;
+  /* Solo fotos: `/uploads/...` en local; URL absoluta en el servidor. */
+  miniatura_local: string | null;
+  miniatura_servidor: string | null;
 }
 
-export interface DiferenciasSync {
+export interface PlanResolucionSync {
   slug: string;
-  resultado: ResultadoSync;
-  filas: FilaDiferenciaSync[];
+  plan_id: string;
+  estado: EstadoSyncInmueble;
+  estimado: boolean;
+  en_local: number;
+  en_servidor: number;
+  filas: FilaPlanSync[];
 }
 
 /* Long-poll: sin `desde` responde al instante; con él, espera a que cambie la revisión. */
@@ -71,6 +84,10 @@ export function comprobarSync(): Promise<void> {
   return apiFetch<void>('/api/admin/sync/comprobar', { method: 'POST' });
 }
 
-export function diferenciasSync(slug: string): Promise<DiferenciasSync> {
-  return apiFetch<DiferenciasSync>(`/api/admin/sync/diferencias/${encodeURIComponent(slug)}`);
+/* Solo calcula el plan: no escribe. `conservarViejo` = claves donde gana el lado contrario a «lo último». */
+export function planificarResolucionSync(slug: string, conservarViejo: string[]): Promise<PlanResolucionSync> {
+  return apiFetch<PlanResolucionSync>(`/api/admin/sync/resolver/${encodeURIComponent(slug)}/plan`, {
+    method: 'POST',
+    body: JSON.stringify({ conservar_viejo: conservarViejo }),
+  });
 }
