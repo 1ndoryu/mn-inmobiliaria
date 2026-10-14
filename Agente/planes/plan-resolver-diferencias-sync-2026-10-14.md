@@ -1,6 +1,6 @@
 # Plan 14AA-2 — Resolver diferencias de sync por inmueble
 
-Estado: **F1 hecha.** Verificación: `node scripts/run-cargo.mjs test services::sync` 32/32; type-check y lint del frontend sin errores. Siguiente paso: F2. Base: 13AA-12 (`plan-sync-inmuebles-2026-10-13.md`), que dejó «subir/traer» y las escrituras fuera de alcance; este plan las recoge.
+Estado: **F1 hecha.** Verificación: `node scripts/run-cargo.mjs test services::sync` 32/32; type-check y lint del frontend sin errores. Prueba funcional (14-oct): servidor simulado en `127.0.0.1:4555` (solo lectura) con un título y una foto distintos en un inmueble; `plan` devolvió 200 con `servidor_adelante`, por defecto 2 cambios en Local; «Conservar lo viejo» en todo pasa a 2 en Servidor; solo título viejo, 1 y 1; sin `SYNC_REMOTO_ENV` responde 409. En el panel: contadores, textos y miniatura local (carga) correctos; «Aplicar» sigue deshabilitado (F2). No hubo escrituras remotas. Sin base previa (`estimado`) no se probó en vivo: cubierto por tests. Siguiente paso: F2. Base: 13AA-12 (`plan-sync-inmuebles-2026-10-13.md`), que dejó «subir/traer» y las escrituras fuera de alcance; este plan las recoge.
 
 ## 1. Objetivo
 
