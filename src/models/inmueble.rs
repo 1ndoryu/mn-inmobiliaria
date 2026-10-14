@@ -253,7 +253,7 @@ fn default_estado() -> String {
 }
 
 /// Alta de inmueble — sin campos obligatorios
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
 pub struct CreateInmuebleRequest {
     #[serde(default)]
     #[validate(length(max = 500, message = "El título no debe exceder 500 caracteres"))]
@@ -311,7 +311,7 @@ pub struct CreateInmuebleRequest {
 }
 
 /// Actualización parcial de inmueble
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Default, Deserialize, Validate, ToSchema)]
 pub struct UpdateInmuebleRequest {
     #[validate(length(max = 500))]
     pub titulo: Option<String>,

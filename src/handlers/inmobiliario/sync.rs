@@ -4,7 +4,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::errors::AppError;
@@ -15,7 +15,9 @@ use crate::services::sync::comparar::clave_foto;
 use crate::services::sync::detalle::{self, DetalleSync, DiferenciasSync};
 use crate::services::sync::huella::Manifiesto;
 use crate::services::sync::manifiesto;
+use crate::services::sync::operacion::InformeSync;
 use crate::services::sync::remoto::{self, Credenciales, ErrorRemoto};
+use crate::services::sync::{publicar, traer};
 use crate::services::sync::resolver::{self, PlanResolucion};
 use crate::services::sync::vigilancia::{self, EstadoSync};
 use crate::AppState;
@@ -212,6 +214,76 @@ async fn miniaturas(
     Ok((mini_local, mini_servidor))
 }
 
+/// Publica el inmueble local en el servidor. Un fallo antes de escribir es 409; un fallo
+/// a mitad llega con 200 y `fallo` en el informe, con lo que sí quedó escrito.
+#[utoipa::path(
+    post,
+    path = "/api/admin/sync/inmuebles/{slug}/publicar",
+    params(("slug" = String, Path, description = "Slug del inmueble local")),
+    responses(
+        (status = 200, description = "Informe de lo escrito en el servidor", body = InformeSync),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse),
+        (status = 404, description = "No existe en este entorno", body = crate::errors::ErrorResponse),
+        (status = 409, description = "Sin escribir: servidor no disponible, slug ocupado, datos no válidos u otra operación en curso", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn post_publicar(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(slug): Path<String>,
+) -> Result<Json<InformeSync>, AppError> {
+    let cred = Credenciales::cargar().map_err(|e| error_remoto(&e))?;
+    let informe = publicar::publicar(&state.pool, &state.upload_dir, &cred, &slug).await?;
+    vigilancia::comprobar_ya();
+    Ok(Json(informe))
+}
+
+/// Trae el inmueble del servidor al local. Mismo contrato que publicar.
+#[utoipa::path(
+    post,
+    path = "/api/admin/sync/inmuebles/{slug}/traer",
+    params(("slug" = String, Path, description = "Slug del inmueble en el servidor")),
+    responses(
+        (status = 200, description = "Informe de lo escrito en el local", body = InformeSync),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse),
+        (status = 404, description = "No existe en el servidor", body = crate::errors::ErrorResponse),
+        (status = 409, description = "Sin escribir: ya existe en el local, servidor no disponible, datos no válidos u otra operación en curso", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn post_traer(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(slug): Path<String>,
+) -> Result<Json<InformeSync>, AppError> {
+    let cred = Credenciales::cargar().map_err(|e| error_remoto(&e))?;
+    let informe = traer::traer(&state.pool, &state.upload_dir, &cred, &slug).await?;
+    vigilancia::comprobar_ya();
+    Ok(Json(informe))
+}
+
+/// Servidor con el que se compara. Publicar y traer lo nombran antes de escribir (D16).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DestinoSync {
+    pub host: String,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/admin/sync/destino",
+    responses(
+        (status = 200, description = "Servidor configurado", body = DestinoSync),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse),
+        (status = 409, description = "Sin credenciales del servidor", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn get_destino(_auth: AuthUser) -> Result<Json<DestinoSync>, AppError> {
+    let cred = Credenciales::cargar().map_err(|e| error_remoto(&e))?;
+    Ok(Json(DestinoSync { host: cred.host() }))
+}
+
 /// Un fallo del servidor no es un error del panel: se muestra como conflicto con el motivo.
 fn error_remoto(e: &ErrorRemoto) -> AppError {
     AppError::Conflict(e.to_string())
@@ -225,4 +297,7 @@ pub fn routes() -> Router<AppState> {
         .route("/sync/inmuebles/:slug", get(get_detalle))
         .route("/sync/diferencias/:slug", get(get_diferencias))
         .route("/sync/resolver/:slug/plan", post(post_plan))
+        .route("/sync/inmuebles/:slug/publicar", post(post_publicar))
+        .route("/sync/inmuebles/:slug/traer", post(post_traer))
+        .route("/sync/destino", get(get_destino))
 }

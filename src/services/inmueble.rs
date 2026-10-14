@@ -64,6 +64,26 @@ impl InmuebleService {
     }
 
     pub async fn create(pool: &PgPool, req: CreateInmuebleRequest) -> Result<Inmueble, AppError> {
+        let base_slug = slug::slugify(&req.titulo);
+        Self::insertar(pool, req, base_slug, true).await
+    }
+
+    /// Alta con el slug que ya tiene el inmueble en el servidor (traer, D14). Sin
+    /// reintentos: si el slug está ocupado es conflicto; no se inventa otro.
+    pub async fn crear_con_slug(
+        pool: &PgPool,
+        req: CreateInmuebleRequest,
+        slug: String,
+    ) -> Result<Inmueble, AppError> {
+        Self::insertar(pool, req, slug, false).await
+    }
+
+    async fn insertar(
+        pool: &PgPool,
+        req: CreateInmuebleRequest,
+        base_slug: String,
+        reintentar: bool,
+    ) -> Result<Inmueble, AppError> {
         let tipo = Self::normalizar(&req.tipo, TIPOS, "tipo")?;
         let operacion = Self::normalizar(&req.operacion, OPERACIONES, "operacion")?;
         let estado = Self::normalizar(&req.estado, ESTADOS, "estado")?;
@@ -72,8 +92,6 @@ impl InmuebleService {
             vinculo::preparar_para_crear(pool, req.marketplace_id.as_deref()).await?;
         /* [09AA-24] Alias en `alias::preparar_para_crear`. */
         let alias_titulos = alias::preparar_para_crear(req.alias_titulos)?;
-        let base_slug = slug::slugify(&req.titulo);
-
         let mut intento = 0;
         loop {
             let slug = if intento == 0 {
@@ -112,8 +130,14 @@ impl InmuebleService {
                 Err(e) if vinculo::es_conflicto(&e) => {
                     return Err(vinculo::error_duplicado());
                 }
-                Err(e) if InmuebleRepository::es_conflicto_slug(&e) && intento < 3 => {
+                Err(e) if reintentar && InmuebleRepository::es_conflicto_slug(&e) && intento < 3 => {
                     intento += 1;
+                }
+                /* Sin reintentos o agotados: conflicto explícito, no un 500. */
+                Err(e) if InmuebleRepository::es_conflicto_slug(&e) => {
+                    return Err(AppError::Conflict(format!(
+                        "ya existe un inmueble con el slug «{base_slug}»"
+                    )));
                 }
                 Err(e) => return Err(e.into()),
             }

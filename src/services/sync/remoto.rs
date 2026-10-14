@@ -1,5 +1,7 @@
-//! Cliente del servidor de producción para la comparación de sincronización
-//! [13AA-12]. Solo lectura: login admin y `GET` de manifiesto y detalle.
+//! Cliente del servidor de producción para la sincronización [13AA-12, 14AA-2].
+//! Lectura (manifiesto, detalle, inmueble, ficha, fotos) para comparar y
+//! escritura (alta, receta, ficha, fotos, publicación) para publicar o traer un
+//! inmueble completo (F5).
 //!
 //! Las credenciales viven en `scripts/.env.prod.local` (o en el archivo que
 //! apunta `SYNC_REMOTO_ENV`), gitignored, no en el `.env` del backend. Nunca se registran ni se
@@ -10,15 +12,21 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use serde::de::DeserializeOwned;
+use reqwest::header::CONTENT_TYPE;
+use serde::de::{DeserializeOwned, IgnoredAny};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use uuid::Uuid;
 
 use super::detalle::DetalleSync;
 use super::huella::{Manifiesto, VERSION};
+use crate::models::{CopyInmueble, CreateInmuebleRequest, RecetaPublicidad, MAX_FOTO_BYTES};
 
-/// Tope por petición: un servidor lento no bloquea la vigilancia.
-const TIMEOUT: Duration = Duration::from_secs(10);
+/// Tope de lectura: un servidor lento no bloquea la vigilancia.
+const TOPE_LECTURA: Duration = Duration::from_secs(10);
+
+/// Tope de escritura y descarga de fotos (D15): una foto de 10 MiB puede tardar en red lenta.
+const TOPE_ESCRITURA: Duration = Duration::from_secs(60);
 
 /// Por qué no se pudo leer al servidor. Se traduce a `EstadoRemoto` en la
 /// vigilancia y a un mensaje en las respuestas HTTP.
@@ -32,6 +40,8 @@ pub enum ErrorRemoto {
     SinConexion(String),
     /// El servidor responde, pero no tiene la ruta o usa otra versión de huella.
     SinSoporte(String),
+    /// El servidor responde y rechaza la operación (400, 404, 409, 413...). El motivo es el suyo.
+    Rechazado(String),
 }
 
 impl std::fmt::Display for ErrorRemoto {
@@ -45,6 +55,7 @@ impl std::fmt::Display for ErrorRemoto {
             Self::SinSoporte(motivo) => {
                 write!(f, "el servidor no admite la sincronización: {motivo}")
             }
+            Self::Rechazado(motivo) => write!(f, "el servidor rechazó la operación: {motivo}"),
         }
     }
 }
@@ -89,6 +100,21 @@ impl Credenciales {
     #[must_use]
     pub fn base(&self) -> &str {
         &self.base
+    }
+
+    /// Host del servidor, con puerto si lo lleva: el diálogo de publicar y traer lo nombra (D16).
+    #[must_use]
+    pub fn host(&self) -> String {
+        match reqwest::Url::parse(&self.base) {
+            Ok(url) => {
+                let host = url.host_str().unwrap_or_default();
+                match url.port() {
+                    Some(puerto) => format!("{host}:{puerto}"),
+                    None => host.to_string(),
+                }
+            }
+            Err(_) => self.base.clone(),
+        }
     }
 }
 
@@ -153,9 +179,16 @@ struct TokenRespuesta {
     token: String,
 }
 
-fn cliente() -> Result<reqwest::Client, ErrorRemoto> {
+/// Cuerpo de error del servidor (`ErrorResponse`): el motivo que se muestra al usuario.
+#[derive(Deserialize)]
+struct CuerpoError {
+    message: Option<String>,
+    error: Option<String>,
+}
+
+fn cliente(tope: Duration) -> Result<reqwest::Client, ErrorRemoto> {
     reqwest::Client::builder()
-        .timeout(TIMEOUT)
+        .timeout(tope)
         // Un redirect podría reenviar el token a otro host.
         .redirect(reqwest::redirect::Policy::none())
         .build()
@@ -168,6 +201,14 @@ fn red(e: &reqwest::Error) -> ErrorRemoto {
     } else {
         "sin respuesta".into()
     })
+}
+
+/// Estado HTTP que no es un resultado de negocio: credenciales o red/servidor.
+fn error_de_estado(estado: StatusCode) -> ErrorRemoto {
+    match estado {
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => ErrorRemoto::SinCredenciales,
+        s => ErrorRemoto::SinConexion(format!("HTTP {}", s.as_u16())),
+    }
 }
 
 async fn login(http: &reqwest::Client, cred: &Credenciales) -> Result<String, ErrorRemoto> {
@@ -207,37 +248,85 @@ async fn renovar(
     Ok(token)
 }
 
-async fn pedir(
-    http: &reqwest::Client,
-    cred: &Credenciales,
-    ruta: &str,
-    token: &str,
-) -> Result<reqwest::Response, ErrorRemoto> {
-    http.get(format!("{}{ruta}", cred.base))
-        .bearer_auth(token)
-        .send()
-        .await
-        .map_err(|e| red(&e))
+/// Petición ya armada. El cuerpo va en bytes para poder reenviarlo tras un 401.
+struct Envio {
+    metodo: reqwest::Method,
+    ruta: String,
+    consulta: Vec<(&'static str, String)>,
+    /// (tipo de contenido, bytes).
+    cuerpo: Option<(&'static str, Vec<u8>)>,
+    tope: Duration,
 }
 
-/// `GET` autenticado. `Ok(None)` = 404: el servidor no tiene esa ruta o ese
-/// inmueble; el llamador decide si eso es «sin soporte» o «no existe».
-async fn get_con<T: DeserializeOwned>(
+impl Envio {
+    fn lectura(ruta: String) -> Self {
+        Self {
+            metodo: reqwest::Method::GET,
+            ruta,
+            consulta: Vec::new(),
+            cuerpo: None,
+            tope: TOPE_LECTURA,
+        }
+    }
+
+    fn json<B: Serialize + ?Sized>(
+        metodo: reqwest::Method,
+        ruta: String,
+        cuerpo: &B,
+    ) -> Result<Self, ErrorRemoto> {
+        let bytes = serde_json::to_vec(cuerpo)
+            .map_err(|e| ErrorRemoto::Rechazado(format!("cuerpo no serializable: {e}")))?;
+        Ok(Self {
+            metodo,
+            ruta,
+            consulta: Vec::new(),
+            cuerpo: Some(("application/json", bytes)),
+            tope: TOPE_ESCRITURA,
+        })
+    }
+}
+
+async fn intentar(
+    http: &reqwest::Client,
+    cred: &Credenciales,
+    envio: &Envio,
+    token: &str,
+) -> Result<reqwest::Response, ErrorRemoto> {
+    let mut peticion = http
+        .request(envio.metodo.clone(), format!("{}{}", cred.base, envio.ruta))
+        .bearer_auth(token);
+    if !envio.consulta.is_empty() {
+        peticion = peticion.query(&envio.consulta);
+    }
+    if let Some((tipo, bytes)) = &envio.cuerpo {
+        peticion = peticion.header(CONTENT_TYPE, *tipo).body(bytes.clone());
+    }
+    peticion.send().await.map_err(|e| red(&e))
+}
+
+/// Envía con token: login perezoso y, ante un 401, una renovación y un único reintento.
+async fn enviar(
     cred: &Credenciales,
     sesion: &Sesion,
-    ruta: &str,
-) -> Result<Option<T>, ErrorRemoto> {
-    let http = cliente()?;
+    envio: &Envio,
+) -> Result<reqwest::Response, ErrorRemoto> {
+    let http = cliente(envio.tope)?;
     let token = match sesion.actual() {
         Some(token) => token,
         None => renovar(&http, cred, sesion).await?,
     };
-    let mut respuesta = pedir(&http, cred, ruta, &token).await?;
-    if respuesta.status() == StatusCode::UNAUTHORIZED {
-        // El token caducó o el servidor se reinició: una renovación y un reintento.
-        let nuevo = renovar(&http, cred, sesion).await?;
-        respuesta = pedir(&http, cred, ruta, &nuevo).await?;
+    let respuesta = intentar(&http, cred, envio, &token).await?;
+    if respuesta.status() != StatusCode::UNAUTHORIZED {
+        return Ok(respuesta);
     }
+    // El token caducó o el servidor se reinició: una renovación y un reintento.
+    let nuevo = renovar(&http, cred, sesion).await?;
+    intentar(&http, cred, envio, &nuevo).await
+}
+
+/// Lectura. `Ok(None)` = 404: el servidor no tiene esa ruta o ese inmueble; el
+/// llamador decide si eso es «sin soporte» o «no existe».
+async fn leer<T: DeserializeOwned>(respuesta: reqwest::Response) -> Result<Option<T>, ErrorRemoto> {
     match respuesta.status() {
         s if s.is_success() => respuesta
             .json::<T>()
@@ -245,13 +334,35 @@ async fn get_con<T: DeserializeOwned>(
             .map(Some)
             .map_err(|e| ErrorRemoto::SinSoporte(format!("respuesta no válida: {e}"))),
         StatusCode::NOT_FOUND => Ok(None),
-        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Err(ErrorRemoto::SinCredenciales),
-        s => Err(ErrorRemoto::SinConexion(format!("HTTP {}", s.as_u16()))),
+        s => Err(error_de_estado(s)),
     }
 }
 
+/// Escritura: 2xx devuelve el cuerpo; otros 4xx (salvo credenciales) son `Rechazado`
+/// con el motivo del servidor; 5xx y red son `SinConexion`.
+async fn escribir<T: DeserializeOwned>(respuesta: reqwest::Response) -> Result<T, ErrorRemoto> {
+    let estado = respuesta.status();
+    if estado.is_success() {
+        return respuesta
+            .json::<T>()
+            .await
+            .map_err(|e| ErrorRemoto::SinSoporte(format!("respuesta no válida: {e}")));
+    }
+    if estado.is_client_error() && !matches!(estado, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
+        let motivo = respuesta
+            .json::<CuerpoError>()
+            .await
+            .ok()
+            .and_then(|c| c.message.or(c.error));
+        return Err(ErrorRemoto::Rechazado(
+            motivo.unwrap_or_else(|| format!("HTTP {}", estado.as_u16())),
+        ));
+    }
+    Err(error_de_estado(estado))
+}
+
 async fn manifiesto_con(cred: &Credenciales, sesion: &Sesion) -> Result<Manifiesto, ErrorRemoto> {
-    let m: Manifiesto = get_con(cred, sesion, "/api/admin/sync/manifiesto")
+    let m: Manifiesto = leer(enviar(cred, sesion, &Envio::lectura("/api/admin/sync/manifiesto".into())).await?)
         .await?
         .ok_or_else(|| {
             ErrorRemoto::SinSoporte("falta /api/admin/sync/manifiesto en el servidor".into())
@@ -272,51 +383,215 @@ pub async fn manifiesto(cred: &Credenciales) -> Result<Manifiesto, ErrorRemoto> 
 
 /// Detalle de un inmueble en el servidor. `Ok(None)` = no existe allí.
 pub async fn detalle(cred: &Credenciales, slug: &str) -> Result<Option<DetalleSync>, ErrorRemoto> {
-    get_con(cred, &SESION, &format!("/api/admin/sync/inmuebles/{slug}")).await
+    let ruta = format!("/api/admin/sync/inmuebles/{slug}");
+    leer(enviar(cred, &SESION, &Envio::lectura(ruta)).await?).await
 }
 
-/// Foto del servidor. `url` ya es absoluta: los bytes son públicos (`/uploads`),
-/// así que el navegador las carga sin token.
-#[derive(Debug, Clone)]
+/// Foto del servidor. `url` es absoluta en `fotos()`: los bytes son públicos
+/// (`/uploads`), así que se descargan sin token.
+#[derive(Debug, Clone, Deserialize)]
 pub struct FotoRemota {
     pub origen: String,
     pub orden: i32,
     pub url: String,
 }
 
-#[derive(Deserialize)]
-struct FotoRemotaRespuesta {
-    origen: String,
-    orden: i32,
-    url: String,
+/// Inmueble del servidor tal como lo devuelve la API admin, con lo que hace falta
+/// para traerlo. Los campos extra del JSON se ignoran.
+#[derive(Debug, Clone, Deserialize)]
+pub struct InmuebleRemoto {
+    pub id: Uuid,
+    pub slug: String,
+    pub titulo: String,
+    pub descripcion: String,
+    pub ubicacion: String,
+    pub puestos: i32,
+    pub residencia: String,
+    pub precio: f64,
+    pub tipo: String,
+    pub operacion: String,
+    pub habitaciones: i32,
+    pub banos: i32,
+    pub metros: f64,
+    pub metros_terreno: f64,
+    pub estado: String,
+    pub publicado: bool,
+    #[serde(default)]
+    pub marketplace_id: Option<String>,
+    #[serde(default)]
+    pub alias_titulos: Vec<String>,
+    #[serde(default)]
+    pub copy: Option<CopyInmueble>,
+    #[serde(default)]
+    pub receta: Option<RecetaPublicidad>,
+    #[serde(default)]
+    pub fotos: Vec<FotoRemota>,
 }
 
-#[derive(Deserialize)]
-struct InmuebleRemotoRespuesta {
-    #[serde(default)]
-    fotos: Vec<FotoRemotaRespuesta>,
+/// Ficha privada (`/ask`) de un inmueble del servidor.
+#[derive(Debug, Clone, Deserialize)]
+pub struct FichaRemota {
+    pub extras: Value,
+    pub precio_minimo: Option<f64>,
+}
+
+/// Las fotos llegan con ruta relativa (`/uploads/...`): se ancla al origen configurado.
+fn absoluta(cred: &Credenciales, url: &str) -> String {
+    if url.starts_with('/') {
+        format!("{}{url}", cred.base)
+    } else {
+        url.to_string()
+    }
+}
+
+/// Inmueble del servidor por su id. `Ok(None)` = no existe allí. Las URLs de
+/// sus fotos salen ya absolutas.
+pub async fn inmueble(cred: &Credenciales, id: Uuid) -> Result<Option<InmuebleRemoto>, ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{id}");
+    let leido: Option<InmuebleRemoto> = leer(enviar(cred, &SESION, &Envio::lectura(ruta)).await?).await?;
+    Ok(leido.map(|mut inmueble| {
+        for foto in &mut inmueble.fotos {
+            foto.url = absoluta(cred, &foto.url);
+        }
+        inmueble
+    }))
 }
 
 /// Fotos de un inmueble del servidor, por su id remoto. El detalle de sync no
 /// trae URLs; la vista admin sí, con token.
 pub async fn fotos(cred: &Credenciales, remote_id: Uuid) -> Result<Vec<FotoRemota>, ErrorRemoto> {
-    let ruta = format!("/api/admin/inmuebles/{remote_id}");
-    let inmueble: InmuebleRemotoRespuesta = get_con(cred, &SESION, &ruta)
+    let inmueble = inmueble(cred, remote_id)
         .await?
         .ok_or_else(|| ErrorRemoto::SinSoporte(format!("el servidor no tiene {remote_id}")))?;
-    Ok(inmueble
-        .fotos
-        .into_iter()
-        .map(|f| FotoRemota {
-            url: if f.url.starts_with('/') {
-                format!("{}{}", cred.base(), f.url)
-            } else {
-                f.url
-            },
-            origen: f.origen,
-            orden: f.orden,
-        })
-        .collect())
+    Ok(inmueble.fotos)
+}
+
+/// Ficha privada de un inmueble del servidor. `Ok(None)` = no existe allí.
+pub async fn ficha(cred: &Credenciales, id: Uuid) -> Result<Option<FichaRemota>, ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{id}/ficha");
+    leer(enviar(cred, &SESION, &Envio::lectura(ruta)).await?).await
+}
+
+/// Alta del inmueble en el servidor. El servidor genera el slug a partir del
+/// título (D11): el llamador lo comprueba antes de llegar aquí.
+pub async fn crear_inmueble(
+    cred: &Credenciales,
+    alta: &CreateInmuebleRequest,
+) -> Result<InmuebleRemoto, ErrorRemoto> {
+    let envio = Envio::json(reqwest::Method::POST, "/api/admin/inmuebles".into(), alta)?;
+    escribir(enviar(cred, &SESION, &envio).await?).await
+}
+
+#[derive(Serialize)]
+struct RecetaEnvio<'a> {
+    receta: &'a RecetaPublicidad,
+}
+
+/// Fija la receta publicitaria. Es un PUT parcial: el resto del inmueble no cambia.
+pub async fn poner_receta(
+    cred: &Credenciales,
+    id: Uuid,
+    receta: &RecetaPublicidad,
+) -> Result<(), ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{id}");
+    let envio = Envio::json(reqwest::Method::PUT, ruta, &RecetaEnvio { receta })?;
+    escribir::<IgnoredAny>(enviar(cred, &SESION, &envio).await?).await?;
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct FichaEnvio<'a> {
+    extras: &'a Value,
+    precio_minimo: Option<f64>,
+}
+
+/// Guarda la ficha privada (`/ask`): respuestas y precio mínimo.
+pub async fn poner_ficha(
+    cred: &Credenciales,
+    id: Uuid,
+    extras: &Value,
+    precio_minimo: Option<f64>,
+) -> Result<(), ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{id}/ficha");
+    let envio = Envio::json(reqwest::Method::PUT, ruta, &FichaEnvio { extras, precio_minimo })?;
+    escribir::<IgnoredAny>(enviar(cred, &SESION, &envio).await?).await?;
+    Ok(())
+}
+
+/// Sube una foto al inmueble. `nombre` debe llevar extensión válida: el servidor
+/// valida la extensión y los bytes (magia) y rechaza lo demás.
+pub async fn subir_foto(
+    cred: &Credenciales,
+    inmueble_id: Uuid,
+    nombre: &str,
+    origen: &str,
+    orden: i32,
+    bytes: Vec<u8>,
+) -> Result<FotoRemota, ErrorRemoto> {
+    let envio = Envio {
+        metodo: reqwest::Method::POST,
+        ruta: "/api/admin/fotos/upload".into(),
+        consulta: vec![
+            ("inmueble_id", inmueble_id.to_string()),
+            ("filename", nombre.to_string()),
+            ("origen", origen.to_string()),
+            ("orden", orden.to_string()),
+        ],
+        cuerpo: Some(("application/octet-stream", bytes)),
+        tope: TOPE_ESCRITURA,
+    };
+    let foto: FotoRemota = escribir(enviar(cred, &SESION, &envio).await?).await?;
+    Ok(FotoRemota {
+        url: absoluta(cred, &foto.url),
+        ..foto
+    })
+}
+
+#[derive(Serialize)]
+struct PublicacionEnvio {
+    publicado: bool,
+}
+
+/// Cambia la visibilidad pública. Es el último paso de una publicación (D13).
+pub async fn poner_publicacion(
+    cred: &Credenciales,
+    id: Uuid,
+    publicado: bool,
+) -> Result<InmuebleRemoto, ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{id}/publicacion");
+    let envio = Envio::json(reqwest::Method::PATCH, ruta, &PublicacionEnvio { publicado })?;
+    escribir(enviar(cred, &SESION, &envio).await?).await
+}
+
+/// Bytes de una foto del servidor. Solo desde el origen configurado (el token no
+/// viaja aquí), con tope de tamaño: la foto del servidor no es de confianza.
+pub async fn descargar_foto(cred: &Credenciales, url: &str) -> Result<Vec<u8>, ErrorRemoto> {
+    let url = absoluta(cred, url);
+    if !url.starts_with(&format!("{}/", cred.base)) {
+        return Err(ErrorRemoto::Rechazado(
+            "la foto no está en el servidor configurado".into(),
+        ));
+    }
+    let http = cliente(TOPE_ESCRITURA)?;
+    let mut respuesta = http.get(&url).send().await.map_err(|e| red(&e))?;
+    match respuesta.status() {
+        s if s.is_success() => {}
+        StatusCode::NOT_FOUND => {
+            return Err(ErrorRemoto::Rechazado("la foto ya no está en el servidor".into()))
+        }
+        s => return Err(error_de_estado(s)),
+    }
+    let mut bytes = Vec::new();
+    while let Some(trozo) = respuesta.chunk().await.map_err(|e| red(&e))? {
+        if bytes.len() + trozo.len() > MAX_FOTO_BYTES {
+            return Err(ErrorRemoto::Rechazado(format!(
+                "la foto supera {} MiB",
+                MAX_FOTO_BYTES / (1024 * 1024)
+            )));
+        }
+        bytes.extend_from_slice(&trozo);
+    }
+    Ok(bytes)
 }
 
 #[cfg(test)]
@@ -325,9 +600,9 @@ mod pruebas {
 
     use axum::extract::State;
     use axum::http::{header::AUTHORIZATION, HeaderMap};
-    use axum::routing::{get, post};
+    use axum::routing::{get, post, put};
     use axum::{Json, Router};
-    use serde_json::{json, Value};
+    use serde_json::json;
 
     use super::*;
 
@@ -369,6 +644,30 @@ mod pruebas {
                 "fotos_pendientes": 0,
                 "inmuebles": [],
             })),
+        )
+    }
+
+    /// Eco: exige el token vigente y devuelve el cuerpo recibido.
+    async fn eco_con_token(
+        State(s): State<Simulado>,
+        cabeceras: HeaderMap,
+        Json(cuerpo): Json<Value>,
+    ) -> (StatusCode, Json<Value>) {
+        let esperado = format!("Bearer {}", s.vigente.lock().unwrap().clone());
+        let recibido = cabeceras
+            .get(AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default();
+        if recibido != esperado {
+            return (StatusCode::UNAUTHORIZED, Json(json!({})));
+        }
+        (StatusCode::OK, Json(cuerpo))
+    }
+
+    async fn conflicto() -> (StatusCode, Json<Value>) {
+        (
+            StatusCode::CONFLICT,
+            Json(json!({ "error": "conflict", "message": "ya existe" })),
         )
     }
 
@@ -434,6 +733,56 @@ mod pruebas {
         let cred = credenciales(&base, "secreto");
         let res = manifiesto_con(&cred, &Sesion::default()).await;
         assert!(matches!(res, Err(ErrorRemoto::SinSoporte(_))));
+    }
+
+    #[tokio::test]
+    async fn escritura_reenvia_el_cuerpo_tras_un_401() {
+        let app = Router::new()
+            .route("/api/auth/login", post(login_simulado))
+            .route("/api/admin/inmuebles/x", put(eco_con_token))
+            .with_state(Simulado {
+                vigente: Arc::new(StdMutex::new("t1".into())),
+            });
+        let base = arrancar(app).await;
+        let cred = credenciales(&base, "secreto");
+        let sesion = Sesion::default();
+        // El token guardado caducó: el primer intento da 401 y el reintento lleva el mismo cuerpo.
+        sesion.guardar("caducado".into());
+        let envio = Envio::json(
+            reqwest::Method::PUT,
+            "/api/admin/inmuebles/x".into(),
+            &json!({ "receta": { "x": 1 } }),
+        )
+        .unwrap();
+        let eco: Value = leer(enviar(&cred, &sesion, &envio).await.unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(eco, json!({ "receta": { "x": 1 } }));
+        assert_eq!(sesion.actual().as_deref(), Some("t1"));
+    }
+
+    #[tokio::test]
+    async fn rechazo_del_servidor_lleva_su_motivo() {
+        let app = Router::new()
+            .route("/api/auth/login", post(login_simulado))
+            .route("/api/admin/inmuebles", post(conflicto))
+            .with_state(Simulado {
+                vigente: Arc::new(StdMutex::new("t1".into())),
+            });
+        let base = arrancar(app).await;
+        let cred = credenciales(&base, "secreto");
+        let envio = Envio::json(reqwest::Method::POST, "/api/admin/inmuebles".into(), &json!({})).unwrap();
+        let res = escribir::<IgnoredAny>(enviar(&cred, &Sesion::default(), &envio).await.unwrap()).await;
+        assert_eq!(res.err(), Some(ErrorRemoto::Rechazado("ya existe".into())));
+    }
+
+    #[tokio::test]
+    async fn foto_fuera_del_servidor_configurado_se_rechaza() {
+        // La comprobación de origen va antes de cualquier red: no hace falta servidor.
+        let cred = credenciales("https://mn-inmobiliaria.com", "x");
+        let res = descargar_foto(&cred, "https://otro.example/uploads/a.jpg").await;
+        assert!(matches!(res, Err(ErrorRemoto::Rechazado(_))));
     }
 
     #[test]
