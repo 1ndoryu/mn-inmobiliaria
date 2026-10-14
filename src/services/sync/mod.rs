@@ -6,13 +6,12 @@
 //! `remoto` habla con el servidor, `vigilancia` mantiene el estado en segundo
 //! plano y `detalle` arma las diferencias con los valores de cada lado.
 
-pub mod comparar;
-pub mod detalle;
-pub mod huella;
-pub mod manifiesto;
+pub mod comparacion;
 pub mod operacion;
 pub mod publicar;
 pub mod remoto;
-pub mod resolver;
 pub mod traer;
 pub mod vigilancia;
+
+// Re-exportación: handlers y el resto de sync/ siguen usando `sync::huella`, `sync::comparar`, etc.
+pub use comparacion::{comparar, detalle, huella, manifiesto, resolver};
