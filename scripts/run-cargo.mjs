@@ -9,9 +9,25 @@
 import { spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const cargoArgs = process.argv.slice(2);
+// Taller remoto VPS 89: remoto por defecto (Agente/planes/plan-taller-remoto-vps89-2026-10-14.md)
+const RCARGO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'workspace-manager', 'scripts', 'remoto');
+const taller = await import(pathToFileURL(path.join(RCARGO_DIR, 'rcargo.mjs')).href);
+const argvCargo = process.argv.slice(2);
+const config = taller.cargarConfig(path.join(RCARGO_DIR, 'taller.json'));
+const proyecto = taller.detectarProyecto(process.cwd());
+if (taller.modoEfectivo(argvCargo, config, proyecto) === 'remoto') {
+  const r = spawnSync(process.execPath, [path.join(RCARGO_DIR, 'rcargo.mjs'), ...argvCargo], { stdio: 'inherit' });
+  process.exit(r.status ?? 1);
+}
+// [por que] --dry-run solo lo interpreta rcargo; si se quitara sin más, en local compilaría de verdad.
+if (argvCargo.includes('--dry-run')) {
+  console.log(`[dry-run local] cargo ${taller.quitarFlagsTaller(argvCargo).join(' ')}`);
+  process.exit(0);
+}
+
+const cargoArgs = taller.quitarFlagsTaller(argvCargo);
 if (cargoArgs.length === 0) {
   console.error('Uso: node scripts/run-cargo.mjs <subcomando cargo> [...args]');
   process.exit(1);
