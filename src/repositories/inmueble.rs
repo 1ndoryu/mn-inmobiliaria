@@ -493,17 +493,26 @@ impl InmuebleRepository {
         };
         let mut tx = pool.begin().await?;
         let claves: Vec<String> = if foto.origen == "original" {
-            let filas: Vec<(String,)> = sqlx::query!(
-                "DELETE FROM fotos WHERE inmueble_id = $1 AND orden = $2 \
-                 RETURNING storage_key",
-                foto.inmueble_id,
-                foto.orden,
+            /* [13AA-12] Solo la original (por id) y su mejorada hermana. Borrar por
+             * `orden` a secas arrastraba otra original con el mismo orden: al
+             * sincronizar se perdían fotos sin que nadie las borrara. Consultas en
+             * runtime: la caché `.sqlx` no cubre estas sentencias. */
+            let mut claves = sqlx::query_scalar::<_, String>(
+                "DELETE FROM fotos WHERE id = $1 RETURNING storage_key",
             )
+            .bind(foto_id)
             .fetch_all(&mut *tx)
-            .await?
-            .into_iter()
-            .map(|r| (r.storage_key,))
-            .collect();
+            .await?;
+            claves.extend(
+                sqlx::query_scalar::<_, String>(
+                    "DELETE FROM fotos WHERE inmueble_id = $1 AND orden = $2 \
+                     AND origen = 'mejorada' RETURNING storage_key",
+                )
+                .bind(foto.inmueble_id)
+                .bind(foto.orden)
+                .fetch_all(&mut *tx)
+                .await?,
+            );
             sqlx::query!(
                 "UPDATE fotos SET orden = orden - 1 \
                  WHERE inmueble_id = $1 AND orden > $2",
@@ -512,7 +521,7 @@ impl InmuebleRepository {
             )
             .execute(&mut *tx)
             .await?;
-            filas.into_iter().map(|fila| fila.0).collect()
+            claves
         } else {
             sqlx::query!("DELETE FROM fotos WHERE id = $1", foto_id)
                 .execute(&mut *tx)
