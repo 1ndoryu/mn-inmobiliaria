@@ -1,10 +1,11 @@
 //! Cliente del servidor de producción para la comparación de sincronización
 //! [13AA-12]. Solo lectura: login admin y `GET` de manifiesto y detalle.
 //!
-//! Las credenciales viven en el archivo que apunta `SYNC_REMOTO_ENV`
-//! (gitignored), no en el `.env` del backend. Nunca se registran ni se
+//! Las credenciales viven en `scripts/.env.prod.local` (o en el archivo que
+//! apunta `SYNC_REMOTO_ENV`), gitignored, no en el `.env` del backend. Nunca se registran ni se
 //! muestran. El token vive solo en memoria y se renueva ante un 401.
 
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -23,7 +24,7 @@ const TIMEOUT: Duration = Duration::from_secs(10);
 /// vigilancia y a un mensaje en las respuestas HTTP.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorRemoto {
-    /// Sin `SYNC_REMOTO_ENV` o sin archivo: la comparación está apagada.
+    /// Sin archivo de credenciales: la comparación está apagada.
     Desactivado,
     /// Archivo incompleto o login rechazado.
     SinCredenciales,
@@ -36,7 +37,7 @@ pub enum ErrorRemoto {
 impl std::fmt::Display for ErrorRemoto {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Desactivado => write!(f, "sincronización desactivada (falta SYNC_REMOTO_ENV)"),
+            Self::Desactivado => write!(f, "sincronización desactivada (falta el archivo de credenciales)"),
             Self::SinCredenciales => {
                 write!(f, "credenciales del servidor rechazadas o incompletas")
             }
@@ -56,16 +57,12 @@ pub struct Credenciales {
 }
 
 impl Credenciales {
-    /// Lee `PROD_BASE`, `PROD_EMAIL` y `PROD_PASSWORD` del archivo apuntado por
-    /// `SYNC_REMOTO_ENV`. Se relee en cada consulta: rotar la contraseña no
-    /// exige reiniciar el backend.
+    /// Lee `PROD_BASE`, `PROD_EMAIL` y `PROD_PASSWORD` del archivo de
+    /// `ruta_credenciales()`. Se relee en cada consulta: crear, editar o rotar
+    /// el archivo no exige reiniciar el backend.
     pub fn cargar() -> Result<Self, ErrorRemoto> {
-        let ruta = std::env::var("SYNC_REMOTO_ENV")
-            .ok()
-            .filter(|r| !r.trim().is_empty())
-            .ok_or(ErrorRemoto::Desactivado)?;
         // `from_path_iter` no toca el entorno del proceso: las claves no se filtran a otros hijos.
-        let pares = dotenvy::from_path_iter(&ruta).map_err(|_| ErrorRemoto::Desactivado)?;
+        let pares = dotenvy::from_path_iter(ruta_credenciales()).map_err(|_| ErrorRemoto::Desactivado)?;
         let (mut base, mut email, mut password) = (None, None, None);
         for par in pares {
             let (clave, valor) = par.map_err(|_| ErrorRemoto::SinCredenciales)?;
@@ -92,6 +89,20 @@ impl Credenciales {
     #[must_use]
     pub fn base(&self) -> &str {
         &self.base
+    }
+}
+
+/// Archivo de credenciales cuando no hay `SYNC_REMOTO_ENV`: el mismo que usan los
+/// scripts de producción (gitignored). Así, configurar o cambiar la comparación
+/// no exige variables de entorno ni reiniciar el backend.
+const CREDENCIALES_POR_DEFECTO: &str = "scripts/.env.prod.local";
+
+/// `SYNC_REMOTO_ENV` si está definida; si no, `CREDENCIALES_POR_DEFECTO` junto al
+/// proyecto. Sin archivo en ninguno de los dos, la comparación queda desactivada.
+fn ruta_credenciales() -> PathBuf {
+    match std::env::var("SYNC_REMOTO_ENV") {
+        Ok(ruta) if !ruta.trim().is_empty() => PathBuf::from(ruta),
+        _ => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(CREDENCIALES_POR_DEFECTO),
     }
 }
 

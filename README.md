@@ -115,7 +115,7 @@ El template incluye un CRUD de notas con autenticación:
 
 La columna **Sync** de la tabla de inmuebles compara cada inmueble local con el servidor (fotos, descripción y detalles) y dice qué lado va por delante: Igual, Local adelante, Servidor adelante, Ambos cambiaron, Solo local; «Solo en el servidor» es un aviso sobre la tabla. Es de solo lectura: no escribe en el servidor. Tarea 13AA-12.
 
-- **Activación:** `SYNC_REMOTO_ENV` apunta a un fichero dotenv con `PROD_BASE`, `PROD_EMAIL` y `PROD_PASSWORD`. Sin la variable o sin el fichero, el estado es «desactivado». Se relee en cada consulta. Las credenciales nunca se muestran ni se registran.
+- **Activación:** un fichero dotenv con `PROD_BASE`, `PROD_EMAIL` y `PROD_PASSWORD`. Por defecto es `scripts/.env.prod.local` (el que ya usan los scripts de producción); `SYNC_REMOTO_ENV`, si está definida, apunta a otro. Sin fichero, el estado es «desactivado». Se relee en cada consulta: crear o cambiar el fichero no exige reiniciar. Las credenciales nunca se muestran ni se registran.
 - **Intervalo:** `SYNC_INTERVALO_SEG` (20 s por defecto, mínimo 5) para consultar el servidor. Los cambios locales se reflejan en ~1 s.
 - **Base de tres vías:** tabla `sync_base`, escrita solo por la tarea de fondo al observar un inmueble igual. Sin base, el estado sale como «estimado» (usa `updated_at`).
 - **Fotos:** se comparan por `(origen, orden)` y sha256 de los bytes. Las `mejorada` solo por presencia, porque el servidor las recodifica.

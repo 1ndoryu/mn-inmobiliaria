@@ -44,7 +44,7 @@ static ESTADO: LazyLock<watch::Sender<Arc<EstadoSync>>> =
 pub enum EstadoRemoto {
     /// Todavía no se ha hecho la primera consulta.
     Iniciando,
-    /// Sin `SYNC_REMOTO_ENV`: no hay comparación.
+    /// Sin archivo de credenciales: no hay comparación.
     Desactivado,
     SinCredenciales,
     SinConexion {
