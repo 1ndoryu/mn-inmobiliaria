@@ -503,6 +503,15 @@ export async function subirMejorada(inmuebleId: string, mejorada: string, orden:
   return subirFotoBytes(inmuebleId, bytes, extension, 'mejorada', orden);
 }
 
+async function borrarFotoSiExiste(id: string): Promise<void> {
+  try {
+    await apiFetch<unknown>(`/api/admin/fotos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  } catch (e) {
+    if (e instanceof ErrorApi && e.estado === 404) return;
+    throw e;
+  }
+}
+
 /* Iguala los originales del servidor con `deseadas` (dataURL nuevas +
  * URLs conservadas): si ya coinciden en orden no toca nada; si cambian,
  * borra originales y mejoradas y los re-sube en orden. Las mejoradas
@@ -558,8 +567,11 @@ export async function sincronizarFotos(
     const { bytes, extension } = await fotoABytes(urlAbsoluta(m.url));
     seguidoras.push({ bytes, extension, orden: nuevaPos });
   }
-  for (const f of [...ordenadas, ...mejoradas]) {
-    await apiFetch<unknown>(`/api/admin/fotos/${encodeURIComponent(f.id)}`, { method: 'DELETE' });
+  /* Las mejoradas primero: borrar una original arrastra en cascada (por `orden`)
+   * a su mejorada hermana, y si esa se borra después por id daría 404 aunque ya
+   * no exista. Un 404 aquí significa «ya no existe», no un error. */
+  for (const f of [...mejoradas, ...ordenadas]) {
+    await borrarFotoSiExiste(f.id);
   }
   for (let i = 0; i < nuevas.length; i++) {
     const { bytes, extension } = nuevas[i];
