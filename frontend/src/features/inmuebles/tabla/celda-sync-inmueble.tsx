@@ -1,11 +1,13 @@
 /* [13AA-12] Columna «Sync» y banner del estado de sincronización con el servidor.
- * Presentacional: el estado llega del hook (`useSyncInmuebles`); aquí solo se pinta. */
+ * Presentacional: el estado llega del hook (`useSyncInmuebles`); aquí se pinta y se
+ * abren publicar (solo local) y traer (solo servidor) en `DialogoOperacionSync`. */
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { etiquetaEstado } from '@/domain/sync/sync-inmueble';
 import type { EntradaSync, EstadoRemotoSync, EstadoSync } from '@/data/inmuebles/sync';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonPlano } from '@/components/ui/button';
+import { DialogoOperacionSync, type OperacionSync } from '@/features/inmuebles/dialogo-operacion-sync';
 import { ModalDiferenciasSync } from '@/features/inmuebles/modal-diferencias-sync';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +20,8 @@ const ETIQUETA_REMOTO: Record<EstadoRemotoSync['estado'], string> = {
   activo: 'Activo',
 };
 
-const MAX_SOLO_SERVIDOR_VISIBLES = 5;
+const ESTILO_ACCION =
+  'rounded text-xs font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30';
 
 function descripcionRemoto(remoto: EstadoRemotoSync): string {
   switch (remoto.estado) {
@@ -50,6 +53,7 @@ interface SyncBadgeProps {
  * de diferencias se monta solo al abrirlo: cada celda guarda su propio estado. */
 export function SyncBadge({ slug, titulo, estado, entrada }: SyncBadgeProps) {
   const [verDiferencias, setVerDiferencias] = useState(false);
+  const [operacion, setOperacion] = useState<OperacionSync | null>(null);
   if (!slug) {
     return (
       <Badge variant="outline" className="text-muted-foreground" title="Borrador sin guardar: aún no existe en el servidor">
@@ -76,18 +80,25 @@ export function SyncBadge({ slug, titulo, estado, entrada }: SyncBadgeProps) {
   }
   const { resultado } = entrada;
   const { texto, clase } = etiquetaEstado(resultado.estado, resultado.estimado);
-  const hayDiferencias = resultado.estado !== 'igual' && resultado.estado !== 'calculando';
+  /* `solo_local` no tiene diferencias que resolver: lo que procede es publicarlo. */
+  const soloLocal = resultado.estado === 'solo_local';
+  const hayDiferencias = resultado.estado !== 'igual' && resultado.estado !== 'calculando' && !soloLocal;
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <Badge variant="secondary" className={cn('whitespace-nowrap', clase)}>
         {texto}
       </Badge>
-      {hayDiferencias && (
+      {soloLocal && (
         <ButtonPlano
           type="button"
-          onClick={() => setVerDiferencias(true)}
-          className="rounded text-xs font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          onClick={() => setOperacion({ slug, titulo, direccion: 'publicar' })}
+          className={ESTILO_ACCION}
         >
+          Publicar en el servidor
+        </ButtonPlano>
+      )}
+      {hayDiferencias && (
+        <ButtonPlano type="button" onClick={() => setVerDiferencias(true)} className={ESTILO_ACCION}>
           Resolver
         </ButtonPlano>
       )}
@@ -99,6 +110,7 @@ export function SyncBadge({ slug, titulo, estado, entrada }: SyncBadgeProps) {
           alCerrar={() => setVerDiferencias(false)}
         />
       )}
+      <DialogoOperacionSync operacion={operacion} alCerrar={() => setOperacion(null)} />
     </span>
   );
 }
@@ -109,9 +121,11 @@ interface BannerSyncProps {
   alComprobar: () => Promise<void>;
 }
 
-/* Estado global: servidor, fotos aún sin huella, inmuebles solo en el servidor. */
+/* Estado global: servidor, fotos aún sin huella, inmuebles solo en el servidor
+ * (cada uno con su «Traer al local»). */
 export function BannerSync({ estado, error, alComprobar }: BannerSyncProps) {
   const [comprobando, setComprobando] = useState(false);
+  const [operacion, setOperacion] = useState<OperacionSync | null>(null);
 
   async function comprobar() {
     setComprobando(true);
@@ -125,11 +139,6 @@ export function BannerSync({ estado, error, alComprobar }: BannerSyncProps) {
   const remoto = estado?.remoto;
   const activo = remoto?.estado === 'activo';
   const soloServidor = estado?.comparacion?.solo_servidor ?? [];
-  const titulosVisibles = soloServidor
-    .slice(0, MAX_SOLO_SERVIDOR_VISIBLES)
-    .map((s) => s.titulo || s.slug)
-    .join(', ');
-  const restantes = soloServidor.length - MAX_SOLO_SERVIDOR_VISIBLES;
 
   return (
     <section aria-label="Sincronización con el servidor" className="mb-3 space-y-2 rounded-lg border bg-card px-3 py-2 text-sm">
@@ -161,11 +170,28 @@ export function BannerSync({ estado, error, alComprobar }: BannerSyncProps) {
         </p>
       )}
       {soloServidor.length > 0 && (
-        <p>
-          <span className="font-medium">Solo en el servidor ({soloServidor.length}):</span> {titulosVisibles}
-          {restantes > 0 && ` y ${restantes} más`}
-        </p>
+        <div className="space-y-1">
+          <p>
+            <span className="font-medium">Solo en el servidor ({soloServidor.length}):</span>
+          </p>
+          <ul className="max-h-40 space-y-1 overflow-y-auto">
+            {soloServidor.map((s) => (
+              <li key={s.slug} className="flex flex-wrap items-center justify-between gap-2">
+                <span>{s.titulo || s.slug}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOperacion({ slug: s.slug, titulo: s.titulo, direccion: 'traer' })}
+                >
+                  Traer al local
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
+      <DialogoOperacionSync operacion={operacion} alCerrar={() => setOperacion(null)} />
     </section>
   );
 }

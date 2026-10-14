@@ -91,3 +91,29 @@ export function planificarResolucionSync(slug: string, conservarViejo: string[])
     body: JSON.stringify({ conservar_viejo: conservarViejo }),
   });
 }
+
+/* Resultado de publicar o traer: lo escrito y, si la operación quedó a medias, el fallo. */
+export interface InformeSync {
+  slug: string;
+  hecho: string[];
+  fallo: string | null;
+}
+
+/* Servidor con el que se compara; el diálogo lo muestra antes de escribir en él. */
+export interface DestinoSync {
+  host: string;
+}
+
+export function obtenerDestinoSync(): Promise<DestinoSync> {
+  return apiFetch<DestinoSync>('/api/admin/sync/destino');
+}
+
+/* Crea en el servidor el inmueble local `slug`: alta, receta, ficha, fotos y visibilidad. */
+export function publicarSync(slug: string): Promise<InformeSync> {
+  return apiFetch<InformeSync>(`/api/admin/sync/inmuebles/${encodeURIComponent(slug)}/publicar`, { method: 'POST' });
+}
+
+/* Crea en el local el inmueble `slug` del servidor, con los mismos pasos. */
+export function traerSync(slug: string): Promise<InformeSync> {
+  return apiFetch<InformeSync>(`/api/admin/sync/inmuebles/${encodeURIComponent(slug)}/traer`, { method: 'POST' });
+}
