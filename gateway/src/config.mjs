@@ -1,4 +1,14 @@
-// Config del gateway Baileys (289A-1). Todo por entorno, sin secretos en disco.
+import { fileURLToPath } from "node:url";
+
+// Config del gateway Baileys (289A-1). Por entorno; los secretos pueden venir de gateway/.env (gitignored).
+/* Carga gateway/.env sin pisar lo que ya trae el entorno. El guardián
+ * (mantener.ps1) no inyecta variables: sin esto, el webhook queda abierto. */
+try {
+  process.loadEnvFile(fileURLToPath(new URL("../.env", import.meta.url)));
+} catch {
+  /* Sin .env: solo entorno, como antes. */
+}
+
 const num = (v, def) => {
   const n = Number.parseInt(v ?? "", 10);
   return Number.isFinite(n) ? n : def;
