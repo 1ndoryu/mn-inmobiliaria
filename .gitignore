@@ -27,7 +27,7 @@ desktop.ini
 /gateway/node_modules/
 /gateway/sesiones/*/
 !/gateway/sesiones/.gitkeep
-/gateway/media/*/
+/gateway/media/*
 !/gateway/media/.gitkeep
 /gateway/qr-*.png
 
