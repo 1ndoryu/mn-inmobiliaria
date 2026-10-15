@@ -4,7 +4,7 @@ import { suscribirEvento, nombreHost } from '../../platform/ventana';
 
 // Sesión del admin contra la API: el token vive en localStorage (dura 1
 // año y sobrevive al cierre del navegador). `email === null` = hay que entrar.
-// [03AA-2] Auto-entrada solo-local: con `npm run dev` (`import.meta.env.DEV`
+// [03AA-2] Auto-entrada en local (+ dev público desde 15AA-1): con `npm run dev` (`import.meta.env.DEV`
 // es falso en el build de prod por construcción, así que ese bundle jamás
 // la intenta) y hostname local, si no hay token se entra UNA vez con las
 // credenciales de `frontend/.env.local` (gitignored: VITE_DEV_EMAIL +
@@ -22,11 +22,18 @@ let entradaDevEnVuelo: Promise<string> | null = null;
 
 const HOSTS_LOCALES = new Set(['localhost', '127.0.0.1', 'inmobiliaria.localhost']);
 
+// [15AA-1] Decidido 2026-10-15 (la usuaria): la auto-entrada también vale en
+// el dev público (tras Cloudflare Access, solo ella). Host exacto, sin
+// subdominios: las credenciales viajan en el .env que `up` copia a la 89
+// (espejo de frontend/.env.local, que sigue canónica en local). El build de
+// producción sigue sin intentarla jamás (`import.meta.env.DEV` falso).
+const HOSTS_DEV_PUBLICO = new Set(['mn-dev.wandori.us']);
+
 function credencialesDev(): { email: string; clave: string } | null {
   if (!import.meta.env.DEV) return null;
   /* [08AA-22] Dominio vía plataforma (sin `window` directo en el hook). */
   const host = nombreHost().toLowerCase();
-  if (!HOSTS_LOCALES.has(host) && !host.endsWith('.localhost')) return null;
+  if (!HOSTS_LOCALES.has(host) && !host.endsWith('.localhost') && !HOSTS_DEV_PUBLICO.has(host)) return null;
   const email = (import.meta.env.VITE_DEV_EMAIL as string | undefined)?.trim();
   const clave = import.meta.env.VITE_DEV_PASSWORD as string | undefined;
   if (!email || !clave) return null;
