@@ -591,7 +591,7 @@ async function sincronizarFotosAhora(
   }
   /* Qué se conserva: cada deseada que coincide con una original aún sin
    * emparejar reutiliza esa fila (y con ella su mejorada); el resto son
-   * fotos nuevas. Antes se borraba TODO y se resubía para reordenar: un
+   * fotos nuevas. Antes se borraban todas y se resubían para reordenar: un
    * corte entre el borrado y la resubida dejaba el inmueble sin fotos. */
   const usadas = new Set<string>();
   const nuevas: number[] = [];
