@@ -410,6 +410,13 @@ pub struct AddFotoRequest {
     pub origen: Option<String>,
 }
 
+/// [15AA-8] Reordenado de fotos: ids de las originales del inmueble en el
+/// orden deseado. Debe ser una permutación exacta de las que hay.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ReordenarFotosRequest {
+    pub ids: Vec<Uuid>,
+}
+
 /* [279A-3] Ficha /ask: lo que la dueña responde por inmueble. `extras` es
  * objeto plano `{clave: string|number|bool|null}`; las claves las define el
  * esquema del front por tipo (`piso`, `punto_referencia`...). `precio_minimo`

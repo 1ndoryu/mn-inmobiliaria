@@ -72,7 +72,8 @@ export function useModalInmueble(opciones: Opciones) {
 
   /* La principal es la primera: la web pública muestra fotos[0] y el
    * backend ordena por `orden`, así que moverla al frente basta (al
-   * guardar, `sincronizarFotos` la re-sube con orden 0). */
+   * guardar, `sincronizarFotos` fija el orden con el reordenado del
+   * backend: ninguna foto se borra ni se vuelve a subir). */
   const hacerPrincipal = (idx: number) => {
     if (idx <= 0 || idx >= form.fotos.length) return;
     setForm({ ...form, fotos: [form.fotos[idx], ...form.fotos.filter((_, j) => j !== idx)] });

@@ -9,7 +9,8 @@ use crate::errors::AppError;
 use crate::middleware::AuthUser;
 use crate::models::{
     AddFotoRequest, CreateInmuebleRequest, EstadoRequest, FotoPublica, Inmueble,
-    PaginatedInmuebles, PaginationParams, PublicacionRequest, UpdateInmuebleRequest,
+    PaginatedInmuebles, PaginationParams, PublicacionRequest, ReordenarFotosRequest,
+    UpdateInmuebleRequest,
 };
 use crate::services::InmuebleService;
 use crate::AppState;
@@ -224,6 +225,33 @@ pub async fn delete_foto(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/* [15AA-8] Reordenar fotos sin borrarlas: el cuerpo trae los ids de las
+ * originales en el orden deseado. 204 sin cuerpo; el front re-lee el
+ * inmueble. Un guardado interrumpido ya no puede dejar el inmueble sin
+ * fotos porque aquí no se borra ni se sube nada. */
+#[utoipa::path(
+    patch,
+    path = "/api/admin/inmuebles/{id}/fotos/orden",
+    params(("id" = Uuid, Path, description = "ID del inmueble")),
+    request_body = ReordenarFotosRequest,
+    responses(
+        (status = 204, description = "Orden actualizado"),
+        (status = 400, description = "La lista no es la de las fotos del inmueble", body = crate::errors::ErrorResponse),
+        (status = 404, description = "Inmueble no encontrado", body = crate::errors::ErrorResponse),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn reordenar_fotos(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(id): Path<Uuid>,
+    Json(req): Json<ReordenarFotosRequest>,
+) -> Result<StatusCode, AppError> {
+    InmuebleService::reordenar_fotos(&state.pool, id, &req.ids).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/inmuebles", post(create_inmueble).get(list_inmuebles))
@@ -236,5 +264,6 @@ pub fn routes() -> Router<AppState> {
         .route("/inmuebles/:id/publicacion", patch(set_publicacion))
         .route("/inmuebles/:id/estado", patch(set_estado))
         .route("/inmuebles/:id/fotos", post(add_foto))
+        .route("/inmuebles/:id/fotos/orden", patch(reordenar_fotos))
         .route("/fotos/:id", delete(delete_foto))
 }

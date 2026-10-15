@@ -40,6 +40,30 @@ impl InmuebleService {
         Ok(FotoPublica::from(foto))
     }
 
+    /// [15AA-8] Reordena las fotos del inmueble sin borrar ni subir nada.
+    /// `ids` son las `original` del inmueble en el orden deseado; cada
+    /// mejorada sigue a su hermana por `orden`. Es la operación correcta
+    /// para cambiar la principal: reordenar nunca destruye fotos.
+    pub async fn reordenar_fotos(
+        pool: &PgPool,
+        inmueble_id: Uuid,
+        ids: &[Uuid],
+    ) -> Result<(), AppError> {
+        if InmuebleRepository::find_by_id(pool, inmueble_id)
+            .await?
+            .is_none()
+        {
+            return Err(AppError::NotFound("Inmueble no encontrado".into()));
+        }
+        if !InmuebleRepository::reordenar_fotos(pool, inmueble_id, ids).await? {
+            return Err(AppError::Validation(
+                "La lista de fotos no coincide con las del inmueble".into(),
+            ));
+        }
+        notificar();
+        Ok(())
+    }
+
     pub async fn delete_foto(
         pool: &PgPool,
         upload_dir: &Path,

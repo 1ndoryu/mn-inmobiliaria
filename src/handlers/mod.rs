@@ -151,6 +151,7 @@ impl utoipa::Modify for SecurityAddon {
         crate::models::PublicacionRequest,
         crate::models::EstadoRequest,
         crate::models::AddFotoRequest,
+        crate::models::ReordenarFotosRequest,
         crate::models::PaginatedInmuebles,
         crate::models::Solicitud,
         crate::models::FotoSolicitud,

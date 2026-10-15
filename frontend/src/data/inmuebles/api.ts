@@ -452,16 +452,21 @@ interface RespuestaSubida {
   url: string;
 }
 
+/* `orden` opcional: sin él el backend añade la foto al final (COALESCE a
+ * MAX(orden)+1), que es lo que necesita el guardado de [15AA-8] para no
+ * pisar el `orden` de una foto conservada antes del reordenado final. */
 async function subirFotoBytes(
   inmuebleId: string,
   bytes: ArrayBuffer,
   extension: string,
   origen: string,
-  orden: number,
+  orden?: number,
 ): Promise<string> {
   const token = leerToken();
-  const nombre = `foto-${orden + 1}.${extension}`;
-  const ruta = `/api/admin/fotos/upload?inmueble_id=${encodeURIComponent(inmuebleId)}&filename=${encodeURIComponent(nombre)}&origen=${origen}&orden=${orden}`;
+  const nombre = `foto-${orden === undefined ? 'nueva' : orden + 1}.${extension}`;
+  const consulta = new URLSearchParams({ inmueble_id: inmuebleId, filename: nombre, origen });
+  if (orden !== undefined) consulta.set('orden', String(orden));
+  const ruta = `/api/admin/fotos/upload?${consulta.toString()}`;
   let respuesta: Response;
   try {
     respuesta = await fetch(`${API_URL}${ruta}`, {
@@ -494,7 +499,11 @@ async function subirFotoBytes(
  * cola la llama al completar para que la mejora no viva solo en el
  * navegador. Idempotente: si ya hay mejorada en ese `orden` no duplica.
  * Lanza `ErrorApi` si falla: el llamador conserva la copia local. */
-export async function subirMejorada(inmuebleId: string, mejorada: string, orden: number): Promise<string> {
+export function subirMejorada(inmuebleId: string, mejorada: string, orden: number): Promise<string> {
+  return enSerie(inmuebleId, () => subirMejoradaAhora(inmuebleId, mejorada, orden));
+}
+
+async function subirMejoradaAhora(inmuebleId: string, mejorada: string, orden: number): Promise<string> {
   if (!mejorada.startsWith('data:image/')) return mejorada; // ya es URL del servidor
   const actual = await obtenerRemoto(inmuebleId);
   const existente = actual.fotos.find((f) => f.origen === 'mejorada' && f.orden === orden);
@@ -512,18 +521,53 @@ async function borrarFotoSiExiste(id: string): Promise<void> {
   }
 }
 
+/* [15AA-8] Fija el orden de las fotos del inmueble: `ids` son las
+ * originales, en el orden deseado. El backend renumera en una transacción
+ * (las mejoradas siguen a su original) y responde 400 si la lista no es
+ * exactamente la de las originales del inmueble. Reordenar no borra ni
+ * sube nada: es la operación correcta para cambiar la principal. */
+export async function reordenarFotos(inmuebleId: string, ids: string[]): Promise<void> {
+  await apiFetch<unknown>(`/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/fotos/orden`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ids }),
+  });
+}
+
+/* [15AA-8] Un solo guardado de fotos en vuelo por inmueble. Dos guardados
+ * simultáneos se pisaban: el segundo releía el servidor con el primero a
+ * medio borrar y ambos borraban las mismas filas. El segundo espera al
+ * primero (y corre con el estado ya asentado) en vez de solaparse. */
+const fotosEnVuelo = new Map<string, Promise<unknown>>();
+
+function enSerie<T>(inmuebleId: string, tarea: () => Promise<T>): Promise<T> {
+  const anterior = fotosEnVuelo.get(inmuebleId) ?? Promise.resolve();
+  /* El fallo del anterior no debe arrastrar al siguiente. */
+  const actual = anterior.then(tarea, tarea);
+  const marca = actual.then(
+    () => undefined,
+    () => undefined,
+  );
+  fotosEnVuelo.set(inmuebleId, marca);
+  void marca.then(() => {
+    if (fotosEnVuelo.get(inmuebleId) === marca) fotosEnVuelo.delete(inmuebleId);
+  });
+  return actual;
+}
+
 /* Iguala los originales del servidor con `deseadas` (dataURL nuevas +
- * URLs conservadas): si ya coinciden en orden no toca nada; si cambian,
- * borra originales y mejoradas y los re-sube en orden. Las mejoradas
- * siguen a sus originales (ver [199A-6] abajo): sin ese remapeo la portada
- * pública (mejorada `orden=0`) mostraba la mejora de otra foto tras elegir
- * una principal distinta. `cambiaron` avisa al llamador para invalidar las
- * copias locales de mejora (describen fotos que ya no existen). Devuelve
- * también las mejoradas vigentes con sus URLs nuevas: tras re-subir, las
- * URLs viejas ya no existen y el llamador debe adoptar estas (si conserva
- * las anteriores, la publicidad y la tira dibujan imágenes borradas o, por
- * el caché del canvas, las fotos viejas). */
-export async function sincronizarFotos(
+ * URLs conservadas) sin destruir lo que se conserva: sube solo las nuevas,
+ * borra solo las que ya no están y reordena al final por id. `cambiaron`
+ * avisa al llamador para invalidar las copias locales de mejora (describen
+ * fotos que ya no existen). Devuelve las mejoradas vigentes: el llamador
+ * debe adoptar estas y no las anteriores. */
+export function sincronizarFotos(
+  inmuebleId: string,
+  deseadas: string[],
+): Promise<{ fotos: string[]; mejoradas: MejoraServidor[]; cambiaron: boolean }> {
+  return enSerie(inmuebleId, () => sincronizarFotosAhora(inmuebleId, deseadas));
+}
+
+async function sincronizarFotosAhora(
   inmuebleId: string,
   deseadas: string[],
 ): Promise<{ fotos: string[]; mejoradas: MejoraServidor[]; cambiaron: boolean }> {
@@ -545,44 +589,44 @@ export async function sincronizarFotos(
       cambiaron: false,
     };
   }
-  /* [199A-5] Primero se leen los bytes de TODAS las deseadas, cuando las
-   * URLs conservadas aún existen en el servidor. Si alguna falla no se ha
-   * borrado nada. Antes se borraba primero y la re-descarga devolvía 404
-   * ("No se pudo leer la foto para subirla") dejando el inmueble sin fotos. */
-  const nuevas: { bytes: ArrayBuffer; extension: string }[] = [];
-  for (let i = 0; i < deseadas.length; i++) {
-    nuevas.push(await fotoABytes(deseadas[i]));
+  /* Qué se conserva: cada deseada que coincide con una original aún sin
+   * emparejar reutiliza esa fila (y con ella su mejorada); el resto son
+   * fotos nuevas. Antes se borraba TODO y se resubía para reordenar: un
+   * corte entre el borrado y la resubida dejaba el inmueble sin fotos. */
+  const usadas = new Set<string>();
+  const nuevas: number[] = [];
+  for (let i = 0; i < deseadasRel.length; i++) {
+    const fila = ordenadas.find((f) => !usadas.has(f.id) && relativa(urlAbsoluta(f.url)) === deseadasRel[i]);
+    if (fila) usadas.add(fila.id);
+    else nuevas.push(i);
   }
-  /* [199A-6] Las mejoradas también se descargan antes de borrar y siguen a
-   * sus originales: si el original emparejado por `orden` queda en la
-   * posición N, su mejorada se re-sube con `orden=N`. La mejorada de un
-   * original eliminado se descarta (su foto ya no existe). */
-  const viejasRel = ordenadas.map((f) => relativa(urlAbsoluta(f.url)));
-  const seguidoras: { bytes: ArrayBuffer; extension: string; orden: number }[] = [];
-  for (const m of mejoradas) {
-    const viejaPos = ordenadas.findIndex((f) => f.orden === m.orden);
-    if (viejaPos < 0) continue;
-    const nuevaPos = deseadasRel.indexOf(viejasRel[viejaPos]);
-    if (nuevaPos < 0) continue;
-    const { bytes, extension } = await fotoABytes(urlAbsoluta(m.url));
-    seguidoras.push({ bytes, extension, orden: nuevaPos });
+  /* [199A-5] Los bytes de las nuevas se leen antes de tocar nada: si
+   * alguna falla, el inmueble queda como estaba. */
+  const subidas: { bytes: ArrayBuffer; extension: string }[] = [];
+  for (const i of nuevas) subidas.push(await fotoABytes(deseadas[i]));
+  /* Sin `orden`: el backend las añade al final, sin pisar el de una
+   * conservada. El reparto definitivo lo hace el reordenado de abajo. */
+  for (const { bytes, extension } of subidas) {
+    await subirFotoBytes(inmuebleId, bytes, extension, 'original');
   }
-  /* Las mejoradas primero: borrar una original arrastra en cascada (por `orden`)
-   * a su mejorada hermana, y si esa se borra después por id daría 404 aunque ya
-   * no exista. Un 404 aquí significa «ya no existe», no un error. */
-  for (const f of [...mejoradas, ...ordenadas]) {
-    await borrarFotoSiExiste(f.id);
+  /* Solo lo que ya no está: su mejorada cae en cascada y el resto se
+   * renumera ([08AA-4] en el backend). */
+  for (const f of ordenadas) {
+    if (!usadas.has(f.id)) await borrarFotoSiExiste(f.id);
   }
-  for (let i = 0; i < nuevas.length; i++) {
-    const { bytes, extension } = nuevas[i];
-    await subirFotoBytes(inmuebleId, bytes, extension, 'original', i);
+  /* Reordenado por id. La subida solo devuelve la URL, no el id de fila
+   * ([259A-1]): se re-lee el inmueble y se empareja por URL relativa. Si
+   * algo no cuadra se para con error, en vez de arriesgar el orden. */
+  const disponibles = [...(await obtenerRemoto(inmuebleId)).fotos].filter((f) => f.origen !== 'mejorada');
+  const ids: string[] = [];
+  for (const rel of deseadasRel) {
+    const k = disponibles.findIndex((f) => relativa(urlAbsoluta(f.url)) === rel);
+    if (k < 0) throw new ErrorApi('El servidor no devolvió una de las fotos guardadas.', 500);
+    ids.push(disponibles[k].id);
+    disponibles.splice(k, 1);
   }
-  for (const s of seguidoras.sort((a, b) => a.orden - b.orden)) {
-    await subirFotoBytes(inmuebleId, s.bytes, s.extension, 'mejorada', s.orden);
-  }
-  /* [259A-1] La subida solo devuelve la URL, no el id de fila: se re-lee
-   * el inmueble para devolver fotos y mejoradas con sus ids reales (los
-   * necesita el botón Restaurar y el panel muestra los IDs). */
+  if (disponibles.length > 0) throw new ErrorApi('Sobran fotos en el servidor tras guardar.', 500);
+  await reordenarFotos(inmuebleId, ids);
   const fresco = remotoADominio(await obtenerRemoto(inmuebleId));
   return { fotos: fresco.fotos, mejoradas: fresco.mejoradasServidor, cambiaron: true };
 }
@@ -591,7 +635,11 @@ export async function sincronizarFotos(
  * devuelve el inmueble fresco (con `idsFotos` y `mejoradasServidor`
  * vigentes). Solo borra, nunca re-sube: el original sigue intacto.
  * Lanza `ErrorApi` si ya no hay mejorada en ese `orden`. */
-export async function eliminarMejorada(inmuebleId: string, orden: number): Promise<Inmueble> {
+export function eliminarMejorada(inmuebleId: string, orden: number): Promise<Inmueble> {
+  return enSerie(inmuebleId, () => eliminarMejoradaAhora(inmuebleId, orden));
+}
+
+async function eliminarMejoradaAhora(inmuebleId: string, orden: number): Promise<Inmueble> {
   const actual = await obtenerRemoto(inmuebleId);
   const objetivo = actual.fotos.find((f) => f.origen === 'mejorada' && f.orden === orden);
   if (!objetivo) throw new ErrorApi('Esa foto ya no tiene mejorada en el servidor.', 404);

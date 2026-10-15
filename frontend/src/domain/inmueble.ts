@@ -204,7 +204,7 @@ export function portadaDe(i: Inmueble): string {
  * sin renombrar ficheros. Solo en URLs http(s): los dataURL de borradores
  * (admin, aún sin subir) se dejan intactos. No versionar en `remotoADominio`:
  * `sincronizarFotos` compara URLs con `relativa()` y el `?v=` rompería la
- * igualdad (re-subiría las fotos en cada guardado). */
+ * igualdad (las trataría todas como nuevas en cada guardado). */
 export function fotosVisiblesDe(i: Inmueble): string[] {
   const version = `v=${encodeURIComponent(i.updatedAt)}`;
   const conVersion = (url: string): string => {
