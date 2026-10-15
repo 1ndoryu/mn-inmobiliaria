@@ -210,7 +210,12 @@ async function cmdPublicar(o) {
   }
 }
 
-const PROMPT_DEFECTO = 'Mejora esta foto inmobiliaria a fotografia profesional: sube nitidez y resolucion, corrige luz y color de forma natural, limpia suciedad leve en paredes, telas u objetos y retira personas y distracciones menores. Haz la imagen ultra HD, mas grande, con mas definicion: maxima resolucion y detalle que puedas devolver. No cambies la estructura, geometria, muebles ni elementos fijos; no inventes nada que no exista en la foto original.';
+/* [15AA-11] Gemini devolvia las fotos con un velo amarillento: el "corrige
+ * luz y color de forma natural" de la version anterior le daba pie a tocar
+ * el balance de blancos. Mismo texto que `PROMPT_DEFECTO` en
+ * `frontend/src/domain/foto-mejora.ts` (el panel), que no se puede importar
+ * desde aqui por ser TypeScript. */
+const PROMPT_DEFECTO = 'Mejora esta foto inmobiliaria a fotografia profesional: sube nitidez y resolucion, arregla la exposicion (sombras y altas luces) sin tocar el color, limpia suciedad leve en paredes, telas u objetos y retira personas y distracciones menores. Haz la imagen ultra HD, mas grande, con mas definicion: maxima resolucion y detalle que puedas devolver. CONSERVA LOS COLORES DEL ORIGINAL: no cambies el balance de blancos ni la temperatura de color; no apliques filtros ni tonos calidos, ambar, dorados o amarillentos, ni vinetas ni degradados. Los blancos y los grises siguen siendo neutros y las paredes, del mismo color que en la original. No cambies la estructura, geometria, muebles ni elementos fijos; no inventes nada que no exista en la foto original.';
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -315,11 +320,23 @@ async function cmdMejorar(o) {
   }
   const originales = it.fotos.filter((f) => f.origen === 'original').sort((a, b) => a.orden - b.orden);
   const mejoradas = new Set(it.fotos.filter((f) => f.origen === 'mejorada').map((f) => f.orden));
-  const pendientes = originales.filter((f) => repetir || !mejoradas.has(f.orden)).slice(0, limite);
+  /* [15AA-11] `--foto <id,id,…>` rehace solo esas originales (ids de la
+   * original, no de la mejorada) y siempre repite: es para arreglar una
+   * mejora concreta sin tocar las demas del inmueble. */
+  const pedidas = new Set(String(o.foto ?? '').split(',').map((s) => s.trim()).filter(Boolean));
+  const objetivo = pedidas.size ? originales.filter((f) => pedidas.has(f.id)) : originales;
+  if (pedidas.size && objetivo.length !== pedidas.size) {
+    const faltan = [...pedidas].filter((id) => !objetivo.some((f) => f.id === id));
+    console.error(`FALLO: no son originales de ${o.slug}: ${faltan.join(', ')}`);
+    process.exit(2);
+  }
+  const pendientes = objetivo
+    .filter((f) => repetir || pedidas.size > 0 || !mejoradas.has(f.orden))
+    .slice(0, limite);
   console.log(`${o.slug}: ${originales.length} originales, ${mejoradas.size} mejoradas, pendientes ${pendientes.length}`);
   let hechas = 0;
   for (const f of pendientes) {
-    if (repetir) {
+    if (repetir || pedidas.size > 0) {
       // Re-mejora: borra la mejorada vieja del mismo orden para no duplicar el pareo.
       const vieja = it.fotos.find((x) => x.origen === 'mejorada' && x.orden === f.orden);
       if (vieja) {
@@ -559,7 +576,7 @@ async function main() {
   if (cmd === 'verificar') return cmdVerificar(o);
   console.log('Uso: node scripts/datos/inmueble.mjs<estado|publicar|mejorar|push|verificar> [opciones]');
   console.log('  estado --slug <slug> | publicar --fotos <carpeta> --datos \'{...}\'|@f.json [--borrador] [--solo-local|--solo-prod] [--sobrescribir] [--dry-run]');
-  console.log('  mejorar --slug <slug> [--limite N] [--repetir]  (solo local)');
+  console.log('  mejorar --slug <slug> [--limite N] [--repetir] [--foto <id,id,…>]  (solo local)');
   console.log('  push --slug <slug> [--dry-run] [--sobrescribir]  (local → prod)');
   console.log('  verificar [--slug <slug>] [--sin-bytes] [--par N]  (prod↔local, solo lectura)');
   process.exit(2);
