@@ -22,13 +22,13 @@ Saber qué inmuebles ya están publicados en el perfil de Facebook Marketplace (
 - **D3 — Vincular:** modal para confirmar y elegir. Aparece primero el inmueble más parecido. Lo ya vinculado no vuelve a aparecer.
 
 Decisiones mías (técnicas, reversibles, se pueden cambiar):
-- La lab lee el perfil **una vez al día** (decisión de la usuaria, 2026-10-13): al arrancar, si la última lectura tiene más de 24 h, y luego cada 24 h mientras la lab esté abierta. Nada en bucle ni con clics. Así se limita el riesgo con Facebook.
+- La lab lee el perfil **una vez al día** (decisión de la usuaria, 2026-10-13): al arrancar, si la última lectura tiene más de 24 h, y luego cada 24 h mientras la lab esté abierta. Nada en bucle ni con clics. Así se limita el riesgo con Facebook. **Sustituido el 2026-10-16: la lectura pasa a manual (botón en el modal). Ver `Agente/planes/completados/plan-lectura-manual-perfil-2026-10-16.md`.**
 - La lista se guarda en MN (no en la lab). El modal lee de MN; funciona aunque la lab esté cerrada, con la fecha de la última lectura visible.
 - El modal vive en la página de Inmuebles, con un botón «Vincular con Facebook» y el número de avisos pendientes.
 
 ## 4. Alcance y no alcance
 
-**Dentro:** lectura automática del perfil (lab), tabla y endpoints de avisos (MN), modal de vinculación (MN frontend), fallback sin título cuando hay aviso sin dueño (MN), pruebas.
+**Dentro:** lectura del perfil (lab; **a petición desde el 2026-10-16**, antes automática), tabla y endpoints de avisos (MN), modal de vinculación (MN frontend), fallback sin título cuando hay aviso sin dueño (MN), pruebas.
 
 **Fuera:**
 - Que el agente abra o scrapee Facebook.
