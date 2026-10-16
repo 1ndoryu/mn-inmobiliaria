@@ -363,6 +363,14 @@ nuevos» del gate significa «nada nuevo respecto a su base», no «nada que
 arreglar» — y en este caso tampoco cubre dos archivos que sí conviene partir
 (§10, P2.4 y P2.5).
 
+**Estado del fallo del contador (2026-10-16).** Arreglado en `glory-sentinel`
+commit `4d63473` en `origin/main` (certificado: `tsc`, `check:core`,
+`smoke:lsp` y suite 853 passing / 0 failing). **Sin propagar:** el pin de los
+consumidores sigue en `f691510`, y el release que lo sube arrastra 14 commits
+CSS ya commiteados y sin propagar (el lote de KAMPLES). Decisión de la usuaria
+del 2026-10-16: dejarlo en `main` y que entre con ese release, no forzarlo
+ahora. Hasta entonces el gate de MN sigue sin ver `ia/rutas.rs`.
+
 **Verificar:**
 
 ```bash

@@ -76,6 +76,7 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 - **Tareas aparte de `coolify-manager-rs`:** arreglar el backup pre-deploy que aborta cuando la app está en bucle (`fases_inicio.rs:22-55`); hacer `new-site` rust-aware (`src/cli/mod.rs:96`). Detalle en el plan del piloto, §G.
 - **Alta de proyecto: 8/11.** Faltan `quality:check`, `target-dir` en `.cargo/config.toml` y `.runtime/` en `.gitignore` (`Agente/documentacion/alta-proyectos-2026-10-11.md:43`).
 - **Traslado a GitHub:** `main` → `github.com/1ndoryu/mn-inmobiliaria`, 0 commits pendientes (revisión 2026-10-15, `Agente/documentacion/inventario-traslado-2026-10-14.md:16`).
+- **Sentinel: el contador de líneas efectivas de Rust estaba mal (arreglado, sin propagar).** `contarLineasEfectivas` truncaba el archivo en el **primer** `#[cfg(test)]`; un `#[cfg(test)] use ...` de cabecera dejaba el archivo entero fuera del recuento. `src/handlers/ia/rutas.rs` contaba 12 efectivas en vez de 537, así que `limite-lineas` no disparaba. Arreglado en `glory-sentinel` `4d63473` (`origin/main`), certificado y **sin propagar**: el pin de los consumidores sigue en `f691510` y subirlo arrastra 14 commits CSS ya commiteados del lote de KAMPLES. Decisión de la usuaria del 2026-10-16: que entre con ese release, no forzarlo ahora. Cuando entre, este proyecto gana un hallazgo (`ia/rutas.rs`) y hay que rehacer la base del gate. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
 
 ## 8. Planes vinculados
 
