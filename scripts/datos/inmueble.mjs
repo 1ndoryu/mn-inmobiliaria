@@ -3,6 +3,7 @@
 //   node scripts/datos/inmueble.mjsestado --slug <slug>
 //   node scripts/datos/inmueble.mjspublicar --fotos <carpeta> --datos '{"titulo":...}' [--borrador] [--solo-local|--solo-prod] [--sobrescribir]
 //   node scripts/datos/inmueble.mjsverificar [--slug <slug>] [--sin-bytes] [--par N]
+//   node scripts/datos/inmueble.mjsmejorar --slug <slug> [--foto <id,...>] [--repetir] [--prompt-extra "…"]
 // --datos acepta JSON inline o @ruta.json. --dry-run muestra sin escribir.
 // Exit: 0 ok | 1 verificar con diferencias | 2 preflight/auth | 3 error de sync | 4 verificación fallida.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -212,10 +213,10 @@ async function cmdPublicar(o) {
 
 /* [15AA-11] Gemini devolvia las fotos con un velo amarillento: el "corrige
  * luz y color de forma natural" de la version anterior le daba pie a tocar
- * el balance de blancos. Mismo texto que `PROMPT_DEFECTO` en
- * `frontend/src/domain/foto-mejora.ts` (el panel), que no se puede importar
- * desde aqui por ser TypeScript. */
-const PROMPT_DEFECTO = 'Mejora esta foto inmobiliaria a fotografia profesional: sube nitidez y resolucion, arregla la exposicion (sombras y altas luces) sin tocar el color, limpia suciedad leve en paredes, telas u objetos y retira personas y distracciones menores. Haz la imagen ultra HD, mas grande, con mas definicion: maxima resolucion y detalle que puedas devolver. CONSERVA LOS COLORES DEL ORIGINAL: no cambies el balance de blancos ni la temperatura de color; no apliques filtros ni tonos calidos, ambar, dorados o amarillentos, ni vinetas ni degradados. Los blancos y los grises siguen siendo neutros y las paredes, del mismo color que en la original. No cambies la estructura, geometria, muebles ni elementos fijos; no inventes nada que no exista en la foto original.';
+ * el balance de blancos. [16AA-5] Se le pide ademas enderezar la toma.
+ * Mismo texto que `PROMPT_DEFECTO` en `frontend/src/domain/foto-mejora.ts`
+ * (el panel), que no se puede importar desde aqui por ser TypeScript. */
+const PROMPT_DEFECTO = 'Mejora esta foto inmobiliaria a fotografia profesional: sube nitidez y resolucion, arregla la exposicion (sombras y altas luces) sin tocar el color, limpia suciedad leve en paredes, telas u objetos y retira personas y distracciones menores. Haz la imagen ultra HD, mas grande, con mas definicion: maxima resolucion y detalle que puedas devolver. CONSERVA LOS COLORES DEL ORIGINAL: no cambies el balance de blancos ni la temperatura de color; no apliques filtros ni tonos calidos, ambar, dorados o amarillentos, ni vinetas ni degradados. Los blancos y los grises siguen siendo neutros y las paredes, del mismo color que en la original. No cambies la estructura, geometria, muebles ni elementos fijos; no inventes nada que no exista en la foto original. Corrige el angulo si la camara no esta muy bien alineada: endereza la perspectiva (verticales y horizontales) sin deformar la estancia.';
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -309,6 +310,11 @@ async function cmdMejorar(o) {
   await asegurarToken(o, mejoraBase);
   const limite = Math.max(1, Number(o.limite ?? 40) || 40);
   const repetir = o.repetir === true || o.repetir === '';
+  /* `--prompt-extra "<texto>"` añade una instrucción puntual a este lote
+   * (p. ej. «sube el brillo, quita los objetos de la cocina») sin tocar el
+   * prompt por defecto, que es el que usa el panel. */
+  const extra = typeof o['prompt-extra'] === 'string' ? o['prompt-extra'].trim() : '';
+  const prompt = extra ? `${PROMPT_DEFECTO} ${extra}` : PROMPT_DEFECTO;
   const cfg = leerEnv(o.env ?? ENV_DEFECTO, REQUERIDAS);
   const LOCAL = (cfg.LOCAL_API ?? 'http://127.0.0.1:3110').replace(/\/$/, '');
   const tL = await login(LOCAL, cfg.LOCAL_EMAIL, cfg.LOCAL_PASSWORD, 'local', o.env ?? ENV_DEFECTO);
@@ -349,7 +355,7 @@ async function cmdMejorar(o) {
     const fotoId = `${it.id}:${f.orden}@${Date.now()}`; // Único por intento: evita reutilizar un `lista` viejo (F21).
     const post = await api(mejoraBase, '/api/mejora', {
       metodo: 'POST',
-      json: { fotoId, original: aDataUrl(bytes, ext), prompt: PROMPT_DEFECTO },
+      json: { fotoId, original: aDataUrl(bytes, ext), prompt },
     });
     console.log(`orden ${f.orden}: job ${post.jobId.slice(0, 8)}… encolado, espero (puede tardar minutos)`);
     const t0 = Date.now();
