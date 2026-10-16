@@ -200,7 +200,7 @@ async fn leer_estado(
             &state.pool,
             ID_OPENCODE,
             "OpenCode Go",
-            "muse-spark-1.3-contributor".to_string(),
+            crate::config::ia::MODELO_OPENCODE.to_string(),
             CLAVE_HAB_OPENCODE,
             "ia_check_opencode_go",
             &leer_env("OPENCODE_GO_API_KEY"),

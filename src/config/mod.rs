@@ -1,3 +1,5 @@
+pub mod ia;
+
 use thiserror::Error;
 
 #[derive(Debug, Error)]

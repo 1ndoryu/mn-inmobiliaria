@@ -27,7 +27,7 @@ pub(super) async fn ping_glory(base: &str, key: &str) -> Result<String, String> 
         .post(format!("{base}/v1/chat/completions"))
         .header("Authorization", format!("Bearer {key}"))
         .json(&serde_json::json!({
-            "model": "auto",
+            "model": crate::config::ia::MODELO_GLORYAPI,
             "stream": false,
             "max_tokens": 16,
             "messages": [
@@ -118,7 +118,7 @@ pub(super) async fn completar_glory(
         .post(format!("{base}/v1/chat/completions"))
         .header("Authorization", format!("Bearer {key}"))
         .json(&serde_json::json!({
-            "model": "auto",
+            "model": crate::config::ia::MODELO_GLORYAPI,
             "stream": false,
             "messages": [
                 {"role": "system", "content": system},
@@ -464,7 +464,6 @@ pub(super) async fn transcribir_audio_con(
     claves: &[String],
     url: &str,
 ) -> Result<String, String> {
-    const MODELO: &str = "whisper-large-v3-turbo";
     const MAX_TEXTO: usize = 2000;
     if claves.is_empty() {
         return Err("Sin GROQ_API_KEY en .env".to_string());
@@ -477,7 +476,7 @@ pub(super) async fn transcribir_audio_con(
             .map_err(|e| format!("Groq audio invalido: {e}"))?;
         let forma = reqwest::multipart::Form::new()
             .part("file", parte)
-            .text("model", MODELO)
+            .text("model", crate::config::ia::MODELO_STT)
             .text("language", "es")
             .text("response_format", "text");
         let cliente = cliente_http(120).map_err(|e| e.to_string())?;
