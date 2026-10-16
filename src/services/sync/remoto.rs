@@ -9,11 +9,9 @@
 
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::time::Duration;
 
 use axum::http::StatusCode;
-use reqwest::header::CONTENT_TYPE;
-use serde::de::{DeserializeOwned, IgnoredAny};
+use serde::de::IgnoredAny;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
@@ -22,11 +20,9 @@ use super::detalle::DetalleSync;
 use super::huella::{Manifiesto, VERSION};
 use crate::models::{CopyInmueble, CreateInmuebleRequest, RecetaPublicidad, MAX_FOTO_BYTES};
 
-/// Tope de lectura: un servidor lento no bloquea la vigilancia.
-const TOPE_LECTURA: Duration = Duration::from_secs(10);
+mod http;
 
-/// Tope de escritura y descarga de fotos (D15): una foto de 10 MiB puede tardar en red lenta.
-const TOPE_ESCRITURA: Duration = Duration::from_secs(60);
+use http::{cliente, enviar, error_de_estado, escribir, escribir_sin_cuerpo, leer, red, Envio, TOPE_ESCRITURA};
 
 /// Por qué no se pudo leer al servidor. Se traduce a `EstadoRemoto` en la
 /// vigilancia y a un mensaje en las respuestas HTTP.
@@ -168,199 +164,6 @@ impl Sesion {
 
 static SESION: Sesion = Sesion(Mutex::new(None));
 
-#[derive(Serialize)]
-struct LoginEnvio<'a> {
-    email: &'a str,
-    password: &'a str,
-}
-
-#[derive(Deserialize)]
-struct TokenRespuesta {
-    token: String,
-}
-
-/// Cuerpo de error del servidor (`ErrorResponse`): el motivo que se muestra al usuario.
-#[derive(Deserialize)]
-struct CuerpoError {
-    message: Option<String>,
-    error: Option<String>,
-}
-
-fn cliente(tope: Duration) -> Result<reqwest::Client, ErrorRemoto> {
-    reqwest::Client::builder()
-        .timeout(tope)
-        // Un redirect podría reenviar el token a otro host.
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .map_err(|e| ErrorRemoto::SinConexion(format!("cliente HTTP: {e}")))
-}
-
-fn red(e: &reqwest::Error) -> ErrorRemoto {
-    ErrorRemoto::SinConexion(if e.is_timeout() {
-        "tiempo de espera agotado".into()
-    } else {
-        "sin respuesta".into()
-    })
-}
-
-/// Estado HTTP que no es un resultado de negocio: credenciales o red/servidor.
-fn error_de_estado(estado: StatusCode) -> ErrorRemoto {
-    match estado {
-        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => ErrorRemoto::SinCredenciales,
-        s => ErrorRemoto::SinConexion(format!("HTTP {}", s.as_u16())),
-    }
-}
-
-async fn login(http: &reqwest::Client, cred: &Credenciales) -> Result<String, ErrorRemoto> {
-    let envio = LoginEnvio {
-        email: &cred.email,
-        password: &cred.password,
-    };
-    let respuesta = http
-        .post(format!("{}/api/auth/login", cred.base))
-        .json(&envio)
-        .send()
-        .await
-        .map_err(|e| red(&e))?;
-    match respuesta.status() {
-        s if s.is_success() => {
-            let token: TokenRespuesta = respuesta
-                .json()
-                .await
-                .map_err(|e| ErrorRemoto::SinConexion(format!("respuesta de login: {e}")))?;
-            Ok(token.token)
-        }
-        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Err(ErrorRemoto::SinCredenciales),
-        s => Err(ErrorRemoto::SinConexion(format!(
-            "login: HTTP {}",
-            s.as_u16()
-        ))),
-    }
-}
-
-async fn renovar(
-    http: &reqwest::Client,
-    cred: &Credenciales,
-    sesion: &Sesion,
-) -> Result<String, ErrorRemoto> {
-    let token = login(http, cred).await?;
-    sesion.guardar(token.clone());
-    Ok(token)
-}
-
-/// Petición ya armada. El cuerpo va en bytes para poder reenviarlo tras un 401.
-struct Envio {
-    metodo: reqwest::Method,
-    ruta: String,
-    consulta: Vec<(&'static str, String)>,
-    /// (tipo de contenido, bytes).
-    cuerpo: Option<(&'static str, Vec<u8>)>,
-    tope: Duration,
-}
-
-impl Envio {
-    fn lectura(ruta: String) -> Self {
-        Self {
-            metodo: reqwest::Method::GET,
-            ruta,
-            consulta: Vec::new(),
-            cuerpo: None,
-            tope: TOPE_LECTURA,
-        }
-    }
-
-    fn json<B: Serialize + ?Sized>(
-        metodo: reqwest::Method,
-        ruta: String,
-        cuerpo: &B,
-    ) -> Result<Self, ErrorRemoto> {
-        let bytes = serde_json::to_vec(cuerpo)
-            .map_err(|e| ErrorRemoto::Rechazado(format!("cuerpo no serializable: {e}")))?;
-        Ok(Self {
-            metodo,
-            ruta,
-            consulta: Vec::new(),
-            cuerpo: Some(("application/json", bytes)),
-            tope: TOPE_ESCRITURA,
-        })
-    }
-}
-
-async fn intentar(
-    http: &reqwest::Client,
-    cred: &Credenciales,
-    envio: &Envio,
-    token: &str,
-) -> Result<reqwest::Response, ErrorRemoto> {
-    let mut peticion = http
-        .request(envio.metodo.clone(), format!("{}{}", cred.base, envio.ruta))
-        .bearer_auth(token);
-    if !envio.consulta.is_empty() {
-        peticion = peticion.query(&envio.consulta);
-    }
-    if let Some((tipo, bytes)) = &envio.cuerpo {
-        peticion = peticion.header(CONTENT_TYPE, *tipo).body(bytes.clone());
-    }
-    peticion.send().await.map_err(|e| red(&e))
-}
-
-/// Envía con token: login perezoso y, ante un 401, una renovación y un único reintento.
-async fn enviar(
-    cred: &Credenciales,
-    sesion: &Sesion,
-    envio: &Envio,
-) -> Result<reqwest::Response, ErrorRemoto> {
-    let http = cliente(envio.tope)?;
-    let token = match sesion.actual() {
-        Some(token) => token,
-        None => renovar(&http, cred, sesion).await?,
-    };
-    let respuesta = intentar(&http, cred, envio, &token).await?;
-    if respuesta.status() != StatusCode::UNAUTHORIZED {
-        return Ok(respuesta);
-    }
-    // El token caducó o el servidor se reinició: una renovación y un reintento.
-    let nuevo = renovar(&http, cred, sesion).await?;
-    intentar(&http, cred, envio, &nuevo).await
-}
-
-/// Lectura. `Ok(None)` = 404: el servidor no tiene esa ruta o ese inmueble; el
-/// llamador decide si eso es «sin soporte» o «no existe».
-async fn leer<T: DeserializeOwned>(respuesta: reqwest::Response) -> Result<Option<T>, ErrorRemoto> {
-    match respuesta.status() {
-        s if s.is_success() => respuesta
-            .json::<T>()
-            .await
-            .map(Some)
-            .map_err(|e| ErrorRemoto::SinSoporte(format!("respuesta no válida: {e}"))),
-        StatusCode::NOT_FOUND => Ok(None),
-        s => Err(error_de_estado(s)),
-    }
-}
-
-/// Escritura: 2xx devuelve el cuerpo; otros 4xx (salvo credenciales) son `Rechazado`
-/// con el motivo del servidor; 5xx y red son `SinConexion`.
-async fn escribir<T: DeserializeOwned>(respuesta: reqwest::Response) -> Result<T, ErrorRemoto> {
-    let estado = respuesta.status();
-    if estado.is_success() {
-        return respuesta
-            .json::<T>()
-            .await
-            .map_err(|e| ErrorRemoto::SinSoporte(format!("respuesta no válida: {e}")));
-    }
-    if estado.is_client_error() && !matches!(estado, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
-        let motivo = respuesta
-            .json::<CuerpoError>()
-            .await
-            .ok()
-            .and_then(|c| c.message.or(c.error));
-        return Err(ErrorRemoto::Rechazado(
-            motivo.unwrap_or_else(|| format!("HTTP {}", estado.as_u16())),
-        ));
-    }
-    Err(error_de_estado(estado))
-}
-
 async fn manifiesto_con(cred: &Credenciales, sesion: &Sesion) -> Result<Manifiesto, ErrorRemoto> {
     let m: Manifiesto = leer(enviar(cred, sesion, &Envio::lectura("/api/admin/sync/manifiesto".into())).await?)
         .await?
@@ -388,9 +191,11 @@ pub async fn detalle(cred: &Credenciales, slug: &str) -> Result<Option<DetalleSy
 }
 
 /// Foto del servidor. `url` es absoluta en `fotos()`: los bytes son públicos
-/// (`/uploads`), así que se descargan sin token.
+/// (`/uploads`), así que se descargan sin token. `id` solo hace falta para
+/// borrarla allí (F3).
 #[derive(Debug, Clone, Deserialize)]
 pub struct FotoRemota {
+    pub id: Uuid,
     pub origen: String,
     pub orden: i32,
     pub url: String,
@@ -572,6 +377,14 @@ pub async fn subir_foto(
         url: absoluta(cred, &foto.url),
         ..foto
     })
+}
+
+/// Borra una foto del servidor por su id [F3]. Es destructivo y no se deshace:
+/// allí desaparecen la fila y el archivo, y borrar una `original` arrastra su
+/// `mejorada` y renumera las siguientes (mismo código que aquí, [08AA-4]).
+pub async fn borrar_foto(cred: &Credenciales, foto_id: Uuid) -> Result<(), ErrorRemoto> {
+    let ruta = format!("/api/admin/fotos/{foto_id}");
+    escribir_sin_cuerpo(enviar(cred, &SESION, &Envio::borrado(ruta)).await?).await
 }
 
 #[derive(Serialize)]

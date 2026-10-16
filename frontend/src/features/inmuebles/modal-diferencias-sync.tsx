@@ -43,6 +43,11 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
     aplicar,
   } = useModalDiferenciasSync(slug, revision);
 
+  /* Fotos que el plan borra en el lado que pierde: es lo único que la
+   * confirmación tiene que decir en voz alta, porque no se deshace. */
+  const conBorrados =
+    plan?.filas.some((f) => f.clave.startsWith('foto:') && f.accion === 'quitar') ?? false;
+
   return (
     <Dialog open={slug !== null} onOpenChange={(abierto) => !abierto && alCerrar()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
@@ -156,7 +161,8 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
                   <>
                     <Lista titulo="Queda pendiente" pasos={informe.pendientes} />
                     <p className="text-xs text-muted-foreground">
-                      Las fotos se aplican en la fase siguiente (F3); la receta, solo cuando el lado que gana la tiene.
+                      Lo pendiente no lo puede escribir la API: la receta que el lado que gana no tiene, y una foto
+                      que el destino ya tiene con otro contenido.
                     </p>
                   </>
                 )}
@@ -183,7 +189,9 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
                   /* El plan es largo: al abrirse, la confirmación se trae a la vista
                    * para que sus botones no queden por debajo del pliegue. */
                   <div
-                    ref={(nodo) => nodo && requestAnimationFrame(() => nodo.scrollIntoView({ block: 'end' }))}
+                    ref={(nodo) => {
+                      if (nodo) requestAnimationFrame(() => nodo.scrollIntoView({ block: 'end' }));
+                    }}
                     className="w-full space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3"
                   >
                     <p className="text-sm font-medium">¿Aplicar los cambios?</p>
@@ -194,7 +202,9 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
                     </p>
                     {conFotos && (
                       <p className="text-xs text-muted-foreground">
-                        Las fotos no se aplican todavía (fase F3): quedarán pendientes y el informe lo dirá.
+                        Las fotos viajan por bytes, en los dos sentidos.
+                        {conBorrados &&
+                          ' Las que el lado que gana no tiene se borran en el otro, y eso no se deshace.'}
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground">Lo ya escrito no se deshace.</p>

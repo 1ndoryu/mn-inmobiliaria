@@ -225,7 +225,15 @@ async fn estado_entre(pool: &PgPool, cred: &Credenciales, slug: &str) -> Estado 
 #[tokio::test]
 async fn publicar_y_traer_quedan_iguales_en_ambos_lados() {
     let admin = admin_opts();
-    let raiz = PathBuf::from(r"C:\tmp").join(format!("sync-f5d-{}", Uuid::new_v4()));
+    // Temporal del entorno donde corre el test: `C:\tmp` en el portátil, `/var/tmp`
+    // en la 89 (AGENTS §1). Con `C:\tmp` en Linux sería una carpeta relativa dentro
+    // del proyecto, y la réplica de Mutagen la borraría a media prueba.
+    let base = if cfg!(windows) {
+        PathBuf::from(r"C:\tmp")
+    } else {
+        PathBuf::from("/var/tmp")
+    };
+    let raiz = base.join(format!("sync-f5d-{}", Uuid::new_v4()));
     let dir_local = raiz.join("local");
     let dir_remoto = raiz.join("remoto");
     std::fs::create_dir_all(&dir_local).unwrap();

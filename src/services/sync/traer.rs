@@ -17,9 +17,10 @@ use crate::services::inmueble::InmuebleService;
 use crate::services::sync::operacion::{conflicto, paso, InformeSync, Turno};
 use crate::services::sync::remoto::{self, Credenciales, FichaRemota, InmuebleRemoto};
 
-/// Tope de fotos y de bytes descargados antes de escribir nada en el local.
-const MAX_FOTOS: usize = 40;
-const MAX_BYTES_TOTALES: usize = 100 * 1024 * 1024;
+/// Topes de fotos y de bytes que un paso mueve o descarga antes de escribir nada
+/// en el local. Los comparte `aplicar` (F3).
+pub(crate) const MAX_FOTOS: usize = 40;
+pub(crate) const MAX_BYTES_TOTALES: usize = 100 * 1024 * 1024;
 
 /// Trae el inmueble `slug` del servidor al local. Un `Err` significa que no se
 /// escribió nada; un fallo posterior al alta va en `InformeSync::fallo`.

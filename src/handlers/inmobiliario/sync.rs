@@ -201,7 +201,15 @@ pub async fn post_aplicar(
 ) -> Result<Json<InformeAplicar>, AppError> {
     let cred = Credenciales::cargar().map_err(|e| error_remoto(&e))?;
     let conservar: BTreeSet<String> = peticion.conservar_viejo.into_iter().collect();
-    let informe = aplicar::aplicar(&state.pool, &cred, &slug, &peticion.plan_id, &conservar).await?;
+    let informe = aplicar::aplicar(
+        &state.pool,
+        &state.upload_dir,
+        &cred,
+        &slug,
+        &peticion.plan_id,
+        &conservar,
+    )
+    .await?;
     vigilancia::comprobar_ya();
     Ok(Json(informe))
 }

@@ -6,7 +6,8 @@
 //! ganador al otro. Los valores se copian **tipados** desde el inmueble de cada
 //! entorno, no desde el texto canónico del plan: ese texto es para leerlo.
 //!
-//! Las fotos no se tocan (son F3): quedan en `pendientes`. Tampoco se puede
+//! Las fotos se copian por bytes en los dos sentidos (D6, F3): de eso se encarga
+//! `fotos`, con las reglas de orden y cascada del borrado. Tampoco se puede
 //! borrar la receta ni la copy por el PUT de la API, así que si el lado ganador
 //! no las tiene, la fila queda pendiente en vez de mentir en el informe.
 //!
@@ -14,6 +15,7 @@
 //! se releen los dos lados y se informa del residuo (D5).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -28,10 +30,15 @@ use crate::models::{validar_extras, CopyInmueble, Inmueble, UpdateInmuebleReques
 use crate::repositories::InmuebleRepository;
 use crate::services::inmueble::InmuebleService;
 use crate::services::sync::comparacion::detalle;
-use crate::services::sync::comparacion::resolver::{Eleccion, FilaPlan};
+use crate::services::sync::comparacion::resolver::{Accion, Eleccion, FilaPlan};
 use crate::services::sync::operacion::{conflicto, paso, Turno};
 use crate::services::sync::plan;
 use crate::services::sync::remoto::{self, Credenciales, FichaRemota, InmuebleRemoto};
+use crate::services::sync::traer::MAX_FOTOS;
+
+mod fotos;
+
+use fotos::{fila_foto, MoverFotos};
 
 /// Lo aplicado y lo que queda. `fallo` corta la operación: lo anterior ya está escrito.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -54,6 +61,7 @@ pub struct InformeAplicar {
 /// Aplica el plan `plan_id` sobre `slug`. Un `Err` significa que no se escribió nada.
 pub async fn aplicar(
     pool: &PgPool,
+    upload_dir: &Path,
     cred: &Credenciales,
     slug: &str,
     plan_id_pedido: &str,
@@ -86,11 +94,25 @@ pub async fn aplicar(
         ));
     }
 
-    // 3. Cada fila es una operación en el lado contrario a su elección.
+    // 3. Cada fila es una operación en el lado contrario a su elección. Las de
+    // foto van por su propio camino (bytes), así que se sacan del plan antes.
     let fuente_local = campos_local(&local, ficha_local.as_ref());
     let fuente_servidor = campos_servidor(&servidor, ficha_servidor.as_ref());
     let en_local = reunir(&plan.filas, Eleccion::Servidor, &fuente_servidor, local.copy.as_ref());
     let en_servidor = reunir(&plan.filas, Eleccion::Local, &fuente_local, servidor.copy.as_ref());
+    let fotos = MoverFotos {
+        plan: plan.filas.iter().filter_map(fila_foto).collect(),
+        local: &local.fotos,
+        servidor: &servidor.fotos,
+    };
+    // Antes de escribir nada: un plan con más fotos que el tope es un error de
+    // planteamiento, no algo que se descubra a mitad.
+    let copias = fotos.plan.iter().filter(|f| f.accion == Accion::Escribir).count();
+    if copias > MAX_FOTOS {
+        return Err(AppError::Validation(format!(
+            "el plan mueve {copias} fotos y el tope es {MAX_FOTOS}: hazlo en varios pasos"
+        )));
+    }
 
     let mut informe = InformeAplicar {
         slug: slug.to_string(),
@@ -102,12 +124,40 @@ pub async fn aplicar(
         residuo: Vec::new(),
     };
 
-    // 4. Escrituras: primero los campos, la visibilidad la última (como en publicar).
-    if let Err(motivo) = escribir_local(pool, local.id, en_local, &mut informe.en_local).await {
+    // 4. Escrituras: primero los campos, las fotos y la visibilidad la última
+    // (como en publicar).
+    let destino_local = Destino {
+        upload_dir,
+        cred,
+        id: local.id,
+        fotos: &fotos,
+    };
+    if let Err(motivo) = escribir_local(
+        pool,
+        &destino_local,
+        en_local,
+        &mut informe.en_local,
+        &mut informe.pendientes,
+    )
+    .await
+    {
         informe.fallo = Some(motivo);
         return Ok(informe);
     }
-    if let Err(motivo) = escribir_servidor(cred, servidor_id, en_servidor, &mut informe.en_servidor).await {
+    let destino_servidor = Destino {
+        upload_dir,
+        cred,
+        id: servidor_id,
+        fotos: &fotos,
+    };
+    if let Err(motivo) = escribir_servidor(
+        &destino_servidor,
+        en_servidor,
+        &mut informe.en_servidor,
+        &mut informe.pendientes,
+    )
+    .await
+    {
         informe.fallo = Some(motivo);
         return Ok(informe);
     }
@@ -162,9 +212,8 @@ fn reunir(
     let mut cambios = Cambios::default();
     let mut copy_claves: BTreeSet<String> = BTreeSet::new();
     for fila in filas.iter().filter(|f| f.elegido == ganador) {
-        // Las fotos son F3: se informan, no se tocan.
+        // Las fotos no se escriben aquí: van por `MoverFotos`, con bytes.
         if fila.clave.starts_with("foto:") {
-            cambios.pendientes.push(format!("{} (fotos: fase F3)", fila.clave));
             continue;
         }
         let valor = fuente.get(&fila.clave).cloned().unwrap_or(Value::Null);
@@ -246,37 +295,48 @@ fn armar_copy(
     Some(copy)
 }
 
+/// A qué inmueble se escribe y con qué. Los dos lados comparten estas cuatro
+/// piezas, así que van juntas en vez de repetidas en cada firma.
+struct Destino<'a> {
+    upload_dir: &'a Path,
+    cred: &'a Credenciales,
+    id: Uuid,
+    fotos: &'a MoverFotos<'a>,
+}
+
 /// Escribe en el local lo que el plan manda. `hecho` recoge lo que sí se escribió.
 async fn escribir_local(
     pool: &PgPool,
-    id: Uuid,
+    destino: &Destino<'_>,
     cambios: Cambios,
     hecho: &mut Vec<String>,
+    pendientes: &mut Vec<String>,
 ) -> Result<(), String> {
     if !cambios.cuerpo.is_empty() {
         let claves = claves_de(&cambios.cuerpo);
         let req: UpdateInmuebleRequest = serde_json::from_value(Value::Object(cambios.cuerpo))
             .map_err(|e| paso("campos", e))?;
-        InmuebleService::update(pool, id, req)
+        InmuebleService::update(pool, destino.id, req)
             .await
             .map_err(|e| paso("campos", e))?;
         hecho.push(format!("Campos en el local: {claves}"));
     }
     if let Some(extras) = cambios.extras {
         validar_extras(&extras).map_err(|e| paso("ficha", e))?;
-        InmuebleRepository::set_ficha(pool, id, Json(extras), cambios.precio_minimo.flatten())
+        InmuebleRepository::set_ficha(pool, destino.id, Json(extras), cambios.precio_minimo.flatten())
             .await
             .map_err(|e| paso("ficha", e))?;
         hecho.push("Ficha privada (/ask) en el local".into());
     }
+    fotos::al_local(pool, destino.upload_dir, destino.cred, destino.id, destino.fotos, hecho, pendientes).await?;
     if let Some(estado) = cambios.estado {
-        InmuebleService::set_estado(pool, id, &estado)
+        InmuebleService::set_estado(pool, destino.id, &estado)
             .await
             .map_err(|e| paso("estado", e))?;
         hecho.push(format!("Estado en el local: {estado}"));
     }
     if let Some(publicado) = cambios.publicado {
-        InmuebleService::set_publicado(pool, id, publicado)
+        InmuebleService::set_publicado(pool, destino.id, publicado)
             .await
             .map_err(|e| paso("visibilidad", e))?;
         hecho.push(if publicado {
@@ -290,33 +350,34 @@ async fn escribir_local(
 
 /// Escribe en el servidor lo que el plan manda, en el mismo orden.
 async fn escribir_servidor(
-    cred: &Credenciales,
-    id: Uuid,
+    destino: &Destino<'_>,
     cambios: Cambios,
     hecho: &mut Vec<String>,
+    pendientes: &mut Vec<String>,
 ) -> Result<(), String> {
     if !cambios.cuerpo.is_empty() {
         let claves = claves_de(&cambios.cuerpo);
-        remoto::actualizar_inmueble(cred, id, &Value::Object(cambios.cuerpo))
+        remoto::actualizar_inmueble(destino.cred, destino.id, &Value::Object(cambios.cuerpo))
             .await
             .map_err(|e| paso("campos", e))?;
         hecho.push(format!("Campos en el servidor: {claves}"));
     }
     if let Some(extras) = cambios.extras {
         validar_extras(&extras).map_err(|e| paso("ficha", e))?;
-        remoto::poner_ficha(cred, id, &extras, cambios.precio_minimo.flatten())
+        remoto::poner_ficha(destino.cred, destino.id, &extras, cambios.precio_minimo.flatten())
             .await
             .map_err(|e| paso("ficha", e))?;
         hecho.push("Ficha privada (/ask) en el servidor".into());
     }
+    fotos::al_servidor(destino.upload_dir, destino.cred, destino.id, destino.fotos, hecho, pendientes).await?;
     if let Some(estado) = cambios.estado {
-        remoto::poner_estado(cred, id, &estado)
+        remoto::poner_estado(destino.cred, destino.id, &estado)
             .await
             .map_err(|e| paso("estado", e))?;
         hecho.push(format!("Estado en el servidor: {estado}"));
     }
     if let Some(publicado) = cambios.publicado {
-        remoto::poner_publicacion(cred, id, publicado)
+        remoto::poner_publicacion(destino.cred, destino.id, publicado)
             .await
             .map_err(|e| paso("visibilidad", e))?;
         hecho.push(if publicado {
@@ -474,8 +535,11 @@ mod pruebas {
         assert_eq!(c.precio_minimo, Some(Some(40000.0)));
         assert!(!c.cuerpo.contains_key("publicado"), "la visibilidad no va en el PUT");
         assert!(!c.cuerpo.contains_key("estado"), "el estado tiene su propio camino");
-        assert_eq!(c.pendientes.len(), 1, "la foto queda pendiente: {:?}", c.pendientes);
-        assert!(c.pendientes[0].contains("F3"));
+        assert!(
+            c.pendientes.is_empty(),
+            "las fotos no pasan por aquí: {:?}",
+            c.pendientes
+        );
     }
 
     #[test]

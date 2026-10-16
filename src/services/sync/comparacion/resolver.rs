@@ -127,9 +127,26 @@ pub fn planificar(
             }
         })
         .collect();
-    // Cada fila es una operación en el lado contrario a su elección.
-    let en_local = filas.iter().filter(|f| f.elegido == Eleccion::Servidor).count();
-    let en_servidor = filas.iter().filter(|f| f.elegido == Eleccion::Local).count();
+    // Cada fila es una operación en el lado contrario a su elección. Las de foto
+    // solo cuentan si `aplicar` va a poder hacerlas: una `original` que el
+    // destino ya tiene con otro contenido queda pendiente (reemplazarla exigiría
+    // renumerar el álbum), así que no se promete. [F3]
+    let aplicable = |f: &&FilaPlan, ganador: Eleccion| -> bool {
+        if f.elegido != ganador {
+            return false;
+        }
+        if !f.clave.starts_with("foto:") || f.accion == Accion::Quitar {
+            return true;
+        }
+        // El destino es el lado contrario al ganador.
+        let tiene_la_clave = match ganador {
+            Eleccion::Local => f.servidor.is_some(),
+            Eleccion::Servidor => f.local.is_some(),
+        };
+        !tiene_la_clave
+    };
+    let en_local = filas.iter().filter(|f| aplicable(f, Eleccion::Servidor)).count();
+    let en_servidor = filas.iter().filter(|f| aplicable(f, Eleccion::Local)).count();
     let plan_id = plan_id(&dif.slug, &filas, local, remoto)?;
     Ok(PlanResolucion {
         slug: dif.slug.clone(),
