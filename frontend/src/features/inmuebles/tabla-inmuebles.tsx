@@ -90,8 +90,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
   function badgeSync(inmueble: Inmueble) {
     return (
       <SyncBadge
-        slug={inmueble.slug}
-        titulo={inmueble.titulo}
+        inmueble={inmueble}
         estado={sync}
         entrada={inmueble.slug ? entradas.get(inmueble.slug) : undefined}
       />

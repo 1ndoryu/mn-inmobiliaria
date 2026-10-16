@@ -5,7 +5,10 @@
  * monta con `key` por inmueble (estado limpio al abrir). */
 import { useEffect, useMemo, useState } from 'react';
 import { planificarResolucionSync, type EleccionSync, type FilaPlanSync, type PlanResolucionSync } from '@/data/inmuebles/sync';
+import { fotosVisiblesDe, type Inmueble } from '@/domain/inmueble';
+import { recetaDesdeCanonica, resumenReceta, resolverReceta } from '@/domain/plantilla-publicidad';
 import { etiquetaEstado, nombreClave } from '@/domain/sync/sync-inmueble';
+import { VistaPrevia } from '@/features/publicidad/vista-publicidad';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -15,6 +18,8 @@ interface Props {
   slug: string | null;
   titulo: string;
   revision: number;
+  /* Inmueble local: la fila de la receta se dibuja con sus fotos. */
+  inmueble: Inmueble;
   alCerrar: () => void;
 }
 
@@ -65,12 +70,40 @@ function etiquetaColumna(fila: FilaPlanSync, lado: EleccionSync): string {
   return valor === null ? 'Se añade' : 'Se reemplaza';
 }
 
+/* [16AA-1] La receta se guarda como JSON (`{"fondo_idx":1,…}`): ilegible. Se
+ * dibuja la vista previa real —la misma de la página Publicidad— y se resume
+ * en palabras; el JSON queda plegado por si hace falta el detalle. */
+function VistaReceta({ inmueble, valor }: { inmueble: Inmueble; valor: string | null }) {
+  const receta = useMemo(() => recetaDesdeCanonica(valor), [valor]);
+  const comp = useMemo(() => (receta ? resolverReceta(inmueble, receta) : null), [inmueble, receta]);
+  const sinFotos = fotosVisiblesDe(inmueble).length === 0;
+  return (
+    <>
+      {comp && !sinFotos ? (
+        <VistaPrevia inmueble={inmueble} comp={comp} ancho={320} />
+      ) : (
+        <div className="flex h-40 items-center justify-center rounded-md bg-muted px-2 text-center text-xs text-muted-foreground">
+          {sinFotos ? 'El inmueble no tiene fotos' : 'Sin receta propia'}
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">{resumenReceta(receta)}</p>
+      {valor ? (
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer select-none">Ver el JSON</summary>
+          <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-all">{valor}</pre>
+        </details>
+      ) : null}
+    </>
+  );
+}
+
 /* Una columna por lado. En las fotos, la miniatura va sobre el texto para comparar a la vista. */
 function ColumnaLado({
   nombre,
   clave,
   valor,
   miniatura,
+  inmueble,
   etiqueta,
   queda,
 }: {
@@ -78,10 +111,12 @@ function ColumnaLado({
   clave: string;
   valor: string | null;
   miniatura: string | null;
+  inmueble: Inmueble;
   etiqueta: string;
   queda: boolean;
 }) {
   const esFoto = clave.startsWith('foto:');
+  const esReceta = clave === 'receta';
   return (
     <div
       className={`min-w-0 space-y-1.5 rounded-md p-2 ${queda ? 'bg-primary/5 ring-1 ring-primary/40' : 'border border-dashed'}`}
@@ -104,17 +139,21 @@ function ColumnaLado({
             Sin miniatura
           </div>
         ))}
-      <p
-        title={valor ?? undefined}
-        className={`max-h-32 overflow-auto whitespace-pre-wrap break-words text-sm ${valor === null ? 'italic text-muted-foreground' : ''}`}
-      >
-        {describirValor(clave, valor)}
-      </p>
+      {esReceta && valor !== null ? (
+        <VistaReceta inmueble={inmueble} valor={valor} />
+      ) : (
+        <p
+          title={valor ?? undefined}
+          className={`max-h-32 overflow-auto whitespace-pre-wrap break-words text-sm ${valor === null ? 'italic text-muted-foreground' : ''}`}
+        >
+          {describirValor(clave, valor)}
+        </p>
+      )}
     </div>
   );
 }
 
-export function ModalDiferenciasSync({ slug, titulo, revision, alCerrar }: Props) {
+export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerrar }: Props) {
   const [plan, setPlan] = useState<PlanResolucionSync | null>(null);
   /* Elección con la que se calculó `plan`: si difiere de la actual, el plan está al día. */
   const [planDe, setPlanDe] = useState<string | null>(null);
@@ -231,6 +270,7 @@ export function ModalDiferenciasSync({ slug, titulo, revision, alCerrar }: Props
                           clave={fila.clave}
                           valor={fila.local}
                           miniatura={fila.miniatura_local}
+                          inmueble={inmueble}
                           etiqueta={etiquetaColumna(fila, 'local')}
                           queda={fila.elegido === 'local'}
                         />
@@ -239,10 +279,17 @@ export function ModalDiferenciasSync({ slug, titulo, revision, alCerrar }: Props
                           clave={fila.clave}
                           valor={fila.servidor}
                           miniatura={fila.miniatura_servidor}
+                          inmueble={inmueble}
                           etiqueta={etiquetaColumna(fila, 'servidor')}
                           queda={fila.elegido === 'servidor'}
                         />
                       </div>
+                      {fila.clave === 'receta' && plan.filas.some((f) => f.clave.startsWith('foto:')) && (
+                        <p className="text-xs text-muted-foreground">
+                          Las dos vistas se dibujan con las fotos de Local. Como las fotos también difieren, el servidor puede
+                          estar numerando otras.
+                        </p>
+                      )}
                     </li>
                   );
                 })}

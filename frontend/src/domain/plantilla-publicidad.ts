@@ -223,6 +223,56 @@ export function resolverReceta(inmueble: Inmueble, receta: RecetaPublicidad): Co
   };
 }
 
+/* [16AA-1] El plan de diferencias de sync trae cada campo como texto, y la
+ * receta como el JSON canónico del backend (`{"fondo_idx":1,…}`: snake_case y
+ * claves ordenadas). Se parsea aquí para poder dibujarla; sin esto el panel
+ * mostraba el JSON crudo, que no deja ver qué cambia de verdad. Tolerante: si
+ * el texto no es una receta (vacío, `null`, JSON roto o sin `fondo_idx`) se
+ * devuelve `null`, que es «sin receta propia» = la automática. */
+export function recetaDesdeCanonica(texto: string | null | undefined): RecetaPublicidad | null {
+  if (!texto || texto === 'null') return null;
+  let d: Record<string, unknown>;
+  try {
+    const v: unknown = JSON.parse(texto);
+    if (typeof v !== 'object' || v === null) return null;
+    d = v as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  if (typeof d['fondo_idx'] !== 'number') return null;
+  const idx = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : 0);
+  const t = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined);
+  return {
+    fondoIdx: idx(d['fondo_idx']),
+    circularGrandeIdx: idx(d['circular_grande_idx']),
+    circularMedianoIdx: idx(d['circular_mediano_idx']),
+    formato: PRESETS_EXPORTACION.some((p) => p.formato === d['formato'])
+      ? (d['formato'] as FormatoPublicidad)
+      : 'post-3-4',
+    conPrecio: d['con_precio'] !== false,
+    titulo1: t(d['titulo1']),
+    titulo2: t(d['titulo2']),
+  };
+}
+
+/** Receta en palabras, para leerla sin el JSON. Las fotos se cuentan desde 1
+ * (como las ve quien mira la lista). `null` = receta automática. */
+export function resumenReceta(receta: RecetaPublicidad | null): string {
+  if (!receta) return 'Sin receta propia: se usa la automática (portada + 2ª y 3ª foto)';
+  const etiqueta = PRESETS_EXPORTACION.find((p) => p.formato === receta.formato)?.etiqueta ?? receta.formato;
+  const foto = (idx: number): string => `foto ${idx + 1}`;
+  const partes = [
+    etiqueta,
+    receta.conPrecio ? 'con precio' : 'sin precio',
+    `fondo ${foto(receta.fondoIdx)}`,
+    `círculo grande ${foto(receta.circularGrandeIdx)}`,
+    `círculo mediano ${foto(receta.circularMedianoIdx)}`,
+  ];
+  const titulos = [receta.titulo1?.trim(), receta.titulo2?.trim()].filter(Boolean);
+  if (titulos.length > 0) partes.push(`título «${titulos.join(' / ')}»`);
+  return partes.join(' · ');
+}
+
 export type IconoSpec = 'habitaciones' | 'banos' | 'metros' | 'puestos' | 'ubicacion';
 
 export interface SpecVisible {

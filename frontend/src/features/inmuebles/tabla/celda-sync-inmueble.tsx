@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { etiquetaEstado } from '@/domain/sync/sync-inmueble';
+import type { Inmueble } from '@/domain/inmueble';
 import type { EntradaSync, EstadoRemotoSync, EstadoSync } from '@/data/inmuebles/sync';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonPlano } from '@/components/ui/button';
@@ -41,9 +42,9 @@ function descripcionRemoto(remoto: EstadoRemotoSync): string {
 }
 
 interface SyncBadgeProps {
-  /* Ausente en borradores sin guardar. */
-  slug?: string;
-  titulo: string;
+  /* El inmueble entero: `slug` para comparar y las fotos para dibujar la
+   * receta en el modal de diferencias. */
+  inmueble: Inmueble;
   estado: EstadoSync | null;
   entrada?: EntradaSync;
 }
@@ -51,9 +52,10 @@ interface SyncBadgeProps {
 /* Estado de un inmueble frente al servidor. Sin servidor disponible muestra el
  * estado global (sin comparar) en lugar de un estado por inmueble falso. El modal
  * de diferencias se monta solo al abrirlo: cada celda guarda su propio estado. */
-export function SyncBadge({ slug, titulo, estado, entrada }: SyncBadgeProps) {
+export function SyncBadge({ inmueble, estado, entrada }: SyncBadgeProps) {
   const [verDiferencias, setVerDiferencias] = useState(false);
   const [operacion, setOperacion] = useState<OperacionSync | null>(null);
+  const { slug, titulo } = inmueble;
   if (!slug) {
     return (
       <Badge variant="outline" className="text-muted-foreground" title="Borrador sin guardar: aún no existe en el servidor">
@@ -107,6 +109,7 @@ export function SyncBadge({ slug, titulo, estado, entrada }: SyncBadgeProps) {
           slug={slug}
           titulo={titulo}
           revision={estado.revision}
+          inmueble={inmueble}
           alCerrar={() => setVerDiferencias(false)}
         />
       )}
