@@ -529,6 +529,53 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     );
     assert!(informe3bis.residuo.is_empty(), "residuo: {:?}", informe3bis.residuo);
 
+    /* 3b. La otra dirección de F3: una foto que solo tiene el servidor se baja al
+     * local. Es el caso del álbum que creció en producción, y el que la subida no
+     * cubre: aquí el viaje es una descarga más un alta local. */
+    acordar_base(&pool_local, &slug3).await;
+    remoto::subir_foto(&cred, id_remoto3, "nueva.jpg", "original", 4, jpeg(4))
+        .await
+        .expect("foto nueva en el servidor");
+    let plan3c = plan_de(&pool_local, &cred, &slug3, &sin_conservar())
+        .await
+        .expect("plan");
+    let fila3c = plan3c
+        .filas
+        .iter()
+        .find(|f| f.clave == "foto:original:4")
+        .expect("la foto del servidor está en el plan");
+    assert_eq!(
+        (fila3c.elegido, fila3c.accion),
+        (Eleccion::Servidor, Accion::Escribir),
+        "la foto la tiene el servidor: se baja"
+    );
+    assert_eq!(plan3c.en_local, 1, "el contador la cuenta: se puede aplicar");
+    assert_eq!(conteos(&pool_local, &slug3).await.1, 2, "el local aún no la tiene");
+    let informe3c = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug3,
+        &plan3c.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect("aplicar");
+    assert!(informe3c.fallo.is_none(), "fallo: {:?}", informe3c.fallo);
+    assert!(informe3c.pendientes.is_empty(), "pendientes: {:?}", informe3c.pendientes);
+    assert!(
+        informe3c.en_local.iter().any(|h| h.contains("foto:original:4")),
+        "hecho: {:?}",
+        informe3c.en_local
+    );
+    assert_eq!(conteos(&pool_local, &slug3).await.1, 3, "la foto bajó");
+    assert_eq!(
+        estado_entre(&pool_local, &cred, &slug3).await,
+        Estado::Igual,
+        "los bytes bajaron enteros"
+    );
+    assert!(informe3c.residuo.is_empty(), "residuo: {:?}", informe3c.residuo);
+
     /* 4. El estado va por su propio camino: «vendido» en el servidor despublica
      * también en el local. */
     let (_, id_remoto4, slug4) = sembrar_publicado(
