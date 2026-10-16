@@ -259,13 +259,7 @@ export function ModalInmueble(props: Props) {
               />
             </div>
             <div className="sm:col-span-2">
-              <FichaFormulario
-                tipo={form.tipo}
-                extras={ficha.extras}
-                minimo={ficha.minimo}
-                alCambiarExtra={ficha.cambiarExtra}
-                alCambiarMinimo={ficha.setMinimo}
-              />
+              <FichaFormulario tipo={form.tipo} extras={ficha.extras} alCambiarExtra={ficha.cambiarExtra} />
             </div>
             <FotosFormulario
               fotos={form.fotos}

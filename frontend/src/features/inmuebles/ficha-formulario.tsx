@@ -1,4 +1,4 @@
-import { CHECKLIST_ASK, COMUNES, NO_SE, claveNoSe, type ExtrasAsk } from '@/domain/ficha-ask';
+import { CHECKLIST_ASK, COMUNES, NO_SE, type ExtrasAsk } from '@/domain/ficha-ask';
 import type { TipoInmueble } from '@/domain/inmueble';
 import { Etiqueta } from './campos-formulario';
 import { Input } from '@/components/ui/input';
@@ -11,36 +11,13 @@ import { Select } from '@/components/ui/select';
 export function FichaFormulario(props: {
   tipo: TipoInmueble | '';
   extras: ExtrasAsk;
-  minimo: string;
   alCambiarExtra: (clave: string, valor: string | number | boolean | null) => void;
-  alCambiarMinimo: (valor: string) => void;
 }) {
   const preguntas = props.tipo ? (CHECKLIST_ASK[props.tipo] ?? COMUNES) : COMUNES;
   return (
     <fieldset className="space-y-3 rounded-md border border-input p-3">
       <legend className="px-1 text-sm font-medium">Ficha /ask (respuestas guardadas)</legend>
       {preguntas.map((p) => {
-        if (p.clave === 'precio_minimo') {
-          const marcaNoSe = props.extras[claveNoSe(p.clave)] === NO_SE;
-          return (
-            <div key={p.clave} className="space-y-1">
-              <Etiqueta>{p.etiqueta} (privado)</Etiqueta>
-              <Input
-                value={props.minimo}
-                onChange={(e) => {
-                  props.alCambiarMinimo(e.target.value);
-                  /* Al escribir un mínimo real se borra la marca «no sé». */
-                  if (marcaNoSe && e.target.value.trim()) props.alCambiarExtra(claveNoSe(p.clave), null);
-                }}
-                placeholder="0"
-                inputMode="decimal"
-              />
-              <p className="text-xs text-muted-foreground">
-                {marcaNoSe ? 'Guardado como «No lo sé» (vacío): escribe para responder.' : 'Privado: nadie lo ve en la página.'}
-              </p>
-            </div>
-          );
-        }
         const actual = props.extras[p.clave];
         if (p.tipo === 'si_no') {
           return (

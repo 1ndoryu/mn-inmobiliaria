@@ -21,8 +21,9 @@
 //   `extras` (`src/handlers/chat.rs:134`); la ficha pública aún no (fuerza
 //   `'{}'` en `src/repositories/inmueble.rs:27`): pendiente, ver roadmap 279A.
 // - `destino: 'precioMinimo'` = el valor va a su columna privada, no a
-//   `extras`. Si mañana hay otro dato así (comisión, deuda…), añade una
-//   variante de `destino`, no otro `clave === 'x'` regado.
+//   `extras` (hoy sin uso: el mínimo dejó de preguntarse, 16AA-13). Si
+//   mañana hay otro dato así (comisión, deuda…), añade una variante de
+//   `destino`, no otro `clave === 'x'` regado.
 
 import type { TipoInmueble } from './inmueble';
 
@@ -67,7 +68,11 @@ export interface PreguntaAsk {
 
 export type ExtrasAsk = Record<string, string | number | boolean>;
 
-/* Comunes a cada tipo (3): referencia privada, negociable y mínimo.
+/* Comunes a cada tipo (1): referencia privada. [16AA-13, 2026-10-16] El
+ * precio negociable y el mínimo aceptado dejaron de preguntarse: cualquier
+ * precio de venta se trata como negociable (lo fija el prompt del borrador,
+ * `src/handlers/marketplace/borrador.rs`) y el mínimo no se pide. Quedan la
+ * columna `precio_minimo` y el mecanismo `destino`, sin pregunta que los use.
  * (La zona/residencia dejó de ser pregunta de `extras`: es el paso
  * inteligente de columnas `ubicacion`+`residencia`, que rellena el
  * inmueble de verdad en vez de un texto suelto.)
@@ -77,21 +82,6 @@ export const COMUNES: PreguntaAsk[] = [
     clave: 'punto_referencia',
     etiqueta: '¿Qué punto de referencia hay cerca? (p. ej. frente al Orinokia)',
     tipo: 'texto_corto',
-    privada: true,
-  },
-  {
-    clave: 'negociable',
-    etiqueta: '¿El precio es negociable?',
-    tipo: 'si_no',
-    privada: true,
-  },
-  {
-    clave: 'precio_minimo',
-    etiqueta: '¿Cuál es el precio mínimo aceptado? (privado, no se publica)',
-    tipo: 'decimal',
-    ayuda: 'Solo visible en el panel; la página nunca lo muestra.',
-    unidad: '$',
-    destino: 'precioMinimo',
     privada: true,
   },
 ];
@@ -179,10 +169,11 @@ export const CHECKLIST_ASK: Record<TipoInmueble, PreguntaAsk[]> = {
   ],
 };
 
-/* Clave de la marca «no sé» para preguntas con `destino` (hoy el mínimo):
- * su columna no puede guardar el desconocimiento (`null` = pendiente), así
- * que se guarda `extras['<clave>_nose'] = NO_SE`. Cuenta como respondida
- * con el dato vacío; al responder de verdad se borra la marca. */
+/* Clave de la marca «no sé» para preguntas con `destino` (hoy ninguna: el
+ * mínimo dejó de preguntarse, 16AA-13): su columna no puede guardar el
+ * desconocimiento (`null` = pendiente), así que se guarda
+ * `extras['<clave>_nose'] = NO_SE`. Cuenta como respondida con el dato
+ * vacío; al responder de verdad se borra la marca. */
 export function claveNoSe(clave: string): string {
   return `${clave}_nose`;
 }
@@ -190,7 +181,7 @@ export function claveNoSe(clave: string): string {
 /* Respondida = presente y no vacía. El `false` de un Sí/No cuenta (dijo
  * que no); `NO_SE` y las intermedias (`trato`) también: no vuelve a
  * preguntarse aunque el dato siga vacío. Las preguntas con `destino`
- * (mínimo) miran su columna, o la marca `claveNoSe` si se respondió
+ * (ninguna hoy) miran su columna, o la marca `claveNoSe` si se respondió
  * «No lo sé». */
 export function preguntaRespondida(pregunta: PreguntaAsk, extras: ExtrasAsk, precioMinimo?: number | null): boolean {
   if (pregunta.destino === 'precioMinimo') {
