@@ -99,6 +99,27 @@ export interface InformeSync {
   fallo: string | null;
 }
 
+/* [16AA-2] Resultado de aplicar el plan: lo escrito en cada lado, lo que quedó
+ * pendiente (fotos, fase F3) y el residuo — lo que sigue distinto tras releer. */
+export interface InformeAplicarSync {
+  slug: string;
+  plan_id: string;
+  en_local: string[];
+  en_servidor: string[];
+  pendientes: string[];
+  fallo: string | null;
+  residuo: string[];
+}
+
+/* Escribe el plan en los dos lados. `planId` es el del plan mostrado: si algo
+ * cambió desde entonces, el backend responde 409 y no escribe nada. */
+export function aplicarResolucionSync(slug: string, planId: string, conservarViejo: string[]): Promise<InformeAplicarSync> {
+  return apiFetch<InformeAplicarSync>(`/api/admin/sync/resolver/${encodeURIComponent(slug)}/aplicar`, {
+    method: 'POST',
+    body: JSON.stringify({ plan_id: planId, conservar_viejo: conservarViejo }),
+  });
+}
+
 /* Servidor con el que se compara; el diálogo lo muestra antes de escribir en él. */
 export interface DestinoSync {
   host: string;

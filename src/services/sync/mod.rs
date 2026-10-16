@@ -6,8 +6,10 @@
 //! `remoto` habla con el servidor, `vigilancia` mantiene el estado en segundo
 //! plano y `detalle` arma las diferencias con los valores de cada lado.
 
+pub mod aplicar;
 pub mod comparacion;
 pub mod operacion;
+pub mod plan;
 pub mod publicar;
 pub mod remoto;
 pub mod traer;

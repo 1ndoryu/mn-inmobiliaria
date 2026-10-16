@@ -2,16 +2,19 @@
 //! canónicos en claro. Cada entorno lo sirve en `GET /sync/inmuebles/{slug}`;
 //! el panel local combina ambos lados en `diferencias`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use utoipa::ToSchema;
 
-use super::comparar::{comparar, Base, Estado, Lado, Resultado};
+use super::comparar::{clave_foto, comparar, Base, Estado, Lado, Resultado};
 use super::huella::{huella_de, valores_canonicos, FotoHuella, InmuebleHuella};
 use crate::errors::AppError;
+use crate::models::url_publica_de_foto;
 use crate::repositories::sync::SyncRepository;
+use crate::services::sync::operacion::conflicto;
+use crate::services::sync::remoto::{self, Credenciales};
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DetalleSync {
@@ -103,6 +106,29 @@ pub async fn diferencias(
         resultado,
         filas,
     })
+}
+
+/// Miniaturas por clave de foto (`foto:<origen>:<orden>`): la local es relativa
+/// (`/uploads`); la del servidor, absoluta. Entran en el `plan_id`, así que el
+/// plan y su aplicación tienen que calcularlas igual.
+pub async fn miniaturas(
+    pool: &PgPool,
+    cred: &Credenciales,
+    local: &DetalleSync,
+    servidor: &DetalleSync,
+) -> Result<(HashMap<String, String>, HashMap<String, String>), AppError> {
+    let mini_local = SyncRepository::claves_de_fotos(pool, local.huella.id)
+        .await?
+        .into_iter()
+        .map(|f| (clave_foto(&f.origen, f.orden), url_publica_de_foto(&f.storage_key)))
+        .collect();
+    let mini_servidor = remoto::fotos(cred, servidor.huella.id)
+        .await
+        .map_err(conflicto)?
+        .into_iter()
+        .map(|f| (clave_foto(&f.origen, f.orden), f.url))
+        .collect();
+    Ok((mini_local, mini_servidor))
 }
 
 /// Valor legible de una clave: el campo en claro, o `presente (<8 hex>)` para una

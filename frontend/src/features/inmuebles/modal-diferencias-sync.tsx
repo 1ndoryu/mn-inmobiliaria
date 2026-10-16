@@ -1,14 +1,13 @@
 /* [13AA-12 · 14AA-2] Resolver las diferencias de un inmueble con el servidor.
- * Cada campo se decide con «Lo último» (por defecto) o «Conservar lo viejo». El
- * plan lo calcula el backend y es la fuente de verdad: cada elección vuelve a
- * pedirlo. Esta fase solo muestra el plan; aplicarlo llega en F2. El padre lo
- * monta con `key` por inmueble (estado limpio al abrir). */
-import { useEffect, useMemo, useState } from 'react';
-import { planificarResolucionSync, type EleccionSync, type FilaPlanSync, type PlanResolucionSync } from '@/data/inmuebles/sync';
-import { fotosVisiblesDe, type Inmueble } from '@/domain/inmueble';
-import { recetaDesdeCanonica, resumenReceta, resolverReceta } from '@/domain/plantilla-publicidad';
-import { etiquetaEstado, nombreClave } from '@/domain/sync/sync-inmueble';
-import { VistaPrevia } from '@/features/publicidad/vista-publicidad';
+ * Cada campo se decide con «lo último» (por defecto) o «Conservar lo viejo»; el plan y
+ * la escritura viven en `useModalDiferenciasSync`. Aplicar escribe en los dos
+ * lados (F2): antes de hacerlo pide confirmación y nombra el servidor (D4/D16),
+ * y después muestra lo escrito, lo pendiente y lo que sigue distinto. El padre
+ * lo monta con `key` por inmueble (estado limpio al abrir). */
+import type { Inmueble } from '@/domain/inmueble';
+import { nombreClave } from '@/domain/sync/sync-inmueble';
+import { useModalDiferenciasSync } from '@/hooks/sync/use-modal-diferencias-sync';
+import { ColumnaLado, Lista, describirDecision, describirOrigen, etiquetaColumna } from './piezas-diferencias-sync';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -23,174 +22,26 @@ interface Props {
   alCerrar: () => void;
 }
 
-const NOMBRE_LADO: Record<EleccionSync, string> = { local: 'Local', servidor: 'Servidor' };
-
-function contraria(eleccion: EleccionSync): EleccionSync {
-  return eleccion === 'local' ? 'servidor' : 'local';
-}
-
-/* Huella de foto: `presente (<8 hex>)`, `presente (sin calcular)`, `presente` o `sin-archivo`. */
-function describirFoto(valor: string): string {
-  if (valor === 'presente') return 'Presente';
-  if (valor === 'sin-archivo') return 'Archivo no encontrado';
-  if (valor === 'presente (sin calcular)') return 'Presente (huella pendiente)';
-  const huella = /^presente \(([0-9a-f]+)\)$/.exec(valor);
-  return huella ? `Presente (huella ${huella[1]})` : valor;
-}
-
-function describirValor(clave: string, valor: string | null): string {
-  if (valor === null) return 'No existe';
-  if (clave.startsWith('foto:')) return describirFoto(valor);
-  return valor || '(vacío)';
-}
-
-/* Por qué decide el lado que decide: quién cambió, o el criterio si no hay un único cambio. */
-function describirOrigen(lado: FilaPlanSync['lado']): string {
-  if (lado === 'local') return 'Cambió en Local';
-  if (lado === 'servidor') return 'Cambió en Servidor';
-  if (lado === 'ambos') return 'Cambiaron los dos: decide la última edición del inmueble';
-  return 'Sin base previa: decide la última edición del inmueble';
-}
-
-/* Frase que resume la fila: qué queda y qué se escribe en el otro lado. */
-function describirDecision(fila: FilaPlanSync, viejo: boolean): string {
-  const queda = NOMBRE_LADO[fila.elegido];
-  const otro = NOMBRE_LADO[contraria(fila.elegido)];
-  const criterio = viejo ? 'Conservas lo viejo' : 'Se usa lo último';
-  return fila.accion === 'escribir'
-    ? `${criterio}: el valor de ${queda}. ${otro} se actualizará con él.`
-    : `${criterio}: en ${queda} no existe. Se quitará de ${otro}.`;
-}
-
-/* Qué pasa con cada lado: el que queda, o el que se reemplaza, se añade o se quita. */
-function etiquetaColumna(fila: FilaPlanSync, lado: EleccionSync): string {
-  if (lado === fila.elegido) return 'Se queda';
-  if (fila.accion === 'quitar') return 'Se quita';
-  const valor = lado === 'local' ? fila.local : fila.servidor;
-  return valor === null ? 'Se añade' : 'Se reemplaza';
-}
-
-/* [16AA-1] La receta se guarda como JSON (`{"fondo_idx":1,…}`): ilegible. Se
- * dibuja la vista previa real —la misma de la página Publicidad— y se resume
- * en palabras; el JSON queda plegado por si hace falta el detalle. */
-function VistaReceta({ inmueble, valor }: { inmueble: Inmueble; valor: string | null }) {
-  const receta = useMemo(() => recetaDesdeCanonica(valor), [valor]);
-  const comp = useMemo(() => (receta ? resolverReceta(inmueble, receta) : null), [inmueble, receta]);
-  const sinFotos = fotosVisiblesDe(inmueble).length === 0;
-  return (
-    <>
-      {comp && !sinFotos ? (
-        <VistaPrevia inmueble={inmueble} comp={comp} ancho={320} />
-      ) : (
-        <div className="flex h-40 items-center justify-center rounded-md bg-muted px-2 text-center text-xs text-muted-foreground">
-          {sinFotos ? 'El inmueble no tiene fotos' : 'Sin receta propia'}
-        </div>
-      )}
-      <p className="text-xs text-muted-foreground">{resumenReceta(receta)}</p>
-      {valor ? (
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer select-none">Ver el JSON</summary>
-          <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-all">{valor}</pre>
-        </details>
-      ) : null}
-    </>
-  );
-}
-
-/* Una columna por lado. En las fotos, la miniatura va sobre el texto para comparar a la vista. */
-function ColumnaLado({
-  nombre,
-  clave,
-  valor,
-  miniatura,
-  inmueble,
-  etiqueta,
-  queda,
-}: {
-  nombre: string;
-  clave: string;
-  valor: string | null;
-  miniatura: string | null;
-  inmueble: Inmueble;
-  etiqueta: string;
-  queda: boolean;
-}) {
-  const esFoto = clave.startsWith('foto:');
-  const esReceta = clave === 'receta';
-  return (
-    <div
-      className={`min-w-0 space-y-1.5 rounded-md p-2 ${queda ? 'bg-primary/5 ring-1 ring-primary/40' : 'border border-dashed'}`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium text-muted-foreground">{nombre}</p>
-        <span className={`text-xs font-semibold ${queda ? 'text-primary' : 'text-muted-foreground'}`}>{etiqueta}</span>
-      </div>
-      {esFoto &&
-        valor !== null &&
-        (miniatura ? (
-          <img
-            src={miniatura}
-            alt={`${nombre}: ${nombreClave(clave)}`}
-            loading="lazy"
-            className="h-28 w-full rounded-md bg-muted object-contain"
-          />
-        ) : (
-          <div className="flex h-28 items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
-            Sin miniatura
-          </div>
-        ))}
-      {esReceta && valor !== null ? (
-        <VistaReceta inmueble={inmueble} valor={valor} />
-      ) : (
-        <p
-          title={valor ?? undefined}
-          className={`max-h-32 overflow-auto whitespace-pre-wrap break-words text-sm ${valor === null ? 'italic text-muted-foreground' : ''}`}
-        >
-          {describirValor(clave, valor)}
-        </p>
-      )}
-    </div>
-  );
-}
-
 export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerrar }: Props) {
-  const [plan, setPlan] = useState<PlanResolucionSync | null>(null);
-  /* Elección con la que se calculó `plan`: si difiere de la actual, el plan está al día. */
-  const [planDe, setPlanDe] = useState<string | null>(null);
-  const [conservarViejo, setConservarViejo] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  /* Elección como texto estable, para usarla en las dependencias del efecto. */
-  const seleccion = useMemo(() => [...conservarViejo].sort().join('\n'), [conservarViejo]);
-
-  useEffect(() => {
-    if (slug === null) return;
-    let vigente = true;
-    planificarResolucionSync(slug, seleccion ? seleccion.split('\n') : [])
-      .then((p) => {
-        if (!vigente) return;
-        setPlan(p);
-        setPlanDe(seleccion);
-        setError(null);
-      })
-      .catch((e: unknown) => {
-        if (!vigente) return;
-        setPlan(null);
-        setError(e instanceof Error ? e.message : 'No se pudo calcular el plan.');
-      });
-    return () => {
-      vigente = false;
-    };
-  }, [slug, revision, seleccion]);
-
-  function alElegir(clave: string, conservar: boolean) {
-    setConservarViejo((previo) => {
-      const sin = previo.filter((c) => c !== clave);
-      return conservar ? [...sin, clave] : sin;
-    });
-  }
-
-  const etiqueta = plan ? etiquetaEstado(plan.estado, plan.estimado) : null;
-  const actualizando = plan !== null && planDe !== seleccion;
+  const {
+    plan,
+    error,
+    etiqueta,
+    actualizando,
+    conFotos,
+    puedeAplicar,
+    conservarViejo,
+    alElegir,
+    limpiarEleccion,
+    destino,
+    informe,
+    ejecutando,
+    errorAplicar,
+    confirmando,
+    pedirConfirmacion,
+    cancelarConfirmacion,
+    aplicar,
+  } = useModalDiferenciasSync(slug, revision);
 
   return (
     <Dialog open={slug !== null} onOpenChange={(abierto) => !abierto && alCerrar()}>
@@ -218,7 +69,7 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
                 </span>
               )}
               {conservarViejo.length > 0 && (
-                <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => setConservarViejo([])}>
+                <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={limpiarEleccion}>
                   Usar lo último en todo
                 </Button>
               )}
@@ -296,14 +147,85 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
               </ul>
             )}
             {actualizando && <p className="text-xs text-muted-foreground">Actualizando el plan…</p>}
-            <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-3">
-              <p className="mr-auto text-xs text-muted-foreground">
-                Aplicar los cambios llega en la siguiente fase; por ahora solo se muestra el plan.
-              </p>
-              <Button type="button" disabled>
-                Aplicar cambios
-              </Button>
-            </div>
+            {informe ? (
+              <div className="space-y-3 border-t pt-3">
+                <p className="text-sm font-medium">Cambios aplicados</p>
+                <Lista titulo="Escrito en Local" pasos={informe.en_local} />
+                <Lista titulo="Escrito en el Servidor" pasos={informe.en_servidor} />
+                {informe.pendientes.length > 0 && (
+                  <>
+                    <Lista titulo="Queda pendiente" pasos={informe.pendientes} />
+                    <p className="text-xs text-muted-foreground">
+                      Las fotos se aplican en la fase siguiente (F3); la receta, solo cuando el lado que gana la tiene.
+                    </p>
+                  </>
+                )}
+                {informe.residuo.length > 0 && (
+                  <>
+                    <Lista titulo="Sigue distinto" pasos={informe.residuo} />
+                    <p className="text-xs text-muted-foreground">Vuelve a abrir el diálogo para resolverlo.</p>
+                  </>
+                )}
+                {informe.fallo && (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    Quedó a medias: {informe.fallo}. Lo ya escrito no se deshace.
+                  </p>
+                )}
+                <div className="flex justify-end">
+                  <Button type="button" onClick={alCerrar}>
+                    Cerrar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-3">
+                {confirmando ? (
+                  /* El plan es largo: al abrirse, la confirmación se trae a la vista
+                   * para que sus botones no queden por debajo del pliegue. */
+                  <div
+                    ref={(nodo) => nodo && requestAnimationFrame(() => nodo.scrollIntoView({ block: 'end' }))}
+                    className="w-full space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3"
+                  >
+                    <p className="text-sm font-medium">¿Aplicar los cambios?</p>
+                    <p className="text-sm">
+                      Se escribe en los dos lados: <strong>{plan.en_local}</strong> en Local y{' '}
+                      <strong>{plan.en_servidor}</strong> en el Servidor:{' '}
+                      <span className="font-mono font-medium">{destino?.host}</span>
+                    </p>
+                    {conFotos && (
+                      <p className="text-xs text-muted-foreground">
+                        Las fotos no se aplican todavía (fase F3): quedarán pendientes y el informe lo dirá.
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">Lo ya escrito no se deshace.</p>
+                    {errorAplicar && (
+                      <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        {errorAplicar}
+                      </p>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={cancelarConfirmacion} disabled={ejecutando}>
+                        Cancelar
+                      </Button>
+                      <Button type="button" onClick={() => void aplicar()} disabled={ejecutando}>
+                        {ejecutando ? 'Escribiendo…' : 'Aplicar ahora'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="mr-auto text-xs text-muted-foreground">
+                      {destino === null
+                        ? 'No se pudo leer el servidor: no se puede aplicar.'
+                        : 'Aplicar escribe en Local y en el Servidor; se pide confirmación.'}
+                    </p>
+                    <Button type="button" disabled={!puedeAplicar} onClick={pedirConfirmacion}>
+                      Aplicar cambios
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
       </DialogContent>

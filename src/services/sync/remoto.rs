@@ -482,6 +482,33 @@ pub async fn crear_inmueble(
     escribir(enviar(cred, &SESION, &envio).await?).await
 }
 
+/// Cambia campos del inmueble en el servidor. `cambios` es un objeto JSON con
+/// solo los campos a tocar (el PUT del servidor es parcial: lo que no viaja se
+/// queda como está). Nunca lleva `marketplace_id` ni `alias_titulos`: son datos
+/// propios de cada entorno. [F2 de 14AA-2]
+pub async fn actualizar_inmueble(
+    cred: &Credenciales,
+    id: Uuid,
+    cambios: &Value,
+) -> Result<InmuebleRemoto, ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{id}");
+    let envio = Envio::json(reqwest::Method::PUT, ruta, cambios)?;
+    escribir(enviar(cred, &SESION, &envio).await?).await
+}
+
+#[derive(Serialize)]
+struct EstadoEnvio<'a> {
+    estado: &'a str,
+}
+
+/// Cambia el estado (`vendido`/`alquilado` despublican también, como en local).
+pub async fn poner_estado(cred: &Credenciales, id: Uuid, estado: &str) -> Result<(), ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{id}/estado");
+    let envio = Envio::json(reqwest::Method::PATCH, ruta, &EstadoEnvio { estado })?;
+    escribir::<IgnoredAny>(enviar(cred, &SESION, &envio).await?).await?;
+    Ok(())
+}
+
 #[derive(Serialize)]
 struct RecetaEnvio<'a> {
     receta: &'a RecetaPublicidad,

@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -9,16 +9,15 @@ use utoipa::ToSchema;
 
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
-use crate::models::url_publica_de_foto;
-use crate::repositories::sync::SyncRepository;
-use crate::services::sync::comparar::clave_foto;
+use crate::services::sync::aplicar::{self, InformeAplicar};
 use crate::services::sync::detalle::{self, DetalleSync, DiferenciasSync};
 use crate::services::sync::huella::Manifiesto;
 use crate::services::sync::manifiesto;
 use crate::services::sync::operacion::InformeSync;
+use crate::services::sync::plan;
 use crate::services::sync::remoto::{self, Credenciales, ErrorRemoto};
+use crate::services::sync::resolver::PlanResolucion;
 use crate::services::sync::{publicar, traer};
-use crate::services::sync::resolver::{self, PlanResolucion};
 use crate::services::sync::vigilancia::{self, EstadoSync};
 use crate::AppState;
 
@@ -165,53 +164,46 @@ pub async fn post_plan(
     Path(slug): Path<String>,
     Json(peticion): Json<PeticionPlan>,
 ) -> Result<Json<PlanResolucion>, AppError> {
-    let local = detalle::detalle_local(&state.pool, &slug)
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("inmueble {slug}")))?;
     let cred = Credenciales::cargar().map_err(|e| error_remoto(&e))?;
-    let servidor = remoto::detalle(&cred, &slug)
-        .await
-        .map_err(|e| error_remoto(&e))?
-        .ok_or_else(|| AppError::Conflict(format!("{slug} no existe en el servidor")))?;
-    let dif = detalle::diferencias(&state.pool, &local, Some(&servidor)).await?;
-    // Las miniaturas solo hacen falta si hay fotos que comparar.
-    let (mini_local, mini_servidor) = if dif.filas.iter().any(|f| f.clave.starts_with("foto:")) {
-        miniaturas(&state, &cred, &local, &servidor).await?
-    } else {
-        Default::default()
-    };
     let conservar: BTreeSet<String> = peticion.conservar_viejo.into_iter().collect();
-    let plan = resolver::planificar(
-        &dif,
-        &local.huella,
-        &servidor.huella,
-        &conservar,
-        &mini_local,
-        &mini_servidor,
-    )
-    .map_err(|e| AppError::Internal(e.to_string()))?;
-    Ok(Json(plan))
+    Ok(Json(plan::plan_de(&state.pool, &cred, &slug, &conservar).await?))
 }
 
-/// Miniaturas por clave de foto: la local es relativa (`/uploads`); la del servidor, absoluta.
-async fn miniaturas(
-    state: &AppState,
-    cred: &Credenciales,
-    local: &DetalleSync,
-    servidor: &DetalleSync,
-) -> Result<(HashMap<String, String>, HashMap<String, String>), AppError> {
-    let mini_local = SyncRepository::claves_de_fotos(&state.pool, local.huella.id)
-        .await?
-        .into_iter()
-        .map(|f| (clave_foto(&f.origen, f.orden), url_publica_de_foto(&f.storage_key)))
-        .collect();
-    let mini_servidor = remoto::fotos(cred, servidor.huella.id)
-        .await
-        .map_err(|e| error_remoto(&e))?
-        .into_iter()
-        .map(|f| (clave_foto(&f.origen, f.orden), f.url))
-        .collect();
-    Ok((mini_local, mini_servidor))
+/// Elecciones del panel más el plan que se mostró: aplicar exige que siga vigente (D3).
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct PeticionAplicar {
+    /// `plan_id` del plan que el panel mostró.
+    pub plan_id: String,
+    #[serde(default)]
+    pub conservar_viejo: Vec<String>,
+}
+
+/// Aplica el plan de resolución: escribe en los dos lados. Un fallo antes de
+/// escribir es 409; a mitad llega con 200 y `fallo` en el informe, con lo escrito.
+#[utoipa::path(
+    post,
+    path = "/api/admin/sync/resolver/{slug}/aplicar",
+    params(("slug" = String, Path, description = "Slug del inmueble")),
+    request_body = PeticionAplicar,
+    responses(
+        (status = 200, description = "Informe de lo aplicado, lo pendiente y el residuo", body = InformeAplicar),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse),
+        (status = 404, description = "No existe en este entorno", body = crate::errors::ErrorResponse),
+        (status = 409, description = "Sin escribir: el plan cambió, otra operación en curso, servidor no disponible o sin este inmueble", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn post_aplicar(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(slug): Path<String>,
+    Json(peticion): Json<PeticionAplicar>,
+) -> Result<Json<InformeAplicar>, AppError> {
+    let cred = Credenciales::cargar().map_err(|e| error_remoto(&e))?;
+    let conservar: BTreeSet<String> = peticion.conservar_viejo.into_iter().collect();
+    let informe = aplicar::aplicar(&state.pool, &cred, &slug, &peticion.plan_id, &conservar).await?;
+    vigilancia::comprobar_ya();
+    Ok(Json(informe))
 }
 
 /// Publica el inmueble local en el servidor. Un fallo antes de escribir es 409; un fallo
@@ -297,6 +289,7 @@ pub fn routes() -> Router<AppState> {
         .route("/sync/inmuebles/:slug", get(get_detalle))
         .route("/sync/diferencias/:slug", get(get_diferencias))
         .route("/sync/resolver/:slug/plan", post(post_plan))
+        .route("/sync/resolver/:slug/aplicar", post(post_aplicar))
         .route("/sync/inmuebles/:slug/publicar", post(post_publicar))
         .route("/sync/inmuebles/:slug/traer", post(post_traer))
         .route("/sync/destino", get(get_destino))
