@@ -33,10 +33,20 @@ export interface InmuebleSinAviso {
 export interface PerfilAvisos {
   /** Hora de la última lectura de la lab (`null` si nunca se ha leído). */
   ultima_lectura: string | null;
+  /** [16AA-12] Lectura pedida y todavía sin atender por la lab (`null` si no hay
+   * ninguna pendiente). El modal espera mientras venga con valor. */
+  solicitada_en: string | null;
   avisos: AvisoPendiente[];
   inmuebles_sin_aviso: InmuebleSinAviso[];
 }
 
 export function cargarPerfilAvisos(): Promise<PerfilAvisos> {
   return apiFetch<PerfilAvisos>('/api/admin/marketplace/perfil/avisos');
+}
+
+/** [16AA-12] Pide la lectura del perfil. No lee aquí: la lab es la que tiene la
+ * sesión de Facebook y la ve en su latido. La petición se cierra cuando sus
+ * avisos entran (`solicitada_en` vuelve a `null`). */
+export function pedirLecturaPerfil(): Promise<{ solicitada_en: string }> {
+  return apiFetch<{ solicitada_en: string }>('/api/admin/marketplace/perfil/leer', { method: 'POST' });
 }

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Link2, Loader2 } from 'lucide-react';
+import { Check, Link2, Loader2, RefreshCw } from 'lucide-react';
 import {
   cargarPerfilAvisos,
+  pedirLecturaPerfil,
   type AvisoPendiente,
   type PerfilAvisos,
 } from '@/data/inmuebles/perfil-marketplace';
+import { useEstadoLab } from '@/hooks/app/use-estado-lab';
 import type { Inmueble } from '@/domain/inmueble';
 import { formatearFecha, formatearPrecio, miniaturaDe, portadaDe } from '@/domain/inmueble';
 import { Button } from '@/components/ui/button';
@@ -67,10 +69,57 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
     if (abierto) void cargar();
   }, [abierto, cargar]);
 
+  /* [16AA-12] La lectura del perfil ya no es automática: la pide este botón y
+   * la lab la ve en su latido de 5 s. Mientras haya una pedida sin atender se
+   * refresca hasta que lleguen los avisos (el servidor cierra la marca). */
+  const lab = useEstadoLab();
+  const [pidiendo, setPidiendo] = useState(false);
+  const [avisoLectura, setAvisoLectura] = useState<string | null>(null);
+  /* Si la lab no contesta, la marca sigue pendiente en el servidor y el botón
+   * se quedaría bloqueado: `rendido` lo vuelve a habilitar, y una pulsación
+   * nueva deja otra marca (con otra hora) que la lab sí atiende. */
+  const [rendido, setRendido] = useState(false);
+  const pendiente = perfil?.solicitada_en ?? null;
+  const esperando = Boolean(pendiente) && !rendido;
+  const labConectada = lab.conexion === 'conectado';
+  const labCaida = lab.conexion === 'sin-senal' || lab.conexion === 'rechazado' || lab.conexion === 'sin-leer';
+
+  useEffect(() => {
+    if (!abierto || !pendiente) return;
+    let intentos = 0;
+    const id = window.setInterval(() => {
+      intentos += 1;
+      if (intentos > 40) {
+        window.clearInterval(id);
+        setRendido(true);
+        setAvisoLectura('La lab no ha respondido. Comprueba que esté abierta y con la sesión de Facebook iniciada.');
+        return;
+      }
+      void cargar();
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [abierto, pendiente, cargar]);
+
+  async function pedirLectura() {
+    setAvisoLectura(null);
+    setRendido(false);
+    setPidiendo(true);
+    try {
+      await pedirLecturaPerfil();
+      await cargar();
+    } catch (e) {
+      setAvisoLectura(e instanceof Error ? e.message : 'No se pudo pedir la lectura.');
+    } finally {
+      setPidiendo(false);
+    }
+  }
+
   function cambiarAbierto(siguiente: boolean) {
     if (!siguiente) {
       setOcultos([]);
       setFallo(null);
+      setAvisoLectura(null);
+      setRendido(false);
     }
     alCambiarAbierto(siguiente);
   }
@@ -117,13 +166,33 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!labConectada || pidiendo || esperando}
+            onClick={() => void pedirLectura()}
+          >
+            {pidiendo || esperando ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {esperando ? 'Esperando a la lab…' : 'Leer el perfil ahora'}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {labCaida
+              ? 'La lab no está conectada: ábrela para poder leer tu perfil de Facebook.'
+              : esperando
+                ? 'Lectura pedida: los avisos aparecerán aquí en cuanto la lab la haga.'
+                : 'La lectura no es automática: la pides tú con este botón.'}
+          </span>
+        </div>
+        {avisoLectura ? <p className="text-xs text-destructive">{avisoLectura}</p> : null}
+
         {error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : !perfil ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
         ) : avisos.length === 0 ? (
           <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-            No hay avisos pendientes de vincular. La lectura del perfil se hace sola una vez al día desde el laboratorio.
+            No hay avisos pendientes de vincular. Pulsa «Leer el perfil ahora» para leer tu perfil de Facebook.
           </p>
         ) : (
           <div className="space-y-3">

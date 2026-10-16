@@ -94,6 +94,7 @@ impl utoipa::Modify for SecurityAddon {
         marketplace::chats_admin::cambios_chats,
         marketplace::perfil::listar,
         marketplace::perfil::registrar,
+        marketplace::perfil::pedir,
         public::list_public,
         public::get_public,
         comercial::suscriptor::suscribir,

@@ -1,6 +1,8 @@
 //! [13AA-4] Avisos del perfil de Facebook Marketplace. La lab envía la lectura
-//! diaria (`registrar`, token mp) y el modal de Inmuebles la lee (`listar`,
-//! staff). Solo ordena candidatos: nunca vincula nada por su cuenta.
+//! (`registrar`, token mp) y el modal de Inmuebles la lee (`listar`, staff).
+//! Solo ordena candidatos: nunca vincula nada por su cuenta.
+//! [16AA-12] La lectura ya no es automática: la pide la usuaria (`pedir`) y la
+//! lab la ve en su latido. Aquí solo se deja la marca.
 
 use std::collections::HashSet;
 
@@ -22,7 +24,9 @@ use crate::repositories::marketplace::{
     avisos_perfil_sin_vincular, inmuebles_sin_vincular, reemplazar_avisos_perfil,
     ultima_lectura_perfil, AvisoPerfilNuevo, InmuebleSinVincular,
 };
-use crate::services::marketplace::mejor_puntaje_con_alias;
+use crate::services::marketplace::{
+    lectura_pedida, marcar_atendida, mejor_puntaje_con_alias, pedir_lectura,
+};
 use crate::services::InmuebleService;
 use crate::AppState;
 
@@ -87,6 +91,9 @@ pub struct InmuebleSinAviso {
 pub struct PerfilAvisos {
     /// Hora de la última lectura de la lab (`null` si nunca se ha leído).
     pub ultima_lectura: Option<DateTime<Utc>>,
+    /// [16AA-12] Lectura pedida desde el modal y todavía sin atender por la lab
+    /// (`null` si no hay ninguna pendiente). El modal espera mientras la haya.
+    pub solicitada_en: Option<DateTime<Utc>>,
     /// Avisos presentes en el perfil que ningún inmueble tiene vinculado.
     pub avisos: Vec<AvisoPendiente>,
     /// Inmuebles sin aviso en el perfil (informativo).
@@ -113,6 +120,10 @@ pub async fn registrar(
     let r = r.map_err(|e| AppError::Validation(format!("JSON inválido: {e}")))?;
     let avisos = validar_lectura(r.0)?;
     let ausentes = reemplazar_avisos_perfil(&state.pool, &avisos).await?;
+    // [16AA-12] La lectura llegó: la petición del modal queda cerrada. Si algo
+    // falló antes, sigue pendiente y la lab no la reintenta sola (la marca no
+    // cambia); la usuaria vuelve a pulsar y esa pulsación trae marca nueva.
+    marcar_atendida();
     Ok((
         StatusCode::OK,
         Json(serde_json::json!({
@@ -159,9 +170,30 @@ pub async fn listar(State(state): State<AppState>, _auth: AuthStaff) -> Result<R
         StatusCode::OK,
         Json(PerfilAvisos {
             ultima_lectura,
+            solicitada_en: lectura_pedida(),
             avisos,
             inmuebles_sin_aviso,
         }),
+    )
+        .into_response())
+}
+
+/// [16AA-12] La usuaria pide la lectura desde el modal. Aquí no se lee nada:
+/// la lab es la única que tiene la sesión de Facebook. Se deja la marca, la lab
+/// la ve en su latido de 5 s y manda los avisos, que cierran la petición.
+#[utoipa::path(
+    post,
+    path = "/api/admin/marketplace/perfil/leer",
+    responses(
+        (status = 200, description = "Lectura pedida: la marca que verá la lab"),
+        (status = 401, description = "Sin sesión de staff", body = crate::errors::ErrorResponse)
+    )
+)]
+pub async fn pedir(_auth: AuthStaff) -> Result<Response, AppError> {
+    let solicitada_en = pedir_lectura();
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({ "solicitada_en": solicitada_en })),
     )
         .into_response())
 }

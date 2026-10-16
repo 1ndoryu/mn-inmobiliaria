@@ -209,6 +209,8 @@ pub async fn borrar_borrador_chat(
 /// [09AA-31] Contador de borradores borrados desde el panel, para que el float
 /// de lab vacíe su caché en memoria. Lo consulta cada 5 s con el token del
 /// puente (`MpAuth`), igual que `borrador`; sin sesión admin.
+/// [16AA-12] El mismo latido lleva la marca de lectura del perfil pedida: la
+/// lab no tiene temporizador, así que este es el canal por el que se entera.
 #[utoipa::path(
     get,
     path = "/api/admin/marketplace/borradores/version",
@@ -219,9 +221,13 @@ pub async fn borrar_borrador_chat(
 )]
 pub async fn version_borradores(_auth: MpAuth) -> Result<Response, AppError> {
     let version = crate::services::marketplace::version_borradores_borrados();
+    let perfil_solicitado_en = crate::services::marketplace::lectura_pedida();
     Ok((
         StatusCode::OK,
-        Json(serde_json::json!({"version": version})),
+        Json(serde_json::json!({
+            "version": version,
+            "perfil_solicitado_en": perfil_solicitado_en,
+        })),
     )
         .into_response())
 }
