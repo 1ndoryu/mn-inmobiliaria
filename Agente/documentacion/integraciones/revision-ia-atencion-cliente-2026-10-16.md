@@ -325,3 +325,50 @@ grep -rn "CREATE TABLE" migrations/*.up.sql
 # Los alias muertos
 sed -n '37,67p' src/services/mod.rs
 ```
+
+---
+
+## 13. Por qué el gate no marcó los dos archivos grandes
+
+Respuesta a la pregunta «¿esto no lo detectaba workspace-manager?»: **no lo
+marca hoy, y por dos motivos distintos.** Ninguno de los dos es que el gate no
+cubra Rust: `**/*.rs` está en `sentinel.config.json` (`includePatterns`) y los
+`.rs` tienen techo propio.
+
+| Archivo | Físicas | Efectivas que ve Sentinel | Techo | Resultado |
+|---|---|---|---|---|
+| `handlers/chat/tools.rs` | 1.657 | **429** | 500 (`handlers/`) | No salta — correcto |
+| `handlers/ia/rutas.rs` | 624 | **12** (deberían ser 537) | 500 (`handlers/`) | No salta — **fallo del contador** |
+
+**`tools.rs` pasa por diseño.** `limite-lineas` no cuenta líneas físicas sino
+**efectivas** (sin comentarios ni líneas vacías), y en Rust **corta el archivo
+en `#[cfg(test)]`**: los tests del final no son complejidad de producción
+(`glory-sentinel/src/utils/lineCounter.ts:9-17`). El techo de `handlers/` en
+Rust es 500 (`lineCounter.ts:158-160`). Las ~1.100 líneas de tests de `tools.rs`
+no cuentan; quedan 429 efectivas y no llega al nivel 1 (factor 1). **Es deuda
+real de producción —el god-object existe— pero el gate no la ve por ahí.**
+
+**`rutas.rs` pasa por un fallo del contador.** El archivo tiene un `#[cfg(test)]`
+en la **línea 27** (un `use` que solo usan los tests) y el módulo de tests real
+en la **464**. `contarLineasEfectivas` usa `indexOf`, es decir el **primero**, así
+que trunca en la 27 y cuenta **12 líneas efectivas** en vez de 537
+(`lineCounter.ts:14-17`). Con 537 sí saltaría (`limite-lineas`, nivel 1,
+warning). El fallo es de `glory-sentinel`, no de MN: afecta a cualquier `.rs`
+con un `#[cfg(test)]` temprano. Barrido del área el 2026-10-16: **8 archivos en
+4 proyectos** (`MN-Inmobiliaria` 2, `RESTAURANTE` 2, `WANDORIUS` 3,
+`limpiador-pc` 1).
+
+**Consecuencia práctica:** el gate no sustituye a esta revisión. Un «0 hallazgos
+nuevos» del gate significa «nada nuevo respecto a su base», no «nada que
+arreglar» — y en este caso tampoco cubre dos archivos que sí conviene partir
+(§10, P2.4 y P2.5).
+
+**Verificar:**
+
+```bash
+# El contador corta en el primer #[cfg(test)], no en el módulo de tests
+grep -n "#\[cfg(test)\]" src/handlers/ia/rutas.rs   # 27 y 464
+grep -n "#\[cfg(test)\]" src/handlers/chat/tools.rs # 552 (solo el correcto)
+sed -n '9,17p' ../glory-sentinel/src/utils/lineCounter.ts
+sed -n '150,165p' ../glory-sentinel/src/utils/lineCounter.ts
+```
