@@ -179,6 +179,56 @@ impl InmuebleService {
         }
     }
 
+    /// [F3 de 14AA-2] Cambia los bytes de una foto sin tocar su fila ni su
+    /// `orden`. La clave nueva es otra, así que ni la caché del navegador ni la
+    /// miniatura vieja siguen sirviendo la imagen anterior. Es lo que necesita el
+    /// sync cuando el lado que gana tiene en ese `orden` **otra** foto y no los
+    /// mismos bytes: borrar y volver a subir no vale, porque el borrado renumera
+    /// el álbum ([08AA-4]) y la nueva chocaría con las de arriba.
+    pub async fn reemplazar_foto(
+        pool: &PgPool,
+        upload_dir: &Path,
+        foto_id: Uuid,
+        filename: &str,
+        bytes: &[u8],
+    ) -> Result<FotoPublica, AppError> {
+        let vieja = InmuebleRepository::find_foto(pool, foto_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Foto no encontrada".into()))?;
+        let storage_key =
+            Self::guardar_archivo(upload_dir, &vieja.inmueble_id.to_string(), filename, bytes)
+                .await?;
+        let nueva =
+            match InmuebleRepository::cambiar_archivo_foto(pool, foto_id, &storage_key).await {
+                Ok(f) => f,
+                Err(e) => {
+                    /* Sin fila nueva no hay foto: se retira el archivo huérfano */
+                    Self::borrar_archivo(upload_dir, &storage_key).await;
+                    return Err(e.into());
+                }
+            };
+        /* La anterior ya no la referencia nadie: se va con su miniatura. */
+        Self::borrar_archivo(upload_dir, &vieja.storage_key).await;
+        if let Some(clave) = Self::clave_miniatura(&vieja.storage_key) {
+            Self::borrar_archivo(upload_dir, &clave).await;
+        }
+        /* [249A-1] Invalida la caché de fotos (`?v=<updated_at>`). */
+        InmuebleRepository::tocar_inmueble(pool, vieja.inmueble_id).await?;
+        /* [13AA-12] Huella al reemplazar: la comparación por sha256 va por
+         * `storage_key`, así que la clave nueva necesita la suya. */
+        registrar_huella_subida(pool, &storage_key, bytes).await;
+        notificar();
+        /* Thumb best-effort: si falla, la tabla usa el original. */
+        if let Some(clave_thumb) = Self::clave_miniatura(&storage_key) {
+            if let Some(mini) = Self::miniatura(bytes) {
+                if let Err(e) = tokio::fs::write(upload_dir.join(&clave_thumb), mini).await {
+                    tracing::warn!("No se pudo guardar {clave_thumb}: {e}");
+                }
+            }
+        }
+        Ok(FotoPublica::from(nueva))
+    }
+
     /* [169A-2] Núcleo reutilizable: valida y guarda bytes en
      * `UPLOAD_DIR/<carpeta>/<uuid>.<ext>`, devuelve la clave. Lo usan las
      * fotos de inmueble y las de solicitud (carpeta `solicitudes/<uuid>`). */

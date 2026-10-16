@@ -68,6 +68,26 @@ impl InmuebleRepository {
         .await
     }
 
+    /* [F3 de 14AA-2] Sustituye el archivo de una foto sin tocar su fila ni su
+     * `orden`. Borrar y volver a subir en el mismo `orden` no sirve: el borrado
+     * renumera el álbum ([08AA-4]) y la nueva chocaría con las de arriba. Va en
+     * runtime porque la caché `.sqlx` no cubre esta sentencia. */
+    pub async fn cambiar_archivo_foto(
+        pool: &PgPool,
+        foto_id: Uuid,
+        storage_key: &str,
+    ) -> Result<Foto, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera del módulo
+        sqlx::query_as::<_, Foto>(
+            "UPDATE fotos SET storage_key = $1 WHERE id = $2 \
+             RETURNING id, inmueble_id, storage_key, orden, origen, created_at",
+        )
+        .bind(storage_key)
+        .bind(foto_id)
+        .fetch_one(pool)
+        .await
+    }
+
     /* [15AA-8] Reordena los huecos de fotos sin borrar ni subir nada: un
      * hueco es una `original` y, si la tiene, su `mejorada` hermana (mismo
      * `orden`). `ids` son los ids de las originales en el orden deseado y

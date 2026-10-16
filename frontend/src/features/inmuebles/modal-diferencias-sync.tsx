@@ -162,7 +162,7 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
                     <Lista titulo="Queda pendiente" pasos={informe.pendientes} />
                     <p className="text-xs text-muted-foreground">
                       Lo pendiente no lo puede escribir la API: la receta que el lado que gana no tiene, y una foto
-                      que el destino ya tiene con otro contenido.
+                      que el servidor ya tiene con otra distinta (su API no sabe reemplazarla sin desplegar).
                     </p>
                   </>
                 )}

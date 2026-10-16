@@ -128,9 +128,10 @@ pub fn planificar(
         })
         .collect();
     // Cada fila es una operación en el lado contrario a su elección. Las de foto
-    // solo cuentan si `aplicar` va a poder hacerlas: una `original` que el
-    // destino ya tiene con otro contenido queda pendiente (reemplazarla exigiría
-    // renumerar el álbum), así que no se promete. [F3]
+    // solo cuentan si `aplicar` va a poder hacerlas. Al **local** se le cambia el
+    // archivo en su sitio, así que también vale cuando ya tiene otra foto en ese
+    // `orden`; al **servidor** no: su API solo sabe borrar (y renumera) o añadir,
+    // así que una clave que ya tiene con otro contenido queda pendiente. [F3]
     let aplicable = |f: &&FilaPlan, ganador: Eleccion| -> bool {
         if f.elegido != ganador {
             return false;
@@ -138,12 +139,13 @@ pub fn planificar(
         if !f.clave.starts_with("foto:") || f.accion == Accion::Quitar {
             return true;
         }
-        // El destino es el lado contrario al ganador.
-        let tiene_la_clave = match ganador {
-            Eleccion::Local => f.servidor.is_some(),
-            Eleccion::Servidor => f.local.is_some(),
-        };
-        !tiene_la_clave
+        // El destino es el lado contrario al ganador. Los dos valores son la
+        // descripción de la foto en cada lado, así que «distintos» es justo lo
+        // que hay que escribir.
+        match ganador {
+            Eleccion::Servidor => f.local != f.servidor,
+            Eleccion::Local => f.servidor.is_none(),
+        }
     };
     let en_local = filas.iter().filter(|f| aplicable(f, Eleccion::Servidor)).count();
     let en_servidor = filas.iter().filter(|f| aplicable(f, Eleccion::Local)).count();

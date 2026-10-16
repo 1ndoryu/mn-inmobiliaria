@@ -4,6 +4,11 @@
 //! por bytes en los dos sentidos (D6). Se copia lo que el lado ganador tiene y
 //! el otro no, y se borra del lado que pierde lo que el ganador no tiene.
 //!
+//! Cuando el destino ya tiene esa clave con **otra** foto, al local se le cambia
+//! el archivo en su sitio (`reemplazar_foto`), que conserva la fila y el `orden`.
+//! Hacia el servidor eso no se puede: su API no tiene forma de cambiar los bytes
+//! de una foto sin borrarla, y el borrado renumera. Queda pendiente y se dice.
+//!
 //! El orden importa. Las copias van primero y los borrados después, de mayor a
 //! menor `orden` y la `mejorada` antes que su `original`: borrar una `original`
 //! renumera las que van por encima y arrastra a su hermana ([08AA-4]), así que
@@ -70,16 +75,6 @@ pub(super) async fn al_local(
     let destino: Vec<(String, i32)> = mover.local.iter().map(|f| (f.origen.clone(), f.orden)).collect();
     let mut total = 0usize;
     for fila in mover.plan.iter().filter(|f| f.ganador == Eleccion::Servidor && f.accion == Accion::Escribir) {
-        // Solo se añade lo que falta. Si el local ya tiene esa clave con otro
-        // contenido, reemplazarla exigiría borrar y renumerar el álbum entero:
-        // se dice y se deja para la mano.
-        if hay_local(mover.local, fila).is_some() {
-            pendientes.push(format!(
-                "{} (el local ya tiene esa clave con otro contenido)",
-                fila.clave
-            ));
-            continue;
-        }
         let Some(remota) = hay_remota(mover.servidor, fila) else {
             pendientes.push(format!("{} (el servidor ya no la tiene)", fila.clave));
             continue;
@@ -94,18 +89,33 @@ pub(super) async fn al_local(
                 format!("las fotos del plan pasan de {MAX_BYTES_TOTALES} bytes"),
             ));
         }
-        InmuebleService::subir_foto(
-            pool,
-            upload_dir,
-            id,
-            &nombre_de(&remota.url),
-            Some(&fila.origen),
-            Some(fila.orden),
-            &bytes,
-        )
-        .await
-        .map_err(|e| paso(&fila.clave, e))?;
-        hecho.push(format!("Foto {} copiada al local", fila.clave));
+        let nombre = nombre_de(&remota.url);
+        // Si el local ya tiene esa clave, es **otra** foto en el mismo `orden`
+        // (los mismos bytes no llegarían aquí: estarían iguales). Se cambia el
+        // archivo sin tocar la fila; borrarla y volver a subirla renumeraría el
+        // álbum y chocaría con las copias de arriba.
+        match hay_local(mover.local, fila) {
+            Some(actual) => {
+                InmuebleService::reemplazar_foto(pool, upload_dir, actual.id, &nombre, &bytes)
+                    .await
+                    .map_err(|e| paso(&fila.clave, e))?;
+                hecho.push(format!("Foto {} reemplazada en el local", fila.clave));
+            }
+            None => {
+                InmuebleService::subir_foto(
+                    pool,
+                    upload_dir,
+                    id,
+                    &nombre,
+                    Some(&fila.origen),
+                    Some(fila.orden),
+                    &bytes,
+                )
+                .await
+                .map_err(|e| paso(&fila.clave, e))?;
+                hecho.push(format!("Foto {} copiada al local", fila.clave));
+            }
+        }
     }
     for fila in de_mayor_a_menor(&mover.plan, Eleccion::Servidor) {
         let Some(actual) = hay_local(mover.local, fila) else {
@@ -142,8 +152,10 @@ pub(super) async fn al_servidor(
     let mut total = 0usize;
     for fila in mover.plan.iter().filter(|f| f.ganador == Eleccion::Local && f.accion == Accion::Escribir) {
         if hay_remota(mover.servidor, fila).is_some() {
+            // Su API solo sabe borrar (y renumera) o añadir: reemplazar los bytes
+            // de una foto que ya está necesita un endpoint nuevo, o sea desplegar.
             pendientes.push(format!(
-                "{} (el servidor ya tiene esa clave con otro contenido)",
+                "{} (el servidor ya tiene esa clave con otra foto, y su API no puede reemplazarla sin desplegar)",
                 fila.clave
             ));
             continue;

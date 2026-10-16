@@ -576,6 +576,103 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     );
     assert!(informe3c.residuo.is_empty(), "residuo: {:?}", informe3c.residuo);
 
+    /* 3c. El destino ya tiene esa clave con **otra** foto, no con los mismos
+     * bytes: al local se le cambia el archivo en su sitio, conservando la fila y
+     * el `orden`. Borrarla y volver a subirla renumeraría el álbum. */
+    let (id3d, slug3d) = sembrar(&pool_local, &dir_local, "Casa aplicar reemplazo").await;
+    // Un álbum de una sola foto: así el borrado en el servidor no renumera nada
+    // y la sustituta cae en el mismo `orden`.
+    let mejorada3d: Uuid =
+        sqlx::query_scalar("SELECT id FROM fotos WHERE inmueble_id = $1 AND origen = 'mejorada'")
+            .bind(id3d)
+            .fetch_one(&pool_local)
+            .await
+            .unwrap();
+    InmuebleService::delete_foto(&pool_local, &dir_local, mejorada3d)
+        .await
+        .expect("quitar la mejorada de prueba");
+    let informe3d = publicar(&pool_local, &dir_local, &cred, &slug3d)
+        .await
+        .expect("publicar");
+    assert!(informe3d.fallo.is_none(), "publicar falló: {:?}", informe3d.fallo);
+    acordar_base(&pool_local, &slug3d).await;
+    let id_remoto3d = remoto::detalle(&cred, &slug3d)
+        .await
+        .expect("detalle remoto")
+        .expect("el inmueble está en el servidor")
+        .huella
+        .id;
+    let foto_local3d: Uuid =
+        sqlx::query_scalar("SELECT id FROM fotos WHERE inmueble_id = $1 AND origen = 'original'")
+            .bind(id3d)
+            .fetch_one(&pool_local)
+            .await
+            .unwrap();
+    // El servidor cambia su única foto por otra distinta, en el mismo `orden`.
+    let id_foto_remota3d = remoto::inmueble(&cred, id_remoto3d)
+        .await
+        .expect("inmueble remoto")
+        .expect("existe en el servidor")
+        .fotos
+        .iter()
+        .find(|f| f.origen == "original")
+        .expect("la original está en el servidor")
+        .id;
+    remoto::borrar_foto(&cred, id_foto_remota3d)
+        .await
+        .expect("borrar la foto del servidor");
+    remoto::subir_foto(&cred, id_remoto3d, "otra.jpg", "original", 1, jpeg(9))
+        .await
+        .expect("subir la sustituta");
+    let plan3d = plan_de(&pool_local, &cred, &slug3d, &sin_conservar())
+        .await
+        .expect("plan");
+    let fila3d = plan3d
+        .filas
+        .iter()
+        .find(|f| f.clave == "foto:original:1")
+        .expect("la foto está en el plan");
+    assert_eq!(
+        (fila3d.elegido, fila3d.accion),
+        (Eleccion::Servidor, Accion::Escribir),
+        "otra foto en el mismo orden: gana el servidor"
+    );
+    assert_eq!(plan3d.en_local, 1, "el contador la cuenta: se puede aplicar");
+    let informe3d = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug3d,
+        &plan3d.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect("aplicar");
+    assert!(informe3d.fallo.is_none(), "fallo: {:?}", informe3d.fallo);
+    assert!(informe3d.pendientes.is_empty(), "pendientes: {:?}", informe3d.pendientes);
+    assert!(
+        informe3d.en_local.iter().any(|h| h.contains("reemplazada")),
+        "hecho: {:?}",
+        informe3d.en_local
+    );
+    let foto_local3d_despues: Uuid =
+        sqlx::query_scalar("SELECT id FROM fotos WHERE inmueble_id = $1 AND origen = 'original'")
+            .bind(id3d)
+            .fetch_one(&pool_local)
+            .await
+            .unwrap();
+    assert_eq!(
+        foto_local3d_despues, foto_local3d,
+        "se cambió el archivo, no la fila"
+    );
+    assert_eq!(conteos(&pool_local, &slug3d).await.1, 1, "ni una fila de más");
+    assert_eq!(
+        estado_entre(&pool_local, &cred, &slug3d).await,
+        Estado::Igual,
+        "los bytes nuevos coinciden"
+    );
+    assert!(informe3d.residuo.is_empty(), "residuo: {:?}", informe3d.residuo);
+
     /* 4. El estado va por su propio camino: «vendido» en el servidor despublica
      * también en el local. */
     let (_, id_remoto4, slug4) = sembrar_publicado(
