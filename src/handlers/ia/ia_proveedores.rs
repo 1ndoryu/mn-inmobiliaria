@@ -3,14 +3,15 @@
 //! Extraído de `rutas.rs` (god-object + límite 500): cliente HTTP, `ping`
 //! de ambos proveedores, `completar` de ambos, transcripción de audio con
 //! rotación de claves y descripción de fotos. `rutas.rs` conserva el boundary
-//! HTTP (`routes`, estado, config, probar, completar) y re-exporta lo que
-//! usan sus rutas, sus tests y terceros (`marketplace`, `turno`).
+//! HTTP (`routes` y `completar`) y re-exporta lo que usan terceros
+//! (`marketplace`, `turno`); el estado y la config viven en `ia_estado.rs` e
+//! `ia_admin.rs` ([16AA-9 F4]).
 
 use std::time::Duration;
 
 use crate::errors::AppError;
 
-use super::rutas::{glory_base, leer_env, MAX_FOTOS};
+use super::{glory_base, leer_env, MAX_FOTOS};
 /* [09AA-5] Eventos de la tab de Logs (sin PII). */
 use crate::handlers::marketplace::logs::{mp_log, LogNivel};
 
@@ -602,5 +603,113 @@ mod pruebas {
             diagnostico_respuesta_vacia(&rota),
             "estado=? tipos=[] motivo=- uso=-"
         );
+    }
+
+    /* [309A-5] Sin claves no hay red: falla antes de mirar la URL. */
+    #[test]
+    fn transcribir_sin_claves_no_toca_red() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let r = rt.block_on(super::transcribir_audio_con(
+            &[1, 2, 3],
+            "a.mp3",
+            "audio/mpeg",
+            &[],
+            "http://127.0.0.1:9/",
+        ));
+        assert!(r.is_err());
+    }
+
+    /* [309A-5] Come una petición HTTP/1.1 completa del mock (cabeceras +
+     * cuerpo multipart) para que el cliente no vea un RST. */
+    async fn comer_peticion(zocalo: &mut tokio::net::TcpStream) {
+        use tokio::io::AsyncReadExt;
+        let mut todo = Vec::new();
+        let mut buf = [0u8; 8192];
+        let (cab, largo) = loop {
+            let n = zocalo.read(&mut buf).await.expect("mock lee");
+            assert!(n > 0, "el cliente cerro sin pedir");
+            todo.extend_from_slice(&buf[..n]);
+            if let Some(pos) = todo.windows(4).position(|w| w == b"\r\n\r\n") {
+                let cabecera = String::from_utf8_lossy(&todo[..pos]).to_string();
+                let largo = cabecera
+                    .lines()
+                    .find_map(|l| {
+                        l.to_ascii_lowercase()
+                            .strip_prefix("content-length: ")
+                            .map(|v: &str| v.trim().parse().unwrap_or(0))
+                    })
+                    .unwrap_or(0);
+                break (pos + 4, largo);
+            }
+        };
+        while todo.len() < cab + largo {
+            let n = zocalo.read(&mut buf).await.expect("mock lee cuerpo");
+            assert!(n > 0, "cuerpo cortado");
+            todo.extend_from_slice(&buf[..n]);
+        }
+    }
+
+    /* [309A-5] Rotación contra mock local: 401 con la 1ª → la 2ª transcribe.
+     * Certeza sin depender de Groq real ni de VPN. */
+    #[tokio::test]
+    async fn transcribir_rota_clave_tras_401() {
+        use tokio::io::AsyncWriteExt;
+        let oyente = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!(
+            "http://127.0.0.1:{}/audio/transcriptions",
+            oyente.local_addr().unwrap().port()
+        );
+        let servo = tokio::spawn(async move {
+            let mut usadas = 0;
+            for (estado, cuerpo) in [(401, "no"), (200, "hola rotacion")] {
+                let (mut zocalo, _) = oyente.accept().await.unwrap();
+                comer_peticion(&mut zocalo).await;
+                let resp = format!(
+                    "HTTP/1.1 {estado} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{cuerpo}",
+                    cuerpo.len()
+                );
+                zocalo.write_all(resp.as_bytes()).await.unwrap();
+                usadas += 1;
+            }
+            usadas
+        });
+        let claves = vec!["mala".to_string(), "buena".to_string()];
+        let texto = super::transcribir_audio_con(&[1, 2, 3], "a.mp3", "audio/mpeg", &claves, &url)
+            .await
+            .unwrap();
+        assert_eq!(texto, "hola rotacion");
+        assert_eq!(servo.await.unwrap(), 2, "debió probar ambas claves");
+    }
+
+    /* [309A-5] Groq caído (401 en todas) → Err: el llamador deja el `[audio]`
+     * pelado y el prompt pide el texto (fail-open garantizado). */
+    #[tokio::test]
+    async fn transcribir_caido_en_todas_falla_cerrado_util() {
+        use tokio::io::AsyncWriteExt;
+        let oyente = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!(
+            "http://127.0.0.1:{}/audio/transcriptions",
+            oyente.local_addr().unwrap().port()
+        );
+        let servo = tokio::spawn(async move {
+            for _ in 0..2 {
+                let (mut zocalo, _) = oyente.accept().await.unwrap();
+                comer_peticion(&mut zocalo).await;
+                zocalo
+                    .write_all(
+                        b"HTTP/1.1 401 X\r\nContent-Length: 2\r\nConnection: close\r\n\r\nno",
+                    )
+                    .await
+                    .unwrap();
+            }
+        });
+        let claves = vec!["una".to_string(), "otra".to_string()];
+        let r =
+            super::transcribir_audio_con(&[1, 2, 3], "a.mp3", "audio/mpeg", &claves, &url).await;
+        assert!(r.is_err());
+        servo.await.unwrap();
     }
 }
