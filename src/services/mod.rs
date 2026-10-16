@@ -33,35 +33,3 @@ pub use triage::{
     EvaluacionTrato, EventoTriage, MarcaTransporte, Motivo, Procedencia, RegistroDuplicados, Trato,
     VENTANA_RETRASO_MIN_DEFAULT,
 };
-
-/* Alias de compatibilidad con los nombres previos a la reorganización por
- * dominio. `allow(unused_imports)`: sin llamadores fuera de `services` avisan
- * como no usados; el de `outbox_idempotency` sí lo usa `tope_uso.rs`. */
-#[allow(unused_imports)]
-pub(crate) use comercial::note;
-#[allow(unused_imports)]
-pub(crate) use comercial::solicitud;
-#[allow(unused_imports)]
-pub(crate) use comercial::suscriptor;
-#[allow(unused_imports)]
-pub(crate) use inmueble::alias as inmueble_alias;
-#[allow(unused_imports)]
-pub(crate) use inmueble::slug as inmueble_slug;
-#[allow(unused_imports)]
-pub(crate) use inmueble::vinculo as inmueble_vinculo;
-#[allow(unused_imports)]
-pub(crate) use marketplace::burbujas as marketplace_burbujas;
-#[allow(unused_imports)]
-pub(crate) use marketplace::cabecera as marketplace_cabecera;
-#[allow(unused_imports)]
-pub(crate) use marketplace::compartida as marketplace_compartida;
-#[allow(unused_imports)]
-pub(crate) use marketplace::texto as marketplace_texto;
-#[allow(unused_imports)]
-pub(crate) use marketplace::vuelo as marketplace_vuelo;
-#[allow(unused_imports)]
-pub(crate) use mensajeria::alerta_whatsapp;
-#[allow(unused_imports)]
-pub(crate) use mensajeria::canal_resolver;
-#[allow(unused_imports)]
-pub(crate) use mensajeria::outbox_idempotency;

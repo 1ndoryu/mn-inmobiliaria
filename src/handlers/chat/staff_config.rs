@@ -21,7 +21,8 @@ use super::staff::fail;
  * (outbox_idempotency, base de F5) y el tono del turno (`whatsapp_acuse /
  * fallback / aviso_asesor_texto`, que `turno::leer_tono` lee con fallback a
  * las constantes). `GLORY_ALERT_GATEWAY_URL` queda env a propósito (URL de
- * infra, no editable por UI); `prompt_extra` sigue guardada sin lector. */
+ * infra, no editable por UI); `prompt_extra` es la palanca de tono en caliente,
+ * que anexa `glory-agent/src/transport/mod.rs:382` al system prompt. */
 pub(super) const CLAVES_CONFIG: &[&str] = &[
     "prompt_extra",
     "contacto_telefono",

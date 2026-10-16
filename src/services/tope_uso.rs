@@ -16,7 +16,7 @@
  * `evaluar_tope` es puro para testear la decisión sin BD. El `vigilar`
  * corre cada 5 min en segundo plano junto al watcher de alertas. */
 
-use super::outbox_idempotency::{clave_idempotencia, corte_cubre, debe_usar_clave, encolar};
+use super::mensajeria::outbox_idempotency::{clave_idempotencia, corte_cubre, debe_usar_clave, encolar};
 use sqlx::PgPool;
 
 const CLAVE_TOPE: &str = "ia_tope_tokens_dia";
