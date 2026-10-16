@@ -1,8 +1,14 @@
 # Plan — Correcciones de la IA de atención al cliente (16AA-9)
 
 Origen: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md`
-(revisión del 2026-10-16, §10 áreas de mejora priorizadas). Estado: **en
-ejecución.** Próximo paso: F1.
+(revisión del 2026-10-16, §10 áreas de mejora priorizadas).
+
+> Estado: **cerrado el 2026-10-16** (16AA-9, `Agente/completados/tareas-2026-10-16.md`).
+> F1–F5 hechas y verificadas; F6 (`09AA-8`) no entra aquí: sigue esperando al
+> cierre de `12AA-1` y vive en el roadmap (§2 y §6). Dos correcciones de premisa
+> quedaron escritas en la entrada de cierre: F5 no unifica `agent_usage` (no es
+> una tabla) ni `mp_uso_minuto` (cuenta peticiones, no tokens), y el modelo del
+> chat no lo elige MN sino el crate `glory-agent`.
 
 ## Decisiones de la usuaria (2026-10-16)
 
