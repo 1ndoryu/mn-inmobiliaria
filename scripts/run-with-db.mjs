@@ -41,14 +41,22 @@ function liberarBinariosDeLaRama(targetDir) {
   }
 }
 
+/* [16AA-10] El portátil ya no lleva toolchain de Rust (retirado el 2026-10-16):
+ * las migraciones de la BD local (el origen) las aplica el binario suelto de
+ * `sqlx-cli`, que no necesita cargo. Vive fuera de `~/.cargo/bin` a propósito. */
+function sqlxCommand() {
+  const suelto = path.join('C:', 'Users', 'Owner', 'bin', 'sqlx', 'sqlx.exe');
+  return existsSync(suelto) ? suelto : 'sqlx.exe';
+}
+
 function migrarBdRama(dbUrl) {
-  const version = spawnSync(cargoCommand(), ['sqlx', '--version'], { encoding: 'utf8' });
+  const version = spawnSync(sqlxCommand(), ['--version'], { encoding: 'utf8' });
   if (version.status !== 0) {
-    console.warn('[db] Aviso: `cargo-sqlx` no instalado; omito migracion previa.');
-    console.warn('[db] Instala con `cargo install sqlx-cli --no-default-features --features postgres`.');
+    console.warn('[db] Aviso: `sqlx-cli` no instalado; omito migracion previa.');
+    console.warn('[db] Instala el binario suelto en C:\\Users\\Owner\\bin\\sqlx\\sqlx.exe.');
     return;
   }
-  const mig = spawnSync(cargoCommand(), ['sqlx', 'migrate', 'run'], {
+  const mig = spawnSync(sqlxCommand(), ['migrate', 'run'], {
     stdio: 'inherit',
     env: { ...process.env, DATABASE_URL: dbUrl },
     shell: false,
@@ -244,6 +252,16 @@ if (divergentes.length > 0) {
   process.exit(1);
 }
 migrarBdRama(dbUrl);
+
+/* [16AA-10] Sin toolchain en el portátil este script ya no compila: se sale en
+ * claro con la vía remota, en vez de fallar con un ENOENT de cargo. La
+ * migración de arriba sí se conserva: es lo único que la BD local necesita. */
+if (spawnSync(cargoCommand(), ['--version'], { encoding: 'utf8' }).status !== 0) {
+  console.error('[db] No hay cargo en el portátil (toolchain retirado el 2026-10-16).');
+  console.error('[db] Compila y prueba en la 89: `node scripts/run-cargo.mjs <subcomando> [...args]`.');
+  process.exit(1);
+}
+
 /* Solo para `test`: con `run` el panel de la usuaria mostraba el inmueble
  * ficticio y, al borrarlo, volvía en el siguiente arranque. */
 if (branch !== 'main' && branch !== 'master' && cargoArgs[0] === 'test') sembrarBdRama(dbUrl);
