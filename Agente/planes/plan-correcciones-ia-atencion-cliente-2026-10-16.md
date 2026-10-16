@@ -1,8 +1,17 @@
 # Plan — Correcciones de la IA de atención al cliente (16AA-9)
 
 Origen: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md`
-(revisión del 2026-10-16, §10 áreas de mejora priorizadas). Estado: **plan escrito,
-ninguna fase empezada.** Próximo paso: F1.
+(revisión del 2026-10-16, §10 áreas de mejora priorizadas). Estado: **en
+ejecución.** Próximo paso: F1.
+
+## Decisiones de la usuaria (2026-10-16)
+
+- **Alcance:** F1 a F4 de una, en tanda. F5 y F6 después.
+- **F5 — uso de la IA:** **unificar en una vista de lectura**. Una sola respuesta
+  a «cuánto gasta la IA», sin tocar las tablas que ya escriben ni el camino de
+  escritura de ninguna de las dos contabilidades.
+- **F6 — `09AA-8`:** sigue esperando al cierre de `12AA-1`, como se decidió el
+  2026-10-12. No se toca ahora.
 
 ## Objetivo
 
@@ -77,18 +86,19 @@ Router / estado de proveedores / config admin, en tres ficheros.
 del gate** antes de seguir. Si para entonces F4 no está hecha, hacerla primero
 que nada.
 
-### F5 — Uso y contrato del asistente (P3.7 y P3.8) · decidir antes de tocar
+### F5 — Uso unificado (P3.7) · decidido: vista de lectura
 
-- Uso: `agent_usage` (crate) y `mp_uso_minuto` (marketplace) son dos
-  contabilidades que no se suman, así que «cuánto gasta la IA» no tiene una
-  respuesta única. Decidir: unificarlas (vista o tabla de lectura) **o** dejar
-  escrito por qué no se suman.
-- Contrato: valorar si el asistente de Marketplace adopta el contrato del motor
-  (prompt por `PromptConfig`, uso por el mismo contador) **sin** adoptar el bucle
-  de tools.
+`agent_usage` (crate) y `mp_uso_minuto` (marketplace) son dos contabilidades que
+no se suman. **Decidido el 2026-10-16 (la usuaria): unificarlas en una vista de
+lectura**, sin tocar las tablas ni el camino de escritura de ninguna de las dos.
 
-**DoD:** una respuesta única a «cuánto gasta la IA» o su doc de decisión, y la
-decisión del contrato escrita antes de tocar nada.
+**DoD:** una consulta da «cuánto gasta la IA» en un solo número, y los dos
+productores siguen escribiendo donde escriben hoy.
+
+Aparte, y sin tocar código hasta decidirlo: valorar si el asistente de
+Marketplace adopta el contrato del motor (prompt por `PromptConfig`, uso por el
+mismo contador) **sin** adoptar el bucle de tools. Es el único punto donde su
+infraestructura diverge del resto.
 
 ### F6 — `09AA-8`, webhook fail-closed (P3.9)
 
@@ -99,10 +109,10 @@ No se toca hasta entonces.
 
 ## Orden y por qué
 
-F1 → F2 → F3 → F4 → F5, y F6 cuando se desbloquee. F1 primero porque es resta sin
-riesgo y quita ruido del gate. F2 antes que F3 y F4 porque los troceados deben
-dejar el modelo y los prompts ya en un sitio, no volver a dispersarlos. F5 es
-decisión, no código: no bloquea a nadie.
+F1 → F2 → F3 → F4 en una tanda (decidido el 2026-10-16), F5 después y F6 cuando
+se desbloquee. F1 primero porque es resta sin riesgo y quita ruido del gate. F2
+antes que F3 y F4 porque los troceados deben dejar el modelo y los prompts ya en
+un sitio, no volver a dispersarlos.
 
 Cada fase es un bloque coherente con **su** commit y **su** entrada en
 `Agente/completados/tareas-2026-10-16.md` (o del día que toque), y las de código
