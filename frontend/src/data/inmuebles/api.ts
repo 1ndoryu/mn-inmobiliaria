@@ -9,8 +9,11 @@ import type { CopyInmueble, Inmueble, MejoraServidor } from '../../domain/inmueb
 import { emitirEvento } from '../../platform/ventana';
 import { PRESETS_EXPORTACION, type RecetaPublicidad } from '../../domain/plantilla-publicidad';
 
-export const API_URL =
-  ((import.meta.env.VITE_API_URL as string | undefined)?.trim().replace(/\/$/, '')) || 'http://127.0.0.1:3110'; // [03AA-1] local en 3110: el 3000 lo ocupa glory-pulse.
+/* [16AA-18] En build el backend sirve tambien el front (mismo origen), asi que la base es
+ * relativa; en dev el front va en su puerto y necesita la absoluta. `VITE_API_URL` manda en
+ * los dos casos (la ficha lo fija en dev: `/rust`, que vite proxya al backend). */
+const BASE_ENV = (import.meta.env.VITE_API_URL as string | undefined)?.trim().replace(/\/$/, '');
+export const API_URL = BASE_ENV ?? (import.meta.env.PROD ? '' : 'http://127.0.0.1:3110'); // [03AA-1] local en 3110: el 3000 lo ocupa glory-pulse.
 
 const CLAVE_TOKEN = 'inmobiliaria:token';
 const CLAVE_EMAIL = 'inmobiliaria:email';

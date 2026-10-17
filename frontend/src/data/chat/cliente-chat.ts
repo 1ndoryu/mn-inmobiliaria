@@ -4,6 +4,8 @@
  * [169A-6] Se suman `pedirInfo` (telefono/WhatsApp configurados) y
  * `enviarContacto` (el visitante deja nombre+telefono y staff lo llama). */
 
+import { API_URL } from '../inmuebles/api';
+
 export interface MensajeServidor {
   id: string;
   session_id: string;
@@ -32,13 +34,20 @@ export function aChat(m: MensajeServidor): MensajeChat {
 
 const CLAVE_SESION = 'inmobiliaria:chat-sesion';
 
+/* [16AA-18] Una sola regla de base para todo el front (ver `api.ts`): relativa en build
+ * (el backend sirve tambien el front, mismo origen) y absoluta en dev. */
 export function baseApi(): string {
-  const env = import.meta.env as Record<string, string | undefined>;
-  return (env['VITE_API_URL'] as string | undefined)?.trim().replace(/\/$/, '') || 'http://127.0.0.1:3110'; // [03AA-1] local en 3110: el 3000 lo ocupa glory-pulse.
+  return API_URL;
 }
 
 export function urlWs(sesion: string): string {
-  return `${baseApi().replace(/^http/, 'ws')}/api/agent/ws?session_id=${sesion}`;
+  /* [por que] `WebSocket` no acepta una URL relativa: sin base (build, mismo origen) se
+   * compone desde la del documento, con `wss` si la pagina va por https. */
+  const base = baseApi();
+  const origen = base
+    ? base.replace(/^http/, 'ws')
+    : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+  return `${origen}/api/agent/ws?session_id=${sesion}`;
 }
 
 /* La sesion sobrevive al cierre del navegador: el historial se recupera
