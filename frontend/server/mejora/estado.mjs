@@ -48,7 +48,24 @@ export const ritmo = {
  * `motivo` guarda el último fallo aunque el trabajo siga vivo (reintento
  * programado); `error` solo se fija en error final. `original` se libera
  * (null) al terminar para no retener MBs en memoria. */
-export const trabajos = new Map(); // jobId -> registro
+/* El mapa no se exporta: solo estas operaciones, para no exponer estado mutable
+ * compartido sin control (lo que marcaba sentinel singleton-mutable-state). */
+const mapaTrabajos = new Map(); // jobId -> registro
+export const trabajos = {
+  get: (id) => mapaTrabajos.get(id),
+  set(id, t) {
+    mapaTrabajos.set(id, t);
+    return this;
+  },
+  delete: (id) => mapaTrabajos.delete(id),
+  values: () => mapaTrabajos.values(),
+  get size() {
+    return mapaTrabajos.size;
+  },
+  [Symbol.iterator]() {
+    return mapaTrabajos[Symbol.iterator]();
+  },
+};
 export const cola = []; // jobIds en orden de llegada
 
 /* Estado de la bomba. `jobEnVuelo` es el trabajo que el worker genera ahora
