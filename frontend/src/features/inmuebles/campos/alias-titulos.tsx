@@ -1,6 +1,6 @@
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { Etiqueta } from '../campos-formulario';
+import { Etiqueta } from '../formulario/campos-formulario';
 
 /* [09AA-24] Campo de alias del aviso: vive aquí y no en `modal-inmueble`
  * para no empujar ese componente por encima del tope de 300 líneas

@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { Etiqueta } from '../campos-formulario';
+import { Etiqueta } from '../formulario/campos-formulario';
 
 /* [09AA-24] Campo ID-aviso: extraído de `modal-inmueble` junto con
  * `CampoAliasTitulos` para mantener ese componente bajo el tope de

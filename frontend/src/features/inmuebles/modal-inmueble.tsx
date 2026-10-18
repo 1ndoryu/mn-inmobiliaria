@@ -7,12 +7,12 @@ import {
   type Inmueble,
   type InmuebleDraft,
 } from '@/domain/inmueble';
-import { BannerBorrador, Etiqueta } from './campos-formulario';
+import { BannerBorrador, Etiqueta } from './formulario/campos-formulario';
 import { CampoAliasTitulos } from './campos/alias-titulos';
 import { CampoMarketplaceId } from './campos/marketplace-id';
-import { FichaFormulario } from './ficha-formulario';
+import { FichaFormulario } from './formulario/ficha-formulario';
 import { useFichaInmueble } from '@/hooks/inmuebles/use-ficha-inmueble';
-import { FotosFormulario } from './fotos-formulario';
+import { FotosFormulario } from './formulario/fotos-formulario';
 import { ModalIA } from './modal-ia';
 import { Button } from '@/components/ui/button';
 import {

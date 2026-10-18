@@ -8,8 +8,8 @@ import type { Inmueble } from '@/domain/inmueble';
 import type { EntradaSync, EstadoRemotoSync, EstadoSync } from '@/data/inmuebles/sync';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonPlano } from '@/components/ui/button';
-import { DialogoOperacionSync, type OperacionSync } from '@/features/inmuebles/dialogo-operacion-sync';
-import { ModalDiferenciasSync } from '@/features/inmuebles/modal-diferencias-sync';
+import { DialogoOperacionSync, type OperacionSync } from '@/features/inmuebles/sincronizacion/dialogo-operacion-sync';
+import { ModalDiferenciasSync } from '@/features/inmuebles/sincronizacion/modal-diferencias-sync';
 import { cn } from '@/lib/utils';
 
 const ETIQUETA_REMOTO: Record<EstadoRemotoSync['estado'], string> = {

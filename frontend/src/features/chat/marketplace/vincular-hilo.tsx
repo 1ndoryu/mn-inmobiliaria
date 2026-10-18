@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { esMarketplaceIdValido, type Inmueble } from '@/domain/inmueble';
-import { Etiqueta } from '@/features/inmuebles/campos-formulario';
+import { Etiqueta } from '@/features/inmuebles/formulario/campos-formulario';
 
 export function VincularHilo({
   inmuebles,
