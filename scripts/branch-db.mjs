@@ -93,16 +93,42 @@ function quoteSqlIdentifier(value) {
  * alineado). Las filas salen separadas por `\n` y los campos por `|`. */
 export function consultaPsql(dbUrl) {
   const psqlBin = findPsql();
-  const match = dbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
-  if (!match) {
-    throw new Error(`No se pudo parsear DATABASE_URL: ${dbUrl}`);
-  }
-  const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
+  const d = parsearDbUrl(dbUrl);
   return (sql) => execFileSync(
     psqlBin,
-    ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName, '-t', '-A', '-c', sql],
-    { env: { ...process.env, PGPASSWORD: dbPass }, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+    [...argsPsql(d), '-t', '-A', '-c', sql],
+    { env: entornoPsql(d), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
   );
+}
+
+/* Desglosa `postgres://usuario[:clave]@host[:puerto]/bd`. El host puede ser un
+ * socket Unix codificado (`%2Fvar%2Frun%2Fpostgresql`): entonces no hay clave
+ * ni puerto (el rol entra por peer). */
+export function parsearDbUrl(url) {
+  const m = url.match(/^postgres(?:ql)?:\/\/([^:@/]+)(?::([^@]*))?@([^:/]+)(?::(\d+))?\/(.+)$/);
+  if (!m) {
+    throw new Error(`No se pudo parsear DATABASE_URL: ${url}`);
+  }
+  const [, user, pass = '', hostCodificado, port = '', name] = m;
+  const socket = /^%2f/i.test(hostCodificado);
+  return { user, pass, host: socket ? decodeURIComponent(hostCodificado) : hostCodificado, port, name, socket };
+}
+
+/* Reconstruye la URL, opcionalmente con otro nombre de BD. */
+export function urlDb(d, name = d.name) {
+  const auth = d.pass ? `${d.user}:${d.pass}` : d.user;
+  const host = d.socket ? encodeURIComponent(d.host) : d.host;
+  return `postgres://${auth}@${host}${d.port ? `:${d.port}` : ''}/${name}`;
+}
+
+/* Argumentos de conexión de psql para `d` y la BD `db`. */
+export function argsPsql(d, db = d.name) {
+  return ['-U', d.user, '-h', d.host, ...(d.port ? ['-p', d.port] : []), '-d', db];
+}
+
+/* Entorno de psql: PGPASSWORD solo si hay clave (con socket no la hay). */
+export function entornoPsql(d) {
+  return d.pass ? { ...process.env, PGPASSWORD: d.pass } : { ...process.env };
 }
 
 /* [10AA-1] Versiones de `_sqlx_migrations` sin fichero en migrations/ (BD de
@@ -180,16 +206,12 @@ export function getBranchDbContext({ verbose = true, ensureExists = true } = {})
     throw new Error('DATABASE_URL no encontrado en .env');
   }
 
-  const match = baseDbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
-  if (!match) {
-    throw new Error(`No se pudo parsear DATABASE_URL: ${baseDbUrl}`);
-  }
-  const [, dbUser, dbPass, dbHost, dbPort, baseDbName] = match;
+  const base = parsearDbUrl(baseDbUrl);
   /* [10AA-1] El nombre base sale del DATABASE_URL (BD del proyecto), no del
    * `name` de Cargo.toml: en main, `glory_backend` apuntaba a una BD ajena.
    * Las ramas añaden su slug al nombre base. */
-  const dbName = isDefaultBranch ? baseDbName : `${baseDbName}_${branchSlug}`;
-  const dbUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${dbName}`;
+  const dbName = isDefaultBranch ? base.name : `${base.name}_${branchSlug}`;
+  const dbUrl = urlDb(base, dbName);
 
   const cargoTargetBase =
     process.env.CARGO_TARGET_DIR_BASE ||
@@ -211,10 +233,10 @@ export function getBranchDbContext({ verbose = true, ensureExists = true } = {})
         console.warn('[db] psql no esta disponible; si la BD no existe, el backend fallara al conectar.');
       }
     } else {
-      const psqlEnv = { ...process.env, PGPASSWORD: dbPass };
+      const psqlEnv = entornoPsql(base);
       const psql = (sql, db = 'postgres') => execFileSync(
         psqlBin,
-        ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', db, '-t', '-A', '-c', sql],
+        [...argsPsql(base, db), '-t', '-A', '-c', sql],
         { env: psqlEnv, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
       );
 
@@ -230,7 +252,7 @@ export function getBranchDbContext({ verbose = true, ensureExists = true } = {})
 
   /* [13AA-8] `baseDbUrl` es la BD de main (la que usa el laboratorio). Las
    * ramas la necesitan para copiar sus tokens (ver run-with-db.mjs). */
-  const baseUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${baseDbName}`;
+  const baseUrl = urlDb(base);
   return { branch, branchSlug, pkgName, isDefaultBranch, dbName, dbUrl, baseDbUrl: baseUrl, cargoTargetBase, cargoTargetDir };
 }
 

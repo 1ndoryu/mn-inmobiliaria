@@ -7,7 +7,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checksumsDivergentes, findPsql, getBranchDbContext, versionesAjenas } from './branch-db.mjs';
+import { argsPsql, checksumsDivergentes, entornoPsql, findPsql, getBranchDbContext, parsearDbUrl, versionesAjenas } from './branch-db.mjs';
 import { sincronizarClaveDevSilencioso } from './clave-dev.mjs';
 
 function cargoCommand() {
@@ -84,10 +84,10 @@ function sembrarBdRama(dbUrl) {
     console.warn('[db] Aviso: psql no disponible; omito la semilla de tests.');
     return;
   }
-  const match = dbUrl.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
-  const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
-  const conexion = ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName];
-  const entorno = { ...process.env, PGPASSWORD: dbPass };
+  const d = parsearDbUrl(dbUrl);
+  const dbName = d.name;
+  const conexion = argsPsql(d);
+  const entorno = entornoPsql(d);
   /* Sin esquema (migraciones no aplicadas: `cargo sqlx` ausente) no hay nada
    * que sembrar; la semilla se aplicará en la siguiente pasada. */
   const esquema = spawnSync(psqlBin, [...conexion, '-t', '-A', '-c', "SELECT to_regclass('public.inmuebles') IS NOT NULL"], { encoding: 'utf8', env: entorno, shell: false });
@@ -112,9 +112,8 @@ function sembrarBdRama(dbUrl) {
 
 /* Parámetros de conexión psql a partir de una URL postgres://. */
 function conexionPsql(url) {
-  const match = url.match(/^postgres(?:ql)?:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/);
-  const [, dbUser, dbPass, dbHost, dbPort, dbName] = match;
-  return { args: ['-U', dbUser, '-h', dbHost, '-p', dbPort, '-d', dbName], env: { ...process.env, PGPASSWORD: dbPass } };
+  const d = parsearDbUrl(url);
+  return { args: argsPsql(d), env: entornoPsql(d) };
 }
 
 /* [13AA-9] Copia las filas de `tabla` de main a la BD de la rama sin borrar
