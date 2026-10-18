@@ -62,7 +62,7 @@ const PROMPT_ANTERIOR =
 
 /* [15AA-11] Base del prompt actual: exposicion y nada mas, con la prohibicion
  * explicita de filtros y tonos calidos. Mismo texto (a mano) en
- * `scripts/datos/inmueble.mjs`, que no puede importar TypeScript. */
+ * `scripts/datos/inmueble/mejorar.mjs`, que no puede importar TypeScript. */
 const PROMPT_SIN_ANGULO = [
   'Mejora esta foto inmobiliaria a fotografia profesional:',
   'sube nitidez y resolucion, arregla la exposicion (sombras y altas luces)',

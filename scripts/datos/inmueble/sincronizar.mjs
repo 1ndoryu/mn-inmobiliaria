@@ -1,0 +1,72 @@
+// Subcomando `push`: empuja un slug de local a prod (núcleo, estado y fotos faltantes).
+import { api, leerEnv, login, magia, nucleo, ENV_DEFECTO } from '../../dev/lib-api.mjs';
+import { diffNucleo, listar, REQUERIDAS } from './comun.mjs';
+
+/* F4: empuja un slug de local a prod (núcleo + estado + fotos faltantes).
+ * Sin --dry-run no toca nada. Pareo de fotos por (origen, orden). */
+export async function cmdPush(o) {
+  if (!o.slug) {
+    console.error('FALLO preflight: falta --slug.');
+    process.exit(2);
+  }
+  const seco = o['dry-run'] === true || o['dry-run'] === '';
+  const sobrescribir = o.sobrescribir === true || o.sobrescribir === '';
+  const cfg = leerEnv(o.env ?? ENV_DEFECTO, REQUERIDAS);
+  const LOCAL = (cfg.LOCAL_API ?? 'http://127.0.0.1:3110').replace(/\/$/, '');
+  const PROD = (cfg.PROD_BASE ?? 'https://mn-inmobiliaria.com').replace(/\/$/, '');
+  const tL = await login(LOCAL, cfg.LOCAL_EMAIL, cfg.LOCAL_PASSWORD, 'local', o.env ?? ENV_DEFECTO);
+  const tP = await login(PROD, cfg.PROD_EMAIL, cfg.PROD_PASSWORD, 'prod', o.env ?? ENV_DEFECTO);
+  const loc = (await listar(LOCAL, tL)).find((i) => i.slug === o.slug);
+  if (!loc) {
+    console.error(`FALLO: slug ${o.slug} no existe en local.`);
+    process.exit(2);
+  }
+  let pr = (await listar(PROD, tP)).find((i) => i.slug === o.slug) ?? null;
+  const plan = [];
+  if (!pr) {
+    plan.push('crear inmueble en prod');
+    if (!seco) {
+      const creado = await api(PROD, '/api/admin/inmuebles', { metodo: 'POST', token: tP, json: {} });
+      await api(PROD, `/api/admin/inmuebles/${creado.id}`, { metodo: 'PUT', token: tP, json: nucleo(loc) });
+      pr = (await listar(PROD, tP)).find((i) => i.slug === o.slug);
+    }
+  } else {
+    const dif = diffNucleo(pr, loc);
+    if (dif.length || sobrescribir) {
+      plan.push(`actualizar núcleo (${dif.length ? dif.join(',') : 'forzado'})`);
+      if (!seco) await api(PROD, `/api/admin/inmuebles/${pr.id}`, { metodo: 'PUT', token: tP, json: nucleo(loc) });
+    }
+    if (pr.publicado !== loc.publicado) {
+      plan.push(`publicado=${loc.publicado}`);
+      if (!seco) await api(PROD, `/api/admin/inmuebles/${pr.id}/publicacion`, { metodo: 'PATCH', token: tP, json: { publicado: loc.publicado } });
+    }
+    if (sobrescribir && pr.fotos.length) {
+      plan.push(`borrar ${pr.fotos.length} fotos de prod`);
+      if (!seco) for (const f of pr.fotos) await api(PROD, `/api/admin/fotos/${f.id}`, { metodo: 'DELETE', token: tP });
+      pr = { ...pr, fotos: [] };
+    }
+  }
+  const enProd = new Set((pr?.fotos ?? []).map((f) => `${f.origen}:${f.orden}`));
+  const faltan = loc.fotos.filter((f) => !enProd.has(`${f.origen}:${f.orden}`));
+  plan.push(`subir ${faltan.length}/${loc.fotos.length} fotos`);
+  if (!seco) {
+    pr ??= (await listar(PROD, tP)).find((i) => i.slug === o.slug);
+    for (const f of faltan) {
+      const bytes = await api(LOCAL, f.url, { token: tL, bytes: true });
+      const ext = magia(bytes) ?? 'jpg';
+      await api(PROD, `/api/admin/fotos/upload?inmueble_id=${pr.id}&filename=${encodeURIComponent(`${f.origen}-${f.orden + 1}.${ext}`)}&origen=${f.origen}&orden=${f.orden}`, {
+        metodo: 'POST', token: tP, bytes,
+      });
+    }
+  }
+  console.log(`${seco ? '[dry-run] ' : ''}push ${o.slug}: ${plan.join(' | ') || 'sin cambios'}`);
+  if (!seco) {
+    const fin = (await listar(PROD, tP)).find((i) => i.slug === o.slug);
+    const pub = await fetch(`${PROD}/api/public/inmuebles/${o.slug}`, { signal: AbortSignal.timeout(15000) });
+    console.log(`Push OK: prod=${fin.fotos.length} fotos publicado=${fin.publicado} publico=${pub.ok}`);
+    if (!pub.ok || fin.fotos.length !== loc.fotos.length) {
+      console.error('FALLO verificación post-push: revisa el slug en prod.');
+      process.exit(1);
+    }
+  }
+}

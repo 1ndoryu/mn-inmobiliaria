@@ -52,6 +52,7 @@ desktop.ini
 /scripts/datos/*
 !/scripts/datos/importar-rescate.mjs
 !/scripts/datos/inmueble.mjs
+!/scripts/datos/inmueble/
 !/scripts/datos/pelar-exif.py
 !/scripts/calidad/
 /scripts/calidad/*
