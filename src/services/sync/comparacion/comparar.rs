@@ -285,7 +285,6 @@ mod pruebas {
             id: Uuid::nil(),
             titulo: "Apto".into(),
             updated_at: Utc.timestamp_opt(1_800_000_000 + seg, 0).unwrap(),
-            marketplace_id: None,
             alias_titulos: vec![],
             campos: campos
                 .iter()
@@ -453,10 +452,25 @@ mod pruebas {
     fn datos_informativos_no_cambian_el_estado() {
         let mut a = h(&[("titulo", "x")], vec![], 0);
         let mut b = a.clone();
-        a.marketplace_id = Some("1".into());
         a.alias_titulos = vec!["alias".into()];
         b.id = Uuid::new_v4();
         b.titulo = "otro titulo para mostrar".into();
+        assert_eq!(comparar(&a, &b, None).estado, Estado::Igual);
+    }
+
+    /// [18AA-3] El vínculo dejó de ser informativo: si un lado lo tiene y el otro
+    /// no, el inmueble no está igual y la diferencia se puede resolver desde el
+    /// panel como cualquier campo.
+    #[test]
+    fn el_vinculo_si_cambia_el_estado() {
+        let mut a = h(&[("titulo", "x"), ("marketplace_id", "123")], vec![], 0);
+        let mut b = h(&[("titulo", "x"), ("marketplace_id", "")], vec![], 0);
+        b.updated_at = a.updated_at;
+        let r = comparar(&a, &b, None);
+        assert_eq!(r.estado, Estado::Diferente);
+        assert_eq!(claves(&r), vec![("marketplace_id", Lado::Indeterminado)]);
+        // Y sin vínculo en ninguno de los dos, coinciden.
+        b.campos.insert("marketplace_id".into(), a.campos["marketplace_id"].clone());
         assert_eq!(comparar(&a, &b, None).estado, Estado::Igual);
     }
 

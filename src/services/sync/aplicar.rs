@@ -399,7 +399,11 @@ fn campos_local(
     inmueble: &Inmueble,
     ficha: Option<&(Json<Value>, Option<f64>)>,
 ) -> BTreeMap<String, Value> {
+    /* [18AA-3] El vínculo con Marketplace es un campo más desde que la app vive
+     * conectada a producción: va en el mismo `cuerpo` del PUT, y `null` (sin
+     * vínculo aquí) desvincula allí, que es lo que se espera al sincronizar. */
     let mut m = BTreeMap::new();
+    m.insert("marketplace_id".into(), json!(inmueble.marketplace_id));
     m.insert("titulo".into(), json!(inmueble.titulo));
     m.insert("descripcion".into(), json!(inmueble.descripcion));
     m.insert("ubicacion".into(), json!(inmueble.ubicacion));
@@ -439,7 +443,10 @@ fn campos_servidor(
     inmueble: &InmuebleRemoto,
     ficha: Option<&FichaRemota>,
 ) -> BTreeMap<String, Value> {
+    /* [18AA-3] Igual que en el local: el vínculo viaja en el `cuerpo` del PUT y
+     * `null` desvincula (tri-estado). */
     let mut m = BTreeMap::new();
+    m.insert("marketplace_id".into(), json!(inmueble.marketplace_id));
     m.insert("titulo".into(), json!(inmueble.titulo));
     m.insert("descripcion".into(), json!(inmueble.descripcion));
     m.insert("ubicacion".into(), json!(inmueble.ubicacion));

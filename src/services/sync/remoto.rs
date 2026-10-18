@@ -289,8 +289,10 @@ pub async fn crear_inmueble(
 
 /// Cambia campos del inmueble en el servidor. `cambios` es un objeto JSON con
 /// solo los campos a tocar (el PUT del servidor es parcial: lo que no viaja se
-/// queda como está). Nunca lleva `marketplace_id` ni `alias_titulos`: son datos
-/// propios de cada entorno. [F2 de 14AA-2]
+/// queda como está). Nunca lleva `alias_titulos`: es dato propio de cada
+/// entorno. [F2 de 14AA-2] El `marketplace_id` sí viaja desde el 2026-10-18
+/// (18AA-3): el vínculo tiene que estar en los dos lados, y su PUT es
+/// tri-estado, así que un `null` aquí desvincula allí.
 pub async fn actualizar_inmueble(
     cred: &Credenciales,
     id: Uuid,

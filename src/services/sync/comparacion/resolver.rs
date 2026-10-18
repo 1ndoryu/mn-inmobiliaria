@@ -192,7 +192,6 @@ mod pruebas {
             id: Uuid::nil(),
             titulo: "Apto".into(),
             updated_at: Utc.timestamp_opt(1_800_000_000 + seg, 0).unwrap(),
-            marketplace_id: None,
             alias_titulos: vec![],
             campos: BTreeMap::new(),
             fotos: vec![],

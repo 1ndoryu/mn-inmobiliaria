@@ -61,6 +61,8 @@ const NOMBRES_CAMPO: Record<string, string> = {
   metros_terreno: 'M² terreno',
   estado: 'Estado',
   publicado: 'Publicado',
+  // [18AA-3] El vínculo con Marketplace es un campo sincronizable más.
+  marketplace_id: 'Vínculo con Marketplace',
   copy_corta: 'Copy corta',
   copy_larga: 'Copy larga',
   copy_modelo: 'Copy modelo',

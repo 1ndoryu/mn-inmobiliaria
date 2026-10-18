@@ -19,14 +19,24 @@ use uuid::Uuid;
 use crate::models::InmuebleRow;
 use crate::repositories::sync::SyncRepository;
 
-pub const VERSION: u32 = 1;
+/// [18AA-3] 2: la huella incorpora `marketplace_id`. Un servidor con la 1 no lo
+/// manda, y sin el campo el vínculo se leería como diferencia permanente; con la
+/// versión distinta se informa «sin soporte», que es lo que de verdad pasa.
+pub const VERSION: u32 = 2;
 
 /// Marca persistida en `fotos.sha256` cuando el archivo ya no existe en el
 /// volumen: evita reintentar la lectura en cada consulta.
 pub const SIN_ARCHIVO: &str = "sin-archivo";
 
-/// Campos huellados, en el orden en que se muestran. `marketplace_id` y
-/// `alias_titulos` no están: son datos propios de cada entorno (informativos).
+/// Campos huellados, en el orden en que se muestran. `alias_titulos` no está:
+/// es dato propio de cada entorno (informativo).
+///
+/// [18AA-3] `marketplace_id` **sí** está desde que la app vive conectada a
+/// producción: los borradores del Marketplace se cachean por ese id en los dos
+/// lados, así que un vínculo que solo exista en uno hace que el mismo aviso se
+/// lea como dos inmuebles distintos. Dejó de ser informativo: es un campo más,
+/// con su diferencia, su fila en el plan y su escritura (el PUT de la API es
+/// tri-estado, así que también se puede desvincular desde el panel).
 pub const CAMPOS: &[&str] = &[
     "titulo",
     "descripcion",
@@ -42,6 +52,7 @@ pub const CAMPOS: &[&str] = &[
     "metros_terreno",
     "estado",
     "publicado",
+    "marketplace_id",
     "copy_corta",
     "copy_larga",
     "copy_modelo",
@@ -112,8 +123,8 @@ pub struct InmuebleHuella {
     pub id: Uuid,
     pub titulo: String,
     pub updated_at: DateTime<Utc>,
-    /// Informativos: propios de cada entorno, nunca cambian el estado.
-    pub marketplace_id: Option<String>,
+    /// Informativo: propio de cada entorno, nunca cambia el estado. El vínculo
+    /// con Marketplace no está aquí: viaja dentro de `campos` (18AA-3).
     pub alias_titulos: Vec<String>,
     /// Campo → sha256 de su valor canónico.
     pub campos: BTreeMap<String, String>,
@@ -156,6 +167,9 @@ pub fn valores_canonicos(f: &InmuebleRow) -> BTreeMap<&'static str, String> {
     m.insert("metros_terreno", canon_num(f.metros_terreno));
     m.insert("estado", canon_texto(&f.estado));
     m.insert("publicado", f.publicado.to_string());
+    /* [18AA-3] Sin vínculo el valor canónico es la cadena vacía (como la copy
+     * ausente): dos entornos sin vínculo coinciden, y uno con vínculo difiere. */
+    m.insert("marketplace_id", texto_opc(&f.marketplace_id));
     m.insert("copy_corta", texto_opc(&f.copy_corta));
     m.insert("copy_larga", texto_opc(&f.copy_larga));
     m.insert("copy_modelo", texto_opc(&f.copy_modelo));
@@ -180,7 +194,6 @@ pub fn huella_de(f: &InmuebleRow, fotos: Vec<FotoHuella>) -> InmuebleHuella {
         id: f.id,
         titulo: f.titulo.clone(),
         updated_at: f.updated_at,
-        marketplace_id: f.marketplace_id.clone(),
         alias_titulos: f.alias_titulos.clone(),
         campos,
         fotos,
@@ -298,12 +311,24 @@ mod pruebas {
         otra.id = Uuid::new_v4();
         otra.created_at = Utc::now();
         otra.updated_at = Utc::now();
-        otra.marketplace_id = Some("123".into());
         otra.alias_titulos = vec!["Otro nombre".into()];
         assert_eq!(
             huella_de(&otra, vec![]).campos,
             huella_de(&fila(), vec![]).campos
         );
+    }
+
+    /// [18AA-3] El vínculo sí entra en la huella: es lo que permite que el panel
+    /// vea que un lado está vinculado y el otro no.
+    #[test]
+    fn el_vinculo_cambia_la_huella() {
+        let mut con_vinculo = fila();
+        con_vinculo.marketplace_id = Some("123".into());
+        assert_ne!(
+            huella_de(&con_vinculo, vec![]).campos,
+            huella_de(&fila(), vec![]).campos
+        );
+        assert!(huella_de(&con_vinculo, vec![]).campos.contains_key("marketplace_id"));
     }
 
     #[test]
