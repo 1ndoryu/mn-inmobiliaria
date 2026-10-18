@@ -22,6 +22,7 @@ import { useColaMejora } from '../hooks/mejora/use-cola-mejora';
 import { eliminarMejorada } from '../data/inmuebles/api';
 import type { EstadoInmueble, Inmueble } from '../domain/inmueble';
 import { resumirConexionIA } from '../domain/ia';
+import { descripcionVista, guardarVista, leerVistaGuardada, tituloVista } from './vista-admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -55,31 +56,9 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
   const [viendo, setViendo] = useState<Inmueble | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | EstadoInmueble>('todos');
-  /* La pestaña sobrevive a recargas (admin:vista en localStorage). */
-  const [vista, setVista] = useState<VistaApp>(() => {
-    try {
-      const guardada = localStorage.getItem('admin:vista');
-      if (
-        guardada === 'inmuebles' ||
-        guardada === 'imagenes' ||
-        guardada === 'mensajes' ||
-        guardada === 'publicidad' ||
-        guardada === 'solicitudes'
-      ) {
-        return guardada;
-      }
-    } catch {
-      // Sin almacenamiento se arranca en inmuebles; no bloquea.
-    }
-    return 'inmuebles';
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem('admin:vista', vista);
-    } catch {
-      // Sin almacenamiento la pestaña solo vive en memoria; no bloquea.
-    }
-  }, [vista]);
+  /* La pestaña sobrevive a recargas (ver vista-admin.ts). */
+  const [vista, setVista] = useState<VistaApp>(leerVistaGuardada);
+  useEffect(() => guardarVista(vista), [vista]);
   const [configAbierta, setConfigAbierta] = useState(false);
   /* Indicador de IA de la cabecera [10AA-16]: lee el estado al montar y lo
    * vuelve a leer al cerrar Configuración (mientras está abierta no recarga). */
@@ -167,22 +146,8 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {vista === 'imagenes' ? 'Imágenes' : vista === 'mensajes' ? 'Mensajes' : vista === 'publicidad' ? 'Publicidad' : vista === 'solicitudes' ? 'Solicitudes' : 'Inmuebles'}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {vista === 'imagenes'
-              ? `${fotos.length} foto${fotos.length === 1 ? '' : 's'} con copia original intacta`
-              : vista === 'mensajes'
-                ? 'Conversaciones del chat con IA'
-                : vista === 'publicidad'
-                  ? 'Imágenes listas para redes'
-                  : vista === 'solicitudes'
-                    ? 'Propuestas de «Publicar mi inmueble» para revisar'
-                  : total === 0
-                  ? 'Registra tu primer inmueble'
-                  : `${total} inmueble${total === 1 ? '' : 's'} en el servidor`}
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">{tituloVista(vista)}</h1>
+          <p className="text-sm text-muted-foreground">{descripcionVista(vista, fotos.length, total)}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="hidden text-xs text-muted-foreground sm:inline" title="Sesión iniciada">
