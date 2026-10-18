@@ -72,27 +72,28 @@ pub(crate) async fn reemplazar_avisos_perfil(
 ) -> Result<u64, sqlx::Error> {
     let ids: Vec<String> = avisos.iter().map(|a| a.aviso_id.clone()).collect();
     let mut tx = pool.begin().await?;
-    let ausentes = sqlx::query(
+    // `query!` comprueba el SQL y los tipos contra la BD en compilación (caché `.sqlx`).
+    let ausentes = sqlx::query!(
         "UPDATE marketplace_avisos_perfil SET presente = FALSE \
          WHERE presente AND NOT (aviso_id = ANY($1))",
+        &ids
     )
-    .bind(&ids)
     .execute(&mut *tx)
     .await?
     .rows_affected();
     for a in avisos {
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO marketplace_avisos_perfil (aviso_id, titulo, precio, url, imagen_url, visto_en, presente) \
              VALUES ($1, $2, $3, $4, $5, now(), TRUE) \
              ON CONFLICT (aviso_id) DO UPDATE SET titulo = EXCLUDED.titulo, \
              precio = EXCLUDED.precio, url = EXCLUDED.url, imagen_url = EXCLUDED.imagen_url, \
              visto_en = now(), presente = TRUE",
+            a.aviso_id,
+            a.titulo,
+            a.precio,
+            a.url,
+            a.imagen_url
         )
-        .bind(&a.aviso_id)
-        .bind(&a.titulo)
-        .bind(&a.precio)
-        .bind(&a.url)
-        .bind(&a.imagen_url)
         .execute(&mut *tx)
         .await?;
     }

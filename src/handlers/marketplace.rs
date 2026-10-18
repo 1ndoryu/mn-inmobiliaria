@@ -201,13 +201,6 @@ pub async fn uso(
     Ok((StatusCode::OK, Json(filas)).into_response())
 }
 
-/* [09AA-21] Matriz de `claves_cache`: ID exacto válido (ficha + conocido),
- * ID exacto inexistente (sin ficha, sin fallback al título), sin ID con
- * título que empareja (ficha por título) y UUID legacy intacto (ficha por
- * UUID). Humo contra la BD real de rama (`DATABASE_URL`); sin ella se omite.
- * El borrador jamás se bloquea: los casos negativos dan `SIN_FICHA`. */
+/* Pruebas de BD viva, solo en `cfg(test)`: ver marketplace/pruebas/mod.rs. */
 #[cfg(test)]
-mod pruebas_claves_cache_mp_id;
-/* [10AA-17] Regenerar (`force`): filtro de hit y persistencia con/sin pisar. */
-#[cfg(test)]
-mod pruebas_regenerar_force;
+mod pruebas;

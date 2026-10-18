@@ -2,7 +2,7 @@
 //! [10AA-17] Regenerar (`force`): el hit de IA se descarta y la fila se pisa;
 //! una corrección de la dueña nunca se pisa.
 
-use super::*;
+use super::super::*;
 use crate::services::marketplace::{buscar_cache, Coste, Generado};
 
 fn pool_si_hay() -> Option<sqlx::PgPool> {

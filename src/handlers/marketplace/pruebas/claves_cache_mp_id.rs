@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use super::*;
+use super::super::*;
 use crate::models::CreateInmuebleRequest;
 use crate::services::InmuebleService;
 
