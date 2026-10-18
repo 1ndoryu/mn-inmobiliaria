@@ -9,7 +9,7 @@ import {
 import { useEstadoLab } from '@/hooks/app/use-estado-lab';
 import type { Inmueble } from '@/domain/inmueble';
 import { formatearFecha, formatearPrecio, miniaturaDe, portadaDe } from '@/domain/inmueble';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonPlano } from '@/components/ui/button';
 import { MiniaturaFoto } from '@/components/ui/miniatura-foto';
 import {
   Dialog,
@@ -230,7 +230,7 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
                         const elegidoAhora = marcado === c.inmueble_id;
                         return (
                           <li key={c.inmueble_id}>
-                            <button
+                            <ButtonPlano
                               type="button"
                               aria-pressed={elegidoAhora}
                               disabled={ocupado}
@@ -245,7 +245,7 @@ export function ModalVincularFacebook({ abierto, alCambiarAbierto, inmuebles, al
                                 {c.directo ? 'Muy parecido' : 'Parecido'} · {formatearPrecio(c.precio)}
                               </span>
                               {elegidoAhora && <Check className="h-4 w-4 shrink-0 text-primary" />}
-                            </button>
+                            </ButtonPlano>
                           </li>
                         );
                       })}
