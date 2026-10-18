@@ -16,7 +16,7 @@ use glory_backend::models::{CreateInmuebleRequest, RecetaPublicidad, RegisterReq
 
 use glory_backend::repositories::InmuebleRepository;
 use glory_backend::services::sync::aplicar::aplicar;
-use glory_backend::services::sync::comparacion::comparar::{comparar_todo, Base, Comparacion, Estado};
+use glory_backend::services::sync::comparacion::comparar::{comparar_todo, Base, Comparacion, Estado, Lado};
 use glory_backend::services::sync::comparacion::detalle::detalle_local;
 use glory_backend::services::sync::comparacion::resolver::{Accion, Eleccion};
 use glory_backend::services::sync::operacion::Turno;
@@ -284,6 +284,15 @@ async fn texto(pool: &PgPool, slug: &str, campo: &str) -> String {
 async fn booleano(pool: &PgPool, slug: &str, campo: &str) -> bool {
     let sql = format!("SELECT {campo} FROM inmuebles WHERE slug = $1");
     sqlx::query_scalar(&sql)
+        .bind(slug)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+/// Vínculo con Marketplace de un inmueble de la BD, por slug (None = sin vincular).
+async fn vinculo(pool: &PgPool, slug: &str) -> Option<String> {
+    sqlx::query_scalar("SELECT marketplace_id FROM inmuebles WHERE slug = $1")
         .bind(slug)
         .fetch_one(pool)
         .await
@@ -773,6 +782,108 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         texto(&pool_remoto, &slug6, "titulo").await,
         "Casa aplicar turno",
         "el servidor no cambia"
+    );
+
+    /* 7. [18AA-3] El vínculo con Marketplace se resuelve desde el panel como
+     * cualquier campo: si el local lo tiene y el servidor no, se escribe allí, y
+     * si el local lo suelta, se borra allí (el PUT del servidor es tri-estado y
+     * el plan manda el valor canónico vacío, que para el vínculo es «sin
+     * vincular»). */
+    let (id7, _, slug7) = sembrar_publicado(
+        &pool_local,
+        &dir_local,
+        &cred,
+        "Casa aplicar vínculo",
+    )
+    .await;
+    InmuebleService::update(
+        &pool_local,
+        id7,
+        UpdateInmuebleRequest {
+            marketplace_id: Some(Some("7000000001".into())),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("vínculo en local");
+    assert_eq!(vinculo(&pool_remoto, &slug7).await, None, "el servidor no lo tiene");
+    let plan7 = plan_de(&pool_local, &cred, &slug7, &sin_conservar())
+        .await
+        .expect("plan");
+    let fila7 = plan7
+        .filas
+        .iter()
+        .find(|f| f.clave == "marketplace_id")
+        .expect("el vínculo está en el plan");
+    assert_eq!(fila7.lado, Lado::Local, "lo cambió el local");
+    assert_eq!(
+        (fila7.elegido, fila7.accion),
+        (Eleccion::Local, Accion::Escribir),
+        "gana el local, que lo tiene"
+    );
+    assert_eq!((plan7.en_local, plan7.en_servidor), (0, 1), "se escribe en el servidor");
+
+    let informe7 = aplicar(&pool_local, &dir_local, &cred, &slug7, &plan7.plan_id, &sin_conservar())
+        .await
+        .expect("aplicar");
+    assert!(informe7.fallo.is_none(), "fallo: {:?}", informe7.fallo);
+    assert!(informe7.pendientes.is_empty(), "pendientes: {:?}", informe7.pendientes);
+    assert_eq!(
+        vinculo(&pool_remoto, &slug7).await.as_deref(),
+        Some("7000000001"),
+        "el vínculo viajó al servidor"
+    );
+    assert_eq!(
+        estado_entre(&pool_local, &cred, &slug7).await,
+        Estado::Igual,
+        "ya coinciden"
+    );
+
+    // Y al revés: el local suelta el vínculo y el servidor lo suelta con él.
+    acordar_base(&pool_local, &slug7).await;
+    InmuebleService::update(
+        &pool_local,
+        id7,
+        UpdateInmuebleRequest {
+            marketplace_id: Some(None),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("desvincular en local");
+    let plan7bis = plan_de(&pool_local, &cred, &slug7, &sin_conservar())
+        .await
+        .expect("plan");
+    let fila7bis = plan7bis
+        .filas
+        .iter()
+        .find(|f| f.clave == "marketplace_id")
+        .expect("la fila sigue en el plan");
+    assert_eq!(
+        (fila7bis.elegido, fila7bis.accion),
+        (Eleccion::Local, Accion::Escribir),
+        "gana el local, que ya no lo tiene: se escribe el vacío"
+    );
+    let informe7bis = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug7,
+        &plan7bis.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect("aplicar");
+    assert!(informe7bis.fallo.is_none(), "fallo: {:?}", informe7bis.fallo);
+    assert_eq!(
+        vinculo(&pool_remoto, &slug7).await,
+        None,
+        "el servidor se desvincula"
+    );
+    assert_eq!(
+        estado_entre(&pool_local, &cred, &slug7).await,
+        Estado::Igual,
+        "otra vez iguales"
     );
 
     // Limpieza: solo tras éxito. Las BD son desechables y se borran con su conexión.

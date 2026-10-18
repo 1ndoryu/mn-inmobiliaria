@@ -21,6 +21,18 @@ pub const ORIGENES_FOTO: &[&str] = &["original", "mejorada"];
 /// Valores permitidos para `formato` de receta publicitaria
 pub const FORMATOS_RECETA: &[&str] = &["post-3-4", "post-4-5", "cuadrado-1-1"];
 
+/* [18AA-3] Tri-estado de verdad para el PUT parcial. `Option<Option<T>>` a
+ * secas NO distingue «ausente» de `null`: serde mete los dos en `None`, así
+ * que desvincular mandando `null` no hacía nada por HTTP (el servicio lo leía
+ * como «no tocar»). Con `deserialize_with` el campo presente se lee siempre
+ * (`null` → `Some(None)`) y el `default` del campo sigue cubriendo el ausente. */
+fn doble_opcion<'de, D>(deserializador: D) -> Result<Option<Option<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Some(Option::<String>::deserialize(deserializador)?))
+}
+
 /// Receta de la imagen publicitaria: qué fotos (por ÍNDICE sobre las
 /// visibles) + formato + título + precio. Vive en `inmuebles.receta` (JSONB)
 /// para que lo configurado en admin llegue al frente público; `None` = usar
@@ -339,8 +351,9 @@ pub struct UpdateInmuebleRequest {
     /* [09AA-21] Vínculo exacto tri-estado: ausente = dejar como está,
      * `null` = desvincular (NULL), texto = fijar (URL o dígitos, el
      * servicio normaliza a dígitos 5–32). `Option<Option<..>>` distingue
-     * ausente (`None`) de `null` (`Some(None)`). */
-    #[serde(default)]
+     * ausente (`None`) de `null` (`Some(None)`) solo con `doble_opcion`
+     * ([18AA-3]: sin él serde aplasta los dos a `None`). */
+    #[serde(default, deserialize_with = "doble_opcion")]
     pub marketplace_id: Option<Option<String>>,
     /* [09AA-24] Alias: ausente = no tocar, lista (incluso vacía) = reemplazar
      * entera (como el resto del PUT, que es reemplazo entero). */
@@ -474,4 +487,28 @@ pub struct CreateUserRequest {
     pub email: String,
     #[validate(length(min = 8, message = "La contraseña debe tener al menos 8 caracteres"))]
     pub password: String,
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    /* [18AA-3] El contrato del PUT parcial: ausente no toca, `null` desvincula,
+     * texto fija. Lo que se rompía era justo la distinción ausente/null, así que
+     * se fija aquí, en el sitio donde serde la decide. */
+    #[test]
+    fn el_vinculo_del_put_distingue_ausente_null_y_texto() {
+        let leer = |cuerpo: &str| -> Option<Option<String>> {
+            serde_json::from_str::<UpdateInmuebleRequest>(cuerpo)
+                .expect("cuerpo válido")
+                .marketplace_id
+        };
+        assert_eq!(leer("{}"), None, "ausente: no se toca");
+        assert_eq!(leer(r#"{"marketplace_id":null}"#), Some(None), "null: desvincula");
+        assert_eq!(
+            leer(r#"{"marketplace_id":"1234567890"}"#),
+            Some(Some("1234567890".into())),
+            "texto: fija"
+        );
+    }
 }
