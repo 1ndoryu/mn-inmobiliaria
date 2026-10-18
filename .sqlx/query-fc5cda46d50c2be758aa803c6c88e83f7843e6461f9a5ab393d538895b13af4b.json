@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE marketplace_avisos_perfil SET presente = FALSE WHERE presente AND NOT (aviso_id = ANY($1))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fc5cda46d50c2be758aa803c6c88e83f7843e6461f9a5ab393d538895b13af4b"
+}

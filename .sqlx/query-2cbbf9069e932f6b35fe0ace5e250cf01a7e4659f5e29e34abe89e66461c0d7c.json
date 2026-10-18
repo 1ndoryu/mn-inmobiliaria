@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO marketplace_avisos_perfil (aviso_id, titulo, precio, url, imagen_url, visto_en, presente) VALUES ($1, $2, $3, $4, $5, now(), TRUE) ON CONFLICT (aviso_id) DO UPDATE SET titulo = EXCLUDED.titulo, precio = EXCLUDED.precio, url = EXCLUDED.url, imagen_url = EXCLUDED.imagen_url, visto_en = now(), presente = TRUE",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2cbbf9069e932f6b35fe0ace5e250cf01a7e4659f5e29e34abe89e66461c0d7c"
+}
