@@ -4,11 +4,11 @@ import { suscribirEvento, nombreHost } from '../../platform/ventana';
 
 // Sesión del admin contra la API: el token vive en localStorage (dura 1
 // año y sobrevive al cierre del navegador). `email === null` = hay que entrar.
-// [03AA-2] Auto-entrada en local (+ dev público desde 15AA-1): con `npm run dev` (`import.meta.env.DEV`
-// es falso en el build de prod por construcción, así que ese bundle jamás
-// la intenta) y hostname local, si no hay token se entra UNA vez con las
-// credenciales de `frontend/.env.local` (gitignored: VITE_DEV_EMAIL +
-// VITE_DEV_PASSWORD). Si falla (API caída, clave cambiada) se muestra el
+// [03AA-2] Auto-entrada en local (+ dev público desde 15AA-1, + modo build desde 18AA-1): con la
+// auto-entrada encendida (`npm run dev`, o la bandera `VITE_DEV_AUTOLOGIN` que
+// hornea la ficha) y hostname de la lista blanca, si no hay token se entra UNA
+// vez con las credenciales de `frontend/.env.local` (gitignored: VITE_DEV_EMAIL
+// + VITE_DEV_PASSWORD). Si falla (API caída, clave cambiada) se muestra el
 // login normal sin reintentos; "Salir" no se sabotea porque el intento solo
 // ocurre al montar sin token.
 /* [09AA-26] La petición de auto-entrada vive a nivel de módulo: `StrictMode`
@@ -25,12 +25,24 @@ const HOSTS_LOCALES = new Set(['localhost', '127.0.0.1', 'inmobiliaria.localhost
 // [15AA-1] Decidido 2026-10-15 (la usuaria): la auto-entrada también vale en
 // el dev público (tras Cloudflare Access, solo ella). Host exacto, sin
 // subdominios: las credenciales viajan en el .env que `up` copia a la 89
-// (espejo de frontend/.env.local, que sigue canónica en local). El build de
-// producción sigue sin intentarla jamás (`import.meta.env.DEV` falso).
+// (espejo de frontend/.env.local, que sigue canónica en local).
 const HOSTS_DEV_PUBLICO = new Set(['mn-dev.wandori.us']);
 
+/* [18AA-1] El interruptor ya no es `import.meta.env.DEV`. Hasta el 2026-10-17 el
+ * MN dev de la 89 corría con Vite (`DEV` cierto) y la auto-entrada funcionaba;
+ * ese día el modo build pasó a ser el defecto y el 3110 empezó a servir
+ * `frontend/dist`, donde `DEV` es falso por construcción: la auto-entrada quedó
+ * muerta sin que nada avisara. Ahora la enciende `VITE_DEV_AUTOLOGIN=1`, que
+ * solo escribe el workspace-manager cuando la ficha del proyecto lo pide
+ * (`build.autologinDev`). El build de producción no lleva esa clave nunca, y el
+ * hostname sigue siendo el segundo cerrojo: fuera de la lista blanca no se
+ * intenta aunque la bandera esté puesta. */
+function autologinActivo(): boolean {
+  return import.meta.env.DEV || import.meta.env.VITE_DEV_AUTOLOGIN === '1';
+}
+
 function credencialesDev(): { email: string; clave: string } | null {
-  if (!import.meta.env.DEV) return null;
+  if (!autologinActivo()) return null;
   /* [08AA-22] Dominio vía plataforma (sin `window` directo en el hook). */
   const host = nombreHost().toLowerCase();
   if (!HOSTS_LOCALES.has(host) && !host.endsWith('.localhost') && !HOSTS_DEV_PUBLICO.has(host)) return null;
