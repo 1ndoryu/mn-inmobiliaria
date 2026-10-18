@@ -72,7 +72,12 @@ export async function login(base, email, password, quien, envRuta) {
 }
 
 /* Núcleo de alta/actualización: los campos que manda el servidor (el slug lo
- * genera desde el título; el emparejamiento siempre es por slug, nunca por id). */
+ * genera desde el título; el emparejamiento siempre es por slug, nunca por id).
+ * [18AA-2] El vínculo con Marketplace viaja aquí desde que la app está
+ * conectada a producción: los borradores se cachean por `marketplace_id` en los
+ * dos lados, y sin el vínculo el mismo aviso se lee como dos inmuebles. Se
+ * omite si en local no hay vínculo, porque el PUT de prod es tri-estado y un
+ * `null` explícito DESVINCULARÍA lo que allí estuviera puesto. */
 export function nucleo(p) {
   return {
     titulo: p.titulo, descripcion: p.descripcion, ubicacion: p.ubicacion,
@@ -80,6 +85,7 @@ export function nucleo(p) {
     tipo: p.tipo, operacion: p.operacion, habitaciones: p.habitaciones,
     banos: p.banos, metros: p.metros, metros_terreno: p.metros_terreno,
     estado: p.estado, copy: p.copy ?? null, receta: p.receta ?? null,
+    ...(p.marketplace_id ? { marketplace_id: p.marketplace_id } : {}),
   };
 }
 

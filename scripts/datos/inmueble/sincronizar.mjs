@@ -2,6 +2,42 @@
 import { api, leerEnv, login, magia, nucleo, ENV_DEFECTO } from '../../dev/lib-api.mjs';
 import { diffNucleo, listar, REQUERIDAS } from './comun.mjs';
 
+/* [18AA-2] `push --vinculos`: empareja por slug TODOS los inmuebles locales con
+ * vínculo y escribe en prod solo ese campo. Es la puesta al día de una vez:
+ * empujar el núcleo entero inmueble a inmueble pisaría en prod lo que allí sea
+ * más nuevo, y el vínculo es lo único que se quiere mover. Sin --dry-run no
+ * toca nada. */
+export async function cmdPushVinculos(o) {
+  const seco = o['dry-run'] === true || o['dry-run'] === '';
+  const cfg = leerEnv(o.env ?? ENV_DEFECTO, REQUERIDAS);
+  const LOCAL = (cfg.LOCAL_API ?? 'http://127.0.0.1:3110').replace(/\/$/, '');
+  const PROD = (cfg.PROD_BASE ?? 'https://mn-inmobiliaria.com').replace(/\/$/, '');
+  const tL = await login(LOCAL, cfg.LOCAL_EMAIL, cfg.LOCAL_PASSWORD, 'local', o.env ?? ENV_DEFECTO);
+  const tP = await login(PROD, cfg.PROD_EMAIL, cfg.PROD_PASSWORD, 'prod', o.env ?? ENV_DEFECTO);
+  const locales = (await listar(LOCAL, tL)).filter((i) => i.marketplace_id);
+  const prod = await listar(PROD, tP);
+  let iguales = 0;
+  let puestos = 0;
+  let sinPar = 0;
+  for (const loc of locales) {
+    const pr = prod.find((i) => i.slug === loc.slug);
+    if (!pr) {
+      console.log(`  sin par en prod: ${loc.slug} (${loc.marketplace_id})`);
+      sinPar++;
+      continue;
+    }
+    if (pr.marketplace_id === loc.marketplace_id) {
+      iguales++;
+      continue;
+    }
+    if (!seco) await api(PROD, `/api/admin/inmuebles/${pr.id}`, { metodo: 'PUT', token: tP, json: { marketplace_id: loc.marketplace_id } });
+    console.log(`  ${seco ? '[dry-run] ' : ''}${loc.slug}: ${pr.marketplace_id ?? '(sin vínculo)'} -> ${loc.marketplace_id}`);
+    puestos++;
+  }
+  console.log(`vínculos: ${locales.length} con vínculo en local | ${puestos} ${seco ? 'por poner' : 'puestos'} | ${iguales} ya iguales | ${sinPar} sin par en prod`);
+  return sinPar === 0 ? 0 : 1;
+}
+
 /* F4: empuja un slug de local a prod (núcleo + estado + fotos faltantes).
  * Sin --dry-run no toca nada. Pareo de fotos por (origen, orden). */
 export async function cmdPush(o) {
