@@ -57,7 +57,15 @@
           "**/__pycache__/**",
           "**/.venv/**",
           "**/.git/**"
-        ]
+        ],
+        "portableBoundaries": {
+          "tooling": [
+            "/frontend/server/"
+          ],
+          "loggerModules": [
+            "/gateway/src/"
+          ]
+        }
       }
     },
     "varsense": {
@@ -72,6 +80,5 @@
     "lockFile": "sentinel.lock.json"
   },
   "directoryExceptions": [],
-  "rules": {},
-  "portableBoundaries": {}
+  "rules": {}
 }
