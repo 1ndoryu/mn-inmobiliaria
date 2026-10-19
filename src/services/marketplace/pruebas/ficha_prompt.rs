@@ -57,22 +57,30 @@ fn nombre_corto_usa_tipo_y_lugar() {
     );
 }
 
-/* [18AA-5] Lo que va tras la primera coma es ciudad o coletilla, y en un chat
- * sobra: «Loma Linda, conjunto residencial cerrado» y «Las Peonías, Puerto
- * Ordaz» se citan por su nombre y nada más. */
+/* [18AA-5] El lugar: sin «Edificio» delante, con «Residencias» abreviado, y
+ * la ciudad solo cuando la residencia la trae a propósito. */
 #[test]
-fn lugar_corto_quita_la_cola_tras_la_coma() {
+fn lugar_corto_abrevia_y_quita_edificio() {
     assert_eq!(
-        nombre_corto("casa", "", "Loma Linda, conjunto residencial cerrado"),
-        "Casa en Loma Linda"
+        nombre_corto("apartamento", "Edificio Coronado Plaza", ""),
+        "Apart. en Coronado Plaza"
     );
+    assert_eq!(
+        nombre_corto("apartamento", "Residencias Las Delicias", ""),
+        "Apart. en Resd. Las Delicias"
+    );
+    assert_eq!(
+        nombre_corto("apartamento", "Villa Sol Suites, Lechería", ""),
+        "Apart. en Villa Sol Suites, Lechería"
+    );
+    /* Sin residencia, la ubicación es una dirección: solo su primer tramo. */
     assert_eq!(
         nombre_corto("townhouse", "", "Las Peonías, Puerto Ordaz"),
         "Townhouse en Las Peonías"
     );
     assert_eq!(
-        nombre_corto("apartamento", "Residencias Las Delicias", ""),
-        "Apart. en Resd. Las Delicias"
+        nombre_corto("local", "", "Av. Manuel Piar, Puerto Ordaz"),
+        "Local en Av. Manuel Piar"
     );
 }
 

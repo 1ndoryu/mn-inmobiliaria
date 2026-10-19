@@ -31,11 +31,17 @@ pub struct PromptSeguro {
 /// patio en Residencias Kama Merú»: leído en un chat suena a ficha, no a
 /// conversación.
 pub(crate) fn nombre_corto(tipo: &str, residencia: &str, ubicacion: &str) -> String {
+    /* La residencia manda tal cual, con su coma si la lleva: si dice «Villa
+     * Sol Suites, Lechería» es porque ahí la ciudad hace falta para
+     * distinguirlo. Solo cuando no hay residencia se recurre a la ubicación,
+     * que es una dirección completa: de esa se toma el primer tramo y el
+     * resto (la ciudad) sobra en un chat. */
     let lugar = if residencia.trim().is_empty() {
-        ubicacion
+        ubicacion.split(',').next().unwrap_or("").trim()
     } else {
-        residencia
+        residencia.trim()
     };
+    let lugar = if lugar.is_empty() { ubicacion.trim() } else { lugar };
     format!("{} en {}", tipo_corto(tipo), lugar_corto(lugar))
 }
 
@@ -54,20 +60,23 @@ fn tipo_corto(tipo: &str) -> String {
     }
 }
 
-/// El lugar, en corto: se queda con lo de antes de la primera coma (la ciudad
-/// y coletillas como «conjunto residencial cerrado» sobran en un chat) y
-/// abrevia «Residencias» a «Resd.».
+/// El lugar, en corto: «Residencias» pasa a «Resd.» y el «Edificio»/«Edif.»
+/// de delante se cae («Apart. en Coronado Plaza», no «en Edificio Coronado
+/// Plaza»). El resto va tal cual: lo que no vale se arregla en la residencia,
+/// no adivinando aquí.
 fn lugar_corto(lugar: &str) -> String {
-    let base = lugar.split(',').next().unwrap_or("").trim();
-    let base = if base.is_empty() { lugar.trim() } else { base };
-    base.split_whitespace()
+    lugar
+        .split_whitespace()
         .map(|p| {
             if p.eq_ignore_ascii_case("residencias") {
                 "Resd."
+            } else if p.eq_ignore_ascii_case("edificio") || p.eq_ignore_ascii_case("edif.") {
+                ""
             } else {
                 p
             }
         })
+        .filter(|p| !p.is_empty())
         .collect::<Vec<_>>()
         .join(" ")
 }
