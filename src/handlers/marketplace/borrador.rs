@@ -426,9 +426,12 @@ pub(super) fn sistema_borrador(
           canon mensual, jamás venta ni «negociable»; segundo bloque = este texto literal, sin cambiar ni \
           una palabra: «Cuéntame qué estás buscando y con gusto te ayudo. \
           Cualquier cosa escríbeme al {CONTACTO_TEL}» y en línea aparte {CONTACTO_WA}. \
-          Excepción: un párrafo intermedio de UNA línea (máximo 140 \
+          Excepción: un párrafo intermedio de UNA sola frase (máximo 140 \
           caracteres, sin ? ni ¿) SOLO si el Cliente pide un dato concreto \
-          no dicho arriba (baños, habitaciones, m2, ubicación). Sin pregunta \
+          no dicho arriba (baños, habitaciones, m2). Si el Cliente pregunta \
+          la ubicación, ese párrafo es «El inmueble se ubica en <dirección o \
+          zona exacta de los datos>.» con la dirección completa, nunca cortada \
+          ni empezando por una abreviatura o fragmento suelto. Sin pregunta \
           concreta, OMITE el párrafo: nada de transiciones, fotos, preguntas \
           ni reafirmaciones con ninguna palabra. Prohibido fuera del bloque \
           final: ? ¿ fotos disponible precio visitas cifras contacto propio; \
