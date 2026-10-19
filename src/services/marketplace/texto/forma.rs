@@ -190,7 +190,9 @@ pub(in crate::services::marketplace) fn tiene_dato_concreto(frase: &str) -> bool
 }
 
 /// Parte en frases por `.`/`?`/`!`/salto; el punto entre dígitos ($43.000)
-/// no parte para no romper cifras.
+/// no parte para no romper cifras, ni el de una abreviatura («Av.», «Sr.»):
+/// si no, «Se ubica en Av. Principal…» queda en «Se ubica en Av.» y ese
+/// trozo pasa como dato útil, cortando la ubicación del borrador.
 pub(in crate::services::marketplace) fn partir_frases(t: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut act = String::new();
@@ -199,7 +201,9 @@ pub(in crate::services::marketplace) fn partir_frases(t: &str) -> Vec<String> {
         act.push(c);
         let corta = match c {
             '?' | '!' | '\n' => true,
-            '.' => !matches!(it.peek(), Some(n) if n.is_ascii_digit()),
+            '.' => {
+                !matches!(it.peek(), Some(n) if n.is_ascii_digit()) && !es_abreviatura(&act)
+            }
             _ => false,
         };
         if corta {
@@ -215,6 +219,20 @@ pub(in crate::services::marketplace) fn partir_frases(t: &str) -> Vec<String> {
         out.push(f);
     }
     out
+}
+
+/// Abreviaturas habituales en direcciones y tratamientos: su punto no cierra
+/// frase. En minúsculas.
+const ABREVIATURAS: &[&str] = &[
+    "av", "avda", "sr", "sra", "dr", "dra", "ing", "lic", "prof", "cra", "nro", "urb", "edif",
+    "blvd", "prol", "gral", "sta", "sto",
+];
+
+/// `act` termina en «.»: true si la palabra que lo precede es abreviatura.
+fn es_abreviatura(act: &str) -> bool {
+    let base = act.trim_end_matches('.');
+    let palabra = base.rsplit(|c: char| !c.is_alphabetic()).next().unwrap_or("");
+    ABREVIATURAS.contains(&palabra.to_lowercase().as_str())
 }
 
 /// Mínimo servible cuando la IA devolvió basura: fallback + contacto + wa.

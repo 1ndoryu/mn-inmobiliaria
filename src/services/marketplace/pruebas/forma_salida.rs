@@ -57,3 +57,17 @@ fn forma_partir_no_rompe_cifras() {
     let f = partir_frases("Cuesta $43.000 negociable. Tiene 2 baños.");
     assert!(f.iter().any(|x| x.contains("$43.000")), "{f:?}");
 }
+
+/// Regresión Kama Merú: la ubicación con «Av.» no debe cortarse en «Av.».
+#[test]
+fn forma_no_corta_ubicacion_con_abreviatura() {
+    let ia = "El apartamento en Residencias Kama Merú sigue disponible en 35.000$ negociable.\n\nSe ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
+    let r = imponer_forma_borrador(ia);
+    assert!(r.contains("Se ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz."), "{r}");
+}
+
+#[test]
+fn partir_frases_no_parte_abreviaturas() {
+    let f = partir_frases("Se ubica en Av. Principal. Tiene 2 baños.");
+    assert_eq!(f, vec!["Se ubica en Av. Principal.", "Tiene 2 baños."]);
+}
