@@ -13,6 +13,7 @@ import { useBorrador } from '../hooks/inmuebles/use-borrador';
 import { useConfigCopy } from '../hooks/copy/use-config-copy';
 import { useCopy } from '../hooks/copy/use-copy';
 import { useInmuebles } from '../hooks/inmuebles/use-inmuebles';
+import { completarAlPublicar } from '../data/ia/completar-al-publicar';
 import { useConfigIA } from '../hooks/ia/use-config-ia';
 import { useSesion } from '../hooks/sesion/use-sesion';
 import { useTema } from '../hooks/app/use-tema';
@@ -105,8 +106,20 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
     if (entrada) await marcar(entrada, { mejorada: null, estado: 'pendiente', error: null, intentos: 0 });
   }
 
-  /* Publicar/retirar desde la vista: refresca también el modal abierto. */
+  /* [18AA-7] Publicar/retirar desde la vista: antes de dejarlo visible, la IA
+   * escribe lo que falte de la ficha (y el copy, si nunca se generó); después
+   * se publica y se refresca el modal abierto. Si la IA no responde o no hay
+   * nada que completar, se publica igual: la IA nunca bloquea la publicación. */
   async function publicarDesdeVista(id: string, publicado: boolean) {
+    if (publicado) {
+      const actual = inmuebles.find((i) => i.id === id);
+      if (actual) {
+        const completado = await completarAlPublicar(actual);
+        const guardado = completado && (await actualizar(completado)) ? completado : actual;
+        if (guardado !== actual) setViendo((v) => (v && v.id === id ? guardado : v));
+        if (!guardado.copy) void copy.generar(guardado, configCopy);
+      }
+    }
     const ok = await publicar(id, publicado);
     if (ok) setViendo((v) => (v && v.id === id ? { ...v, publicado } : v));
   }

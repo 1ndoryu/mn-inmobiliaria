@@ -10,6 +10,8 @@ export function aplicarFichaAlDraft(form: InmuebleDraft, ficha: FichaIA, fotosIA
   if (ficha.descripcion) next.descripcion = ficha.descripcion;
   if (ficha.ubicacion) next.ubicacion = ficha.ubicacion;
   if (ficha.residencia) next.residencia = ficha.residencia;
+  /* [18AA-7] Nombre corto: lo escribe la IA cuando el campo está vacío. */
+  if (ficha.nombre_corto) next.nombre_corto = ficha.nombre_corto;
   if (ficha.precio !== null) next.precio = String(ficha.precio);
   if (ficha.tipo) next.tipo = ficha.tipo;
   if (ficha.operacion) next.operacion = ficha.operacion;

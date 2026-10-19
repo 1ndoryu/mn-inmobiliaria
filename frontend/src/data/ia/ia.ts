@@ -12,6 +12,8 @@ export interface FichaTexto {
   descripcion: string;
   ubicacion: string;
   residencia: string;
+  /* [18AA-7] Cómo se cita el inmueble en el chat del Marketplace. */
+  nombre_corto: string;
 }
 
 /* Números de la ficha (null = no indicado). */
@@ -41,12 +43,18 @@ const SISTEMA = [
   'Eres un experto inmobiliario que ordena fichas de inmuebles en español.',
   'Recibes una descripción libre (a veces desordenada) y fotos del inmueble.',
   'Devuelve SOLO un objeto JSON, sin markdown ni explicaciones, con estas claves exactas:',
-  '{"titulo": string, "descripcion": string, "ubicacion": string, "residencia": string, "precio": number|null,',
+  '{"titulo": string, "descripcion": string, "ubicacion": string, "residencia": string,',
+  ' "nombre_corto": string, "precio": number|null,',
   ' "tipo": "apartamento"|"casa"|"local"|"terreno"|"townhouse"|"", "operacion": "venta"|"alquiler"|"",',
   ' "habitaciones": number|null, "banos": number|null, "metros": number|null, "metrosTerreno": number|null,',
   ' "puestos": number|null, "estado": "disponible"}',
   'Reglas: "metros" son m² de propiedad (construidos); "metrosTerreno" son m² de parcela/terreno (null si no se indican).',
   'Reglas: "residencia" es el nombre de la residencia/conjunto/urbanización ("Residencias Los Naranjos"); "" si no se indica.',
+  /* [18AA-7] Misma regla que `sugerir_nombre_corto` en el backend (canónica
+   * allí; esta es la que escribe el nombre al publicar). */
+  'Reglas: "nombre_corto" es cómo se cita el inmueble al hablar de él en un chat (máx 120 caracteres):',
+  'tipo abreviado ("Apart." para apartamento, "Casa", "Local", "Terreno", "Townhouse") + " en " + la residencia,',
+  'o la zona/ciudad si no hay residencia; sin "Edificio"/"Edif." y con "Residencias" abreviado a "Resd."; "" si dudas.',
   'Reglas: "puestos" son los puestos de estacionamiento (null si no se indican).',
   'Reglas: titulo comercial corto (máx 80 caracteres); descripcion comercial ordenada de 2 a 4 frases',
   'basada en el texto y lo visible en las fotos; precio como número sin símbolos (null si no se indica);',
@@ -73,6 +81,8 @@ function normalizarFicha(datos: Record<string, unknown>): FichaIA {
     descripcion: aTexto(datos.descripcion),
     ubicacion: aTexto(datos.ubicacion).slice(0, 200),
     residencia: aTexto(datos.residencia).slice(0, 200),
+    /* [18AA-7] El backend topa el campo a 120; se recorta aquí para no perder el PUT. */
+    nombre_corto: aTexto(datos.nombre_corto).slice(0, 120),
     precio: aNumero(datos.precio),
     tipo: (TIPOS as readonly string[]).includes(tipo) ? (tipo as TipoInmueble) : '',
     operacion: operacion === 'venta' || operacion === 'alquiler' ? operacion : '',

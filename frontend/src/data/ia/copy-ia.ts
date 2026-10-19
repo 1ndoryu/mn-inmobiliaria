@@ -1,6 +1,7 @@
-import { ETIQUETAS_TIPO, formatearPrecio, type Inmueble } from '@/domain/inmueble';
+import type { Inmueble } from '@/domain/inmueble';
 import type { ConfigCopy } from '@/domain/copy';
 import { completarIA } from './cliente-ia';
+import { fichaResumen } from './ficha-texto';
 
 /* Generación del Copy para redes vía el centro de IA del backend [199A-2].
  * Puro salvo la red: los componentes solo llaman a `generarCopyConIA`.
@@ -15,25 +16,6 @@ export interface CopyGenerado {
 export type ResultadoCopy =
   | { ok: true; copy: CopyGenerado; modelo: string }
   | { ok: false; motivo: string };
-
-function fichaResumen(i: Inmueble): string {
-  const partes = [
-    `Título: ${i.titulo || 'Sin título'}`,
-    `Descripción: ${i.descripcion || '—'}`,
-    `Ubicación: ${i.ubicacion || '—'}`,
-    i.residencia ? `Residencia: ${i.residencia}` : 'Residencia: —',
-    i.precio > 0 ? `Precio: ${formatearPrecio(i.precio)}` : 'Precio: a consultar',
-    `Tipo: ${ETIQUETAS_TIPO[i.tipo]} · Operación: ${i.operacion} · Estado: ${i.estado}`,
-  ];
-  const extras: string[] = [];
-  if (i.habitaciones > 0) extras.push(`${i.habitaciones} hab`);
-  if (i.banos > 0) extras.push(`${i.banos} baños`);
-  if (i.metros > 0) extras.push(`${i.metros} m²`);
-  if (i.metrosTerreno > 0) extras.push(`${i.metrosTerreno} m² terreno`);
-  if (i.puestos > 0) extras.push(`${i.puestos} puestos`);
-  if (extras.length > 0) partes.push(`Detalles: ${extras.join(', ')}`);
-  return partes.join('\n');
-}
 
 function aTexto(v: unknown, max: number): string {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';

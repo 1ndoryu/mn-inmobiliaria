@@ -10,7 +10,7 @@ import {
 } from '@/domain/inmueble';
 import { ficherosADataUrls } from '@/data/inmuebles/imagenes';
 import type { FichaIA } from '@/data/ia/ia';
-import { aplicarFichaAlDraft } from '@/hooks/inmuebles/aplicar-ficha-ia';
+import { aplicarFichaAlDraft } from '@/data/ia/aplicar-ficha-ia';
 
 /* Formulario nuevo/edición (3 useState): `formEdicion` |
  * avisos `{errores, avisoFotos}` | `iaAbierto`.
