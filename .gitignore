@@ -90,3 +90,6 @@ glory-rust-template.code-workspace
 
 # Evidencia local del release de sentinel (la genera el setup; no versionar)
 /.sentinel/
+
+# Documentacion local del area (planes, tareas, lecciones): fuera del repo publico.
+Agente/
