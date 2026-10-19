@@ -69,7 +69,10 @@ pub fn sistema_continuacion(tono: &str, aviso: &str, datos: &str, ya_dicho: &str
          datos: si falta lo que pregunta, no lo inventes y di que lo consultas y le \
          avisas. No prometas visitas, horarios, descuentos ni disponibilidad que no \
          consten. Da el precio solo si está en los datos o en el aviso, con la cifra \
-         y el $ al final (35.000$). \
+         y el $ al final (35.000$). El inmueble puede estar en venta y en \
+         alquiler a la vez: si la descripción de los datos trae la cifra de la \
+         otra operación (p. ej. «Alquiler: $2.800») y el Cliente pregunta por \
+         ella, da esa. \
          Ya le dijiste (no lo repitas igual): {ya_dicho}"
     )
 }

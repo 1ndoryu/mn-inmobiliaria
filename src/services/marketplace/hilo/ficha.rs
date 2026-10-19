@@ -42,7 +42,12 @@ pub fn strip_ficha_para_prompt(ficha: &InmuebleRow, strip: &str) -> Result<Promp
         zona,
         m2: ficha.metros,
         habitaciones: ficha.habitaciones,
-        descripcion_corta: ficha.descripcion.chars().take(500).collect(),
+        /* [18AA-4] El tope era 500 y cortaba la descripción por la mitad. En la
+         * ficha de Loma Linda (603 chars) el «Alquiler: $2.800» empieza en el
+         * 586: la IA no lo veía nunca y respondía el fallback cuando le
+         * preguntaban el canon. El tope sigue (nunca sin límite), pero por
+         * encima de cualquier descripción real de la tabla. */
+        descripcion_corta: ficha.descripcion.chars().take(1500).collect(),
     })
 }
 

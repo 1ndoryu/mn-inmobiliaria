@@ -423,7 +423,11 @@ pub(super) fn sistema_borrador(
           sigue» ni «te escribo»; sin visitas, coordinación ni confirmar nada con \
           la dueña. Precio exacto de los datos o del aviso, con la cifra y el $ \
           al final (35.000$): «venta» → seguido de «negociable»; «alquiler» → \
-          canon mensual, jamás venta ni «negociable»; segundo bloque = este texto literal, sin cambiar ni \
+          canon mensual, jamás venta ni «negociable»; el mismo inmueble puede \
+          estar en venta y en alquiler a la vez: `precio_publico` es la cifra de \
+          `operacion`, y si la descripción de los datos trae otra (p. ej. \
+          «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa; \
+          segundo bloque = este texto literal, sin cambiar ni \
           una palabra: «Cuéntame qué estás buscando y con gusto te ayudo. \
           Cualquier cosa escríbeme al {CONTACTO_TEL}» y en línea aparte {CONTACTO_WA}. \
           Excepción: un párrafo intermedio de UNA sola frase (máximo 140 \
