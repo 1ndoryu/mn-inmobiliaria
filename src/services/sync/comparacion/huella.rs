@@ -43,6 +43,9 @@ pub const CAMPOS: &[&str] = &[
     "ubicacion",
     "puestos",
     "residencia",
+    /* [18AA-6] El nombre corto es contenido de la ficha (se edita en el admin
+     * y lo cita el borrador del Marketplace): viaja como un campo más. */
+    "nombre_corto",
     "precio",
     "tipo",
     "operacion",
@@ -158,6 +161,7 @@ pub fn valores_canonicos(f: &InmuebleRow) -> BTreeMap<&'static str, String> {
     m.insert("ubicacion", canon_texto(&f.ubicacion));
     m.insert("puestos", f.puestos.to_string());
     m.insert("residencia", canon_texto(&f.residencia));
+    m.insert("nombre_corto", canon_texto(&f.nombre_corto));
     m.insert("precio", canon_num(f.precio));
     m.insert("tipo", canon_texto(&f.tipo));
     m.insert("operacion", canon_texto(&f.operacion));
@@ -228,6 +232,7 @@ mod pruebas {
             ubicacion: "Centro".into(),
             puestos: 1,
             residencia: String::new(),
+            nombre_corto: "Apart. en Centro".into(),
             precio: 45000.0,
             tipo: "apartamento".into(),
             operacion: "venta".into(),

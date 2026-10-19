@@ -409,6 +409,8 @@ fn campos_local(
     m.insert("ubicacion".into(), json!(inmueble.ubicacion));
     m.insert("puestos".into(), json!(inmueble.puestos));
     m.insert("residencia".into(), json!(inmueble.residencia));
+    /* [18AA-6] Contenido de la ficha, como el título: viaja tal cual. */
+    m.insert("nombre_corto".into(), json!(inmueble.nombre_corto));
     m.insert("precio".into(), json!(inmueble.precio));
     m.insert("tipo".into(), json!(inmueble.tipo));
     m.insert("operacion".into(), json!(inmueble.operacion));
@@ -452,6 +454,9 @@ fn campos_servidor(
     m.insert("ubicacion".into(), json!(inmueble.ubicacion));
     m.insert("puestos".into(), json!(inmueble.puestos));
     m.insert("residencia".into(), json!(inmueble.residencia));
+    /* [18AA-6] Se lee del servidor para poder mostrarlo y compararlo; el PUT de
+     * vuelta nunca lo vacía (`NULLIF` en el repositorio). */
+    m.insert("nombre_corto".into(), json!(inmueble.nombre_corto));
     m.insert("precio".into(), json!(inmueble.precio));
     m.insert("tipo".into(), json!(inmueble.tipo));
     m.insert("operacion".into(), json!(inmueble.operacion));

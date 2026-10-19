@@ -165,6 +165,8 @@ export interface RemotoIdentidad {
   descripcion: string;
   ubicacion: string;
   residencia: string;
+  /* [18AA-6] Nombre corto: ausente/null en registros viejos. */
+  nombre_corto?: string | null;
   slug: string;
 }
 
@@ -283,6 +285,8 @@ export function remotoADominio(r: InmuebleRemoto): Inmueble {
     descripcion: r.descripcion,
     ubicacion: r.ubicacion,
     residencia: r.residencia ?? '',
+    /* [18AA-6] Ausente/null en registros viejos = cadena vacía. */
+    nombreCorto: r.nombre_corto ?? '',
     precio: r.precio,
     tipo: r.tipo as Inmueble['tipo'],
     operacion: r.operacion as Inmueble['operacion'],
@@ -320,6 +324,8 @@ function dominioACuerpo(i: Inmueble): Record<string, unknown> {
     descripcion: i.descripcion,
     ubicacion: i.ubicacion,
     residencia: i.residencia,
+    /* [18AA-6] El backend ya acepta y devuelve `nombre_corto`. */
+    nombre_corto: i.nombreCorto,
     precio: i.precio,
     tipo: i.tipo,
     operacion: i.operacion,

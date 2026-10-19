@@ -167,6 +167,9 @@ fn alta_desde(servidor: &InmuebleRemoto) -> CreateInmuebleRequest {
         ubicacion: servidor.ubicacion.clone(),
         puestos: servidor.puestos,
         residencia: servidor.residencia.clone(),
+        /* [18AA-6] Un servidor viejo no lo manda (queda vacío) y el alta local
+         * lo sugiere. */
+        nombre_corto: servidor.nombre_corto.clone(),
         precio: servidor.precio,
         tipo: servidor.tipo.clone(),
         operacion: servidor.operacion.clone(),

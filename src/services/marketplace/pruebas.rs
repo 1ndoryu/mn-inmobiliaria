@@ -22,6 +22,10 @@ fn ficha() -> InmuebleRow {
         ubicacion: "Puerto Ordaz".to_string(),
         puestos: 1,
         residencia: "Riberas del Caroní".to_string(),
+        /* [18AA-6] Vacío a propósito: deja el camino de la sugerencia, que es
+         * lo que comprueba el test del allowlist. El valor guardado tiene su
+         * propio caso. */
+        nombre_corto: String::new(),
         precio: 43000.0,
         tipo: "casa".to_string(),
         operacion: "venta".to_string(),
@@ -84,6 +88,7 @@ fn fila_prueba(precio: f64) -> InmuebleRow {
         ubicacion: "Chacao".to_string(),
         puestos: 1,
         residencia: "Edif. Los Pinos".to_string(),
+        nombre_corto: String::new(),
         precio,
         tipo: "apartamento".to_string(),
         operacion: "venta".to_string(),

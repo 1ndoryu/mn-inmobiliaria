@@ -212,6 +212,10 @@ pub struct InmuebleRemoto {
     pub ubicacion: String,
     pub puestos: i32,
     pub residencia: String,
+    /* [18AA-6] Los servidores anteriores al campo no lo mandan: vacío, y quien
+     * lo use cae a la sugerencia. */
+    #[serde(default)]
+    pub nombre_corto: String,
     pub precio: f64,
     pub tipo: String,
     pub operacion: String,

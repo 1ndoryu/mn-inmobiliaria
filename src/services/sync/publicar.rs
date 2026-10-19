@@ -157,6 +157,9 @@ fn alta_desde(local: &Inmueble) -> CreateInmuebleRequest {
         ubicacion: local.ubicacion.clone(),
         puestos: local.puestos,
         residencia: local.residencia.clone(),
+        /* [18AA-6] Viaja el valor de la ficha; si estuviera vacío, el alta del
+         * servidor lo sugiere al insertarlo. */
+        nombre_corto: local.nombre_corto.clone(),
         precio: local.precio,
         tipo: local.tipo.clone(),
         operacion: local.operacion.clone(),

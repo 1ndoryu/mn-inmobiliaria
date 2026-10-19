@@ -3,6 +3,10 @@
 
 use super::*;
 
+/* [18AA-6] La regla vive en `models` (la usan tanto el alta como el
+ * borrador): aquí hay que traerla explícitamente. */
+use crate::models::sugerir_nombre_corto;
+
 /* El strip deja pasar exactamente los 8 campos del allowlist: ni el
  * slug, ni el estado interno, ni la receta viajan al prompt.
  * (`serde_json::Map` ordena claves: se compara ordenado.)
@@ -33,26 +37,36 @@ fn strip_solo_allowlist_ocho_campos() {
     assert_eq!(s.nombre_corto, "Casa en Riberas del Caroní");
 }
 
+/* [18AA-6] El valor guardado manda: lo que se edite en la ficha es lo que cita
+ * el borrador, aunque la regla habría dicho otra cosa. */
+#[test]
+fn el_nombre_corto_guardado_gana_a_la_sugerencia() {
+    let mut f = ficha();
+    f.nombre_corto = "  Casa de la playa  ".to_string();
+    let s = strip_ficha_para_prompt(&f, STRIP_VERSION).unwrap();
+    assert_eq!(s.nombre_corto, "Casa de la playa");
+}
+
 /* [18AA-5] El sujeto sale del tipo y la residencia, nunca del título: es lo
  * que evita «el apartamento planta baja con patio en Residencias Kama Merú». */
 #[test]
 fn nombre_corto_usa_tipo_y_lugar() {
     assert_eq!(
-        nombre_corto("casa", "Loma Linda", "Puerto Ordaz"),
+        sugerir_nombre_corto("casa", "Loma Linda", "Puerto Ordaz"),
         "Casa en Loma Linda"
     );
     /* Solo `apartamento` se abrevia; el resto va tal cual, con mayúscula. */
     assert_eq!(
-        nombre_corto("Apartamento", "Residencias Kama Merú", ""),
+        sugerir_nombre_corto("Apartamento", "Residencias Kama Merú", ""),
         "Apart. en Resd. Kama Merú"
     );
     /* Sin residencia, el lugar es la ubicación; sin tipo, un genérico. */
     assert_eq!(
-        nombre_corto("townhouse", "  ", "Arivana"),
+        sugerir_nombre_corto("townhouse", "  ", "Arivana"),
         "Townhouse en Arivana"
     );
     assert_eq!(
-        nombre_corto("", "Los Pinos", "Chacao"),
+        sugerir_nombre_corto("", "Los Pinos", "Chacao"),
         "Inmueble en Los Pinos"
     );
 }
@@ -62,24 +76,24 @@ fn nombre_corto_usa_tipo_y_lugar() {
 #[test]
 fn lugar_corto_abrevia_y_quita_edificio() {
     assert_eq!(
-        nombre_corto("apartamento", "Edificio Coronado Plaza", ""),
+        sugerir_nombre_corto("apartamento", "Edificio Coronado Plaza", ""),
         "Apart. en Coronado Plaza"
     );
     assert_eq!(
-        nombre_corto("apartamento", "Residencias Las Delicias", ""),
+        sugerir_nombre_corto("apartamento", "Residencias Las Delicias", ""),
         "Apart. en Resd. Las Delicias"
     );
     assert_eq!(
-        nombre_corto("apartamento", "Villa Sol Suites, Lechería", ""),
+        sugerir_nombre_corto("apartamento", "Villa Sol Suites, Lechería", ""),
         "Apart. en Villa Sol Suites, Lechería"
     );
     /* Sin residencia, la ubicación es una dirección: solo su primer tramo. */
     assert_eq!(
-        nombre_corto("townhouse", "", "Las Peonías, Puerto Ordaz"),
+        sugerir_nombre_corto("townhouse", "", "Las Peonías, Puerto Ordaz"),
         "Townhouse en Las Peonías"
     );
     assert_eq!(
-        nombre_corto("local", "", "Av. Manuel Piar, Puerto Ordaz"),
+        sugerir_nombre_corto("local", "", "Av. Manuel Piar, Puerto Ordaz"),
         "Local en Av. Manuel Piar"
     );
 }

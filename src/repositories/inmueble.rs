@@ -18,7 +18,7 @@ mod fotos;
 pub(crate) const COLUMNAS: &str = "id, titulo, descripcion, ubicacion, puestos, residencia, precio, \
     tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, publicado, \
     slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, receta, extras, \
-    precio_minimo, marketplace_id, created_at, updated_at, alias_titulos";
+    precio_minimo, marketplace_id, created_at, updated_at, alias_titulos, nombre_corto";
 
 /* [279A-3] Columnas para la web pública: las mismas salvo `extras` y
  * `precio_minimo` (privados de la dueña). Se rellenan con valores vacíos
@@ -29,7 +29,7 @@ const COLUMNAS_PUBLICAS: &str = "id, titulo, descripcion, ubicacion, puestos, re
     tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, publicado, \
     slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, receta, \
     '{}'::JSONB AS extras, NULL::FLOAT8 AS precio_minimo, marketplace_id, created_at, updated_at, \
-    alias_titulos";
+    alias_titulos, nombre_corto";
 
 /// Valores ya normalizados listos para insertar
 pub struct NuevoInmueble<'a> {
@@ -55,6 +55,9 @@ pub struct NuevoInmueble<'a> {
     pub marketplace_id: Option<&'a str>,
     /* [09AA-24] Alias ya normalizados (lista completa, vacía = sin alias). */
     pub alias_titulos: Vec<String>,
+    /* [18AA-6] Cita del inmueble en el chat, ya resuelta (nunca vacía: el
+     * servicio sugiere una si el alta no la trae). */
+    pub nombre_corto: &'a str,
 }
 
 pub struct InmuebleRepository;
@@ -70,9 +73,9 @@ impl InmuebleRepository {
             "INSERT INTO inmuebles (id, titulo, descripcion, ubicacion, puestos, residencia, \
               precio, tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, \
               slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, marketplace_id, \
-              alias_titulos) \
+              alias_titulos, nombre_corto) \
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, \
-               $16, $17, $18, $19, $20, $21) \
+               $16, $17, $18, $19, $20, $21, $22) \
               RETURNING {COLUMNAS}",
         ))
         .bind(id)
@@ -96,6 +99,7 @@ impl InmuebleRepository {
         .bind(nuevo.copy_actualizada_en)
         .bind(nuevo.marketplace_id)
         .bind(&nuevo.alias_titulos)
+        .bind(nuevo.nombre_corto)
         .fetch_one(pool)
         .await
     }
@@ -346,6 +350,10 @@ impl InmuebleRepository {
                   receta = COALESCE($18, receta), \
                   marketplace_id = CASE WHEN $20 THEN $19 ELSE marketplace_id END, \
                   alias_titulos = COALESCE($22, alias_titulos), \
+                  /* [18AA-6] El vacío no borra el que ya hay: el campo se
+                   * edita en la ficha, nunca se deja en blanco por un PUT.
+                   * `btrim` para que unos espacios no cuenten como valor. */
+                  nombre_corto = COALESCE(NULLIF(btrim($23), ''), nombre_corto), \
                   /* [279A-7] Al llegar el dato real se borra su marca «no sé»
                    * de `extras` (el front la borra en local al mismo tiempo).
                    * Quitar una clave ausente es no-op, por eso el ELSE ''. */
@@ -381,6 +389,7 @@ impl InmuebleRepository {
         .bind(mp_fijar)
         .bind(id)
         .bind(cambios.alias_titulos.clone())
+        .bind(cambios.nombre_corto)
         .fetch_optional(pool)
         .await
     }

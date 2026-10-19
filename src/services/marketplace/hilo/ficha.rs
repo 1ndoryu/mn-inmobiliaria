@@ -2,12 +2,12 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 use crate::errors::AppError;
-use crate::models::InmuebleRow;
+use crate::models::{sugerir_nombre_corto, InmuebleRow};
 use crate::repositories::InmuebleRepository;
 
 use crate::services::marketplace::{mejor_puntaje_con_alias, precio_publico, STRIP_VERSION};
 
-/// Prompt seguro: solo los 7 campos del allowlist. La frase canónica de la
+/// Prompt seguro: solo los 8 campos del allowlist. La frase canónica de la
 /// ficha vive en la tabla `inmuebles`; el plugin jamás ve el resto.
 /// [08AA-25] `operacion` (`venta`|`alquiler`, tal cual en la fila): sin
 /// ella el prompt hablaba siempre en lenguaje de venta.
@@ -20,65 +20,10 @@ pub struct PromptSeguro {
     pub m2: f64,
     pub habitaciones: i32,
     pub descripcion_corta: String,
-    /// [18AA-5] Cómo se cita el inmueble en la conversación, ya montado
-    /// («Apart. en Resd. Kama Merú»): tipo abreviado + lugar corto. La IA lo
-    /// usa tal cual en vez de componerlo con el título.
+    /// [18AA-5] Cómo se cita el inmueble en la conversación («Apart. en Resd.
+    /// Kama Merú»). [18AA-6] Es un dato guardado del inmueble, no algo que la
+    /// IA componga con el título.
     pub nombre_corto: String,
-}
-
-/// Sujeto del borrador: tipo abreviado + lugar corto. [18AA-5] Antes lo
-/// componía la IA a partir del título y salía «el apartamento planta baja con
-/// patio en Residencias Kama Merú»: leído en un chat suena a ficha, no a
-/// conversación.
-pub(crate) fn nombre_corto(tipo: &str, residencia: &str, ubicacion: &str) -> String {
-    /* La residencia manda tal cual, con su coma si la lleva: si dice «Villa
-     * Sol Suites, Lechería» es porque ahí la ciudad hace falta para
-     * distinguirlo. Solo cuando no hay residencia se recurre a la ubicación,
-     * que es una dirección completa: de esa se toma el primer tramo y el
-     * resto (la ciudad) sobra en un chat. */
-    let lugar = if residencia.trim().is_empty() {
-        ubicacion.split(',').next().unwrap_or("").trim()
-    } else {
-        residencia.trim()
-    };
-    let lugar = if lugar.is_empty() { ubicacion.trim() } else { lugar };
-    format!("{} en {}", tipo_corto(tipo), lugar_corto(lugar))
-}
-
-/// El tipo como lo dice la dueña. Solo `apartamento` se abrevia; el resto va
-/// tal cual con la inicial en mayúscula, porque abre la frase.
-fn tipo_corto(tipo: &str) -> String {
-    let t = tipo.trim().to_lowercase();
-    if t == "apartamento" {
-        return "Apart.".to_string();
-    }
-    let mut letras = t.chars();
-    match letras.next() {
-        Some(p) => p.to_uppercase().collect::<String>() + letras.as_str(),
-        /* Sin tipo en la tabla, un genérico antes que un hueco. */
-        None => "Inmueble".to_string(),
-    }
-}
-
-/// El lugar, en corto: «Residencias» pasa a «Resd.» y el «Edificio»/«Edif.»
-/// de delante se cae («Apart. en Coronado Plaza», no «en Edificio Coronado
-/// Plaza»). El resto va tal cual: lo que no vale se arregla en la residencia,
-/// no adivinando aquí.
-fn lugar_corto(lugar: &str) -> String {
-    lugar
-        .split_whitespace()
-        .map(|p| {
-            if p.eq_ignore_ascii_case("residencias") {
-                "Resd."
-            } else if p.eq_ignore_ascii_case("edificio") || p.eq_ignore_ascii_case("edif.") {
-                ""
-            } else {
-                p
-            }
-        })
-        .filter(|p| !p.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 /// Recorta la ficha al allowlist. `strip` distinto de la versión vigente se
@@ -107,7 +52,14 @@ pub fn strip_ficha_para_prompt(ficha: &InmuebleRow, strip: &str) -> Result<Promp
          * preguntaban el canon. El tope sigue (nunca sin límite), pero por
          * encima de cualquier descripción real de la tabla. */
         descripcion_corta: ficha.descripcion.chars().take(1500).collect(),
-        nombre_corto: nombre_corto(&ficha.tipo, &ficha.residencia, &ficha.ubicacion),
+        /* [18AA-6] Manda el valor guardado. Solo si viene vacío (altas viejas
+         * o por API sin el campo) se sugiere uno: el borrador nunca se queda
+         * sin sujeto con el que citar el inmueble. */
+        nombre_corto: if ficha.nombre_corto.trim().is_empty() {
+            sugerir_nombre_corto(&ficha.tipo, &ficha.residencia, &ficha.ubicacion)
+        } else {
+            ficha.nombre_corto.trim().to_string()
+        },
     })
 }
 

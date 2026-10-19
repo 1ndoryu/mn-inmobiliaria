@@ -28,6 +28,9 @@ export interface IdentidadInmueble {
   ubicacion: string;
   /* Nombre de la residencia/conjunto ('' = sin especificar). */
   residencia: string;
+  /* [18AA-6] Nombre corto del inmueble: cómo se cita en el chat del
+   * Marketplace ('' = sin especificar). */
+  nombreCorto: string;
 }
 
 /* Clasificación comercial y visibilidad. */
@@ -220,6 +223,8 @@ export interface TextoDraft {
   descripcion: string;
   ubicacion: string;
   residencia: string;
+  /* [18AA-6] Nombre corto del inmueble (cuerpo que viaja a la API). */
+  nombre_corto: string;
 }
 
 /* Números del borrador (texto de formulario, se validan al guardar). */
@@ -256,6 +261,8 @@ export const DRAFT_VACIO: InmuebleDraft = {
   descripcion: '',
   ubicacion: '',
   residencia: '',
+  /* [18AA-6] Vacío por defecto: el nombre corto es opcional. */
+  nombre_corto: '',
   precio: '',
   tipo: '',
   operacion: '',
@@ -335,6 +342,8 @@ export function draftAInmueble(d: InmuebleDraft, base?: Inmueble): Inmueble {
     descripcion: d.descripcion.trim(),
     ubicacion: d.ubicacion.trim(),
     residencia: d.residencia.trim(),
+    /* [18AA-6] Como el resto de los textos del borrador: recortado al guardar. */
+    nombreCorto: d.nombre_corto.trim(),
     precio: num(d.precio),
     tipo: (d.tipo || 'apartamento') as TipoInmueble,
     operacion: (d.operacion || 'venta') as Operacion,
@@ -372,6 +381,8 @@ export function inmuebleADraft(i: Inmueble): InmuebleDraft {
     descripcion: i.descripcion,
     ubicacion: i.ubicacion,
     residencia: i.residencia ?? '',
+    /* [18AA-6] Registros guardados antes de existir el campo no lo traen. */
+    nombre_corto: i.nombreCorto ?? '',
     precio: String(i.precio),
     tipo: i.tipo,
     operacion: i.operacion,

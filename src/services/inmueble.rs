@@ -5,8 +5,9 @@ use uuid::Uuid;
 
 use crate::errors::AppError;
 use crate::models::{
-    ActualizacionInmueble, CreateInmuebleRequest, FiltrosPublicos, Inmueble, InmuebleRow,
-    PaginatedInmuebles, UpdateInmuebleRequest, ESTADOS, FORMATOS_RECETA, OPERACIONES, TIPOS,
+    sugerir_nombre_corto, ActualizacionInmueble, CreateInmuebleRequest, FiltrosPublicos, Inmueble,
+    InmuebleRow, PaginatedInmuebles, UpdateInmuebleRequest, ESTADOS, FORMATOS_RECETA, OPERACIONES,
+    TIPOS,
 };
 use crate::repositories::InmuebleRepository;
 use crate::services::sync::vigilancia::notificar;
@@ -91,6 +92,15 @@ impl InmuebleService {
             vinculo::preparar_para_crear(pool, req.marketplace_id.as_deref()).await?;
         /* [09AA-24] Alias en `alias::preparar_para_crear`. */
         let alias_titulos = alias::preparar_para_crear(req.alias_titulos)?;
+        /* [18AA-6] El nombre corto es un dato del inmueble y se rellena aquí:
+         * si el alta no lo trae, se sugiere con tipo, residencia y ubicación y
+         * queda guardado. Así los inmuebles nuevos se citan en el chat sin
+         * deducirlo del título en cada respuesta. */
+        let nombre_corto = if req.nombre_corto.trim().is_empty() {
+            sugerir_nombre_corto(&tipo, &req.residencia, &req.ubicacion)
+        } else {
+            req.nombre_corto.trim().to_string()
+        };
         let mut intento = 0;
         loop {
             let slug = if intento == 0 {
@@ -120,6 +130,7 @@ impl InmuebleService {
                 marketplace_id: marketplace_id.as_deref(),
                 /* Se clona por reintento de slug (máx 3, ≤10 textos cortos). */
                 alias_titulos: alias_titulos.clone(),
+                nombre_corto: &nombre_corto,
             };
             match InmuebleRepository::create(pool, &nuevo).await {
                 Ok(row) => {
@@ -246,6 +257,9 @@ impl InmuebleService {
             ubicacion: req.ubicacion.as_deref(),
             puestos: req.puestos,
             residencia: req.residencia.as_deref(),
+            /* [18AA-6] Ausente o vacío = no tocar el guardado (lo resuelve el
+             * `NULLIF` del UPDATE). */
+            nombre_corto: req.nombre_corto.as_deref(),
             precio: req.precio,
             tipo: tipo.as_deref(),
             operacion: operacion.as_deref(),
@@ -396,6 +410,7 @@ mod pruebas_receta {
             ubicacion: String::new(),
             puestos: 0,
             residencia: String::new(),
+            nombre_corto: String::new(),
             precio: 0.0,
             tipo: "apartamento".to_string(),
             operacion: "venta".to_string(),
@@ -417,6 +432,7 @@ mod pruebas_receta {
             ubicacion: None,
             puestos: None,
             residencia: None,
+            nombre_corto: None,
             precio: None,
             tipo: None,
             operacion: None,
@@ -486,6 +502,7 @@ mod pruebas_estado {
             ubicacion: String::new(),
             puestos: 0,
             residencia: String::new(),
+            nombre_corto: String::new(),
             precio: 0.0,
             tipo: "apartamento".to_string(),
             operacion: "venta".to_string(),
@@ -563,6 +580,7 @@ mod pruebas_borrado_foto {
             ubicacion: String::new(),
             puestos: 0,
             residencia: String::new(),
+            nombre_corto: String::new(),
             precio: 0.0,
             tipo: "apartamento".to_string(),
             operacion: "venta".to_string(),

@@ -52,6 +52,8 @@ const NOMBRES_CAMPO: Record<string, string> = {
   ubicacion: 'Ubicación',
   puestos: 'Puestos de estacionamiento',
   residencia: 'Residencia',
+  // [18AA-6] Nombre corto: campo sincronizable más.
+  nombre_corto: 'Nombre corto',
   precio: 'Precio',
   tipo: 'Tipo',
   operacion: 'Operación',

@@ -140,6 +140,16 @@ export function ModalInmueble(props: Props) {
                 placeholder="Residencias Los Naranjos"
               />
             </div>
+            {/* [18AA-6] Nombre corto: cómo se cita el inmueble en el chat del Marketplace. */}
+            <div className="space-y-1 sm:col-span-2">
+              <Etiqueta>Nombre corto</Etiqueta>
+              <Input
+                value={form.nombre_corto}
+                onChange={(e) => cambiar('nombre_corto', e.target.value)}
+                placeholder="Ej. Apart. en Resd. Kama Merú"
+              />
+              <p className="text-xs text-muted-foreground">Cómo se cita el inmueble en el chat del Marketplace.</p>
+            </div>
             <div className="space-y-1">
               <Etiqueta error={errores.precio}>Precio ($)</Etiqueta>
               <Input
