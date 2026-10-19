@@ -16,7 +16,6 @@ import { useInmuebles } from '../hooks/inmuebles/use-inmuebles';
 import { useConfigIA } from '../hooks/ia/use-config-ia';
 import { useSesion } from '../hooks/sesion/use-sesion';
 import { useTema } from '../hooks/app/use-tema';
-import { useEstadoLab } from '../hooks/app/use-estado-lab';
 import { useFotosMejora } from '../hooks/mejora/use-fotos-mejora';
 import { useColaMejora } from '../hooks/mejora/use-cola-mejora';
 import { eliminarMejorada } from '../data/inmuebles/api';
@@ -63,8 +62,6 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
   /* Indicador de IA de la cabecera [10AA-16]: lee el estado al montar y lo
    * vuelve a leer al cerrar Configuración (mientras está abierta no recarga). */
   const ia = useConfigIA(!configAbierta);
-  /* Latido del lab (opencode-propio-dev) con el backend [10AA-23]. */
-  const lab = useEstadoLab();
   /* Momento de montaje: la caducidad de la última prueba se juzga contra él, sin llamar a Date.now() en cada render. */
   const [montadoEn] = useState(() => Date.now() / 1000);
   const [copyId, setCopyId] = useState<string | null>(null);
@@ -142,7 +139,6 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
       temaExterno={temaApp.tema}
       alCiclarTemaExterno={temaApp.ciclar}
       iaResumen={resumirConexionIA(ia.estado, ia.error, montadoEn)}
-      labResumen={lab}
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div>
