@@ -21,28 +21,55 @@ pub struct PromptSeguro {
     pub habitaciones: i32,
     pub descripcion_corta: String,
     /// [18AA-5] Cómo se cita el inmueble en la conversación, ya montado
-    /// («el apartamento en Residencias Kama Merú»): tipo + residencia, con
-    /// artículo. La IA lo usa tal cual en vez de componerlo con el título.
+    /// («Apart. en Resd. Kama Merú»): tipo abreviado + lugar corto. La IA lo
+    /// usa tal cual en vez de componerlo con el título.
     pub nombre_corto: String,
 }
 
-/// Sujeto del borrador: artículo + tipo + lugar. El lugar es la residencia y,
-/// si no la hay, la ubicación. [18AA-5] Antes lo componía la IA a partir del
-/// título y salía «el apartamento planta baja con patio en Residencias Kama
-/// Merú»: leído en un chat suena a ficha, no a conversación.
+/// Sujeto del borrador: tipo abreviado + lugar corto. [18AA-5] Antes lo
+/// componía la IA a partir del título y salía «el apartamento planta baja con
+/// patio en Residencias Kama Merú»: leído en un chat suena a ficha, no a
+/// conversación.
 pub(crate) fn nombre_corto(tipo: &str, residencia: &str, ubicacion: &str) -> String {
-    /* El tipo va en minúscula: en la tabla llega a veces capitalizado
-     * («Apartamento») y el sujeto no abre la frase. */
-    let tipo = tipo.trim().to_lowercase();
-    let tipo = if tipo.is_empty() { "inmueble" } else { &tipo };
     let lugar = if residencia.trim().is_empty() {
         ubicacion
     } else {
         residencia
     };
-    /* El único tipo femenino del catálogo (`tools_definiciones`) es `casa`. */
-    let articulo = if tipo == "casa" { "la" } else { "el" };
-    format!("{articulo} {tipo} en {}", lugar.trim())
+    format!("{} en {}", tipo_corto(tipo), lugar_corto(lugar))
+}
+
+/// El tipo como lo dice la dueña. Solo `apartamento` se abrevia; el resto va
+/// tal cual con la inicial en mayúscula, porque abre la frase.
+fn tipo_corto(tipo: &str) -> String {
+    let t = tipo.trim().to_lowercase();
+    if t == "apartamento" {
+        return "Apart.".to_string();
+    }
+    let mut letras = t.chars();
+    match letras.next() {
+        Some(p) => p.to_uppercase().collect::<String>() + letras.as_str(),
+        /* Sin tipo en la tabla, un genérico antes que un hueco. */
+        None => "Inmueble".to_string(),
+    }
+}
+
+/// El lugar, en corto: se queda con lo de antes de la primera coma (la ciudad
+/// y coletillas como «conjunto residencial cerrado» sobran en un chat) y
+/// abrevia «Residencias» a «Resd.».
+fn lugar_corto(lugar: &str) -> String {
+    let base = lugar.split(',').next().unwrap_or("").trim();
+    let base = if base.is_empty() { lugar.trim() } else { base };
+    base.split_whitespace()
+        .map(|p| {
+            if p.eq_ignore_ascii_case("residencias") {
+                "Resd."
+            } else {
+                p
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Recorta la ficha al allowlist. `strip` distinto de la versión vigente se

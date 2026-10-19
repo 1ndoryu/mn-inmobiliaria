@@ -417,14 +417,13 @@ pub(super) fn sistema_borrador(
           es la dueña (tú no eres la dueña: no repitas lo que ella ya dijo). \
            Formato obligatorio, en este orden exacto: primer párrafo = UNA sola \
           frase, con uno de estos dos moldes: «<nombre_corto> sigue disponible en \
-          <precio>$ negociable.» si la cifra es la de venta (la inicial en \
-          mayúscula, porque abre la frase), o «El canon mensual de <nombre_corto> \
-          es de <precio>$.» si es el canon de alquiler; nunca el molde de venta \
-          para un canon, porque «sigue disponible en 2.800$» se lee como si el \
-          inmueble valiera eso. El sujeto es `nombre_corto` tal cual, copiado de \
-          los datos: no lo compongas ni le añadas nada del título (ni «planta \
-          baja con patio» ni la dirección), que suena a ficha y no a \
-          conversación. Sin «te hablo de», «sí \
+          <precio>$ negociable.» si la cifra es la de venta, o «El canon mensual \
+          es de <precio>$ para <nombre_corto>.» si es el canon de alquiler; nunca \
+          el molde de venta para un canon, porque «sigue disponible en 2.800$» se \
+          lee como si el inmueble valiera eso. El sujeto es `nombre_corto` tal \
+          cual, copiado de los datos: no lo compongas ni le añadas nada del \
+          título (ni «planta baja con patio» ni la dirección), que suena a ficha \
+          y no a conversación. Sin «te hablo de», «sí \
           sigue» ni «te escribo»; sin visitas, coordinación ni confirmar nada con \
           la dueña. La cifra exacta de los datos o del aviso, con el $ al final \
           (35.000$). El mismo inmueble puede \

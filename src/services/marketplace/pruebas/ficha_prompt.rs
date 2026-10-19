@@ -30,7 +30,7 @@ fn strip_solo_allowlist_ocho_campos() {
     assert_eq!(s.precio_publico, "$43.000");
     assert_eq!(s.operacion, "venta");
     assert_eq!(s.zona, "Puerto Ordaz, Riberas del Caroní");
-    assert_eq!(s.nombre_corto, "la casa en Riberas del Caroní");
+    assert_eq!(s.nombre_corto, "Casa en Riberas del Caroní");
 }
 
 /* [18AA-5] El sujeto sale del tipo y la residencia, nunca del título: es lo
@@ -39,20 +39,40 @@ fn strip_solo_allowlist_ocho_campos() {
 fn nombre_corto_usa_tipo_y_lugar() {
     assert_eq!(
         nombre_corto("casa", "Loma Linda", "Puerto Ordaz"),
-        "la casa en Loma Linda"
+        "Casa en Loma Linda"
     );
+    /* Solo `apartamento` se abrevia; el resto va tal cual, con mayúscula. */
     assert_eq!(
         nombre_corto("Apartamento", "Residencias Kama Merú", ""),
-        "el apartamento en Residencias Kama Merú"
+        "Apart. en Resd. Kama Merú"
     );
     /* Sin residencia, el lugar es la ubicación; sin tipo, un genérico. */
     assert_eq!(
         nombre_corto("townhouse", "  ", "Arivana"),
-        "el townhouse en Arivana"
+        "Townhouse en Arivana"
     );
     assert_eq!(
         nombre_corto("", "Los Pinos", "Chacao"),
-        "el inmueble en Los Pinos"
+        "Inmueble en Los Pinos"
+    );
+}
+
+/* [18AA-5] Lo que va tras la primera coma es ciudad o coletilla, y en un chat
+ * sobra: «Loma Linda, conjunto residencial cerrado» y «Las Peonías, Puerto
+ * Ordaz» se citan por su nombre y nada más. */
+#[test]
+fn lugar_corto_quita_la_cola_tras_la_coma() {
+    assert_eq!(
+        nombre_corto("casa", "", "Loma Linda, conjunto residencial cerrado"),
+        "Casa en Loma Linda"
+    );
+    assert_eq!(
+        nombre_corto("townhouse", "", "Las Peonías, Puerto Ordaz"),
+        "Townhouse en Las Peonías"
+    );
+    assert_eq!(
+        nombre_corto("apartamento", "Residencias Las Delicias", ""),
+        "Apart. en Resd. Las Delicias"
     );
 }
 
