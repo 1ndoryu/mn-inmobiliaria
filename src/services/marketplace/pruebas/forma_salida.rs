@@ -61,9 +61,20 @@ fn forma_partir_no_rompe_cifras() {
 /// Regresión Kama Merú: la ubicación con «Av.» no debe cortarse en «Av.».
 #[test]
 fn forma_no_corta_ubicacion_con_abreviatura() {
-    let ia = "El apartamento en Residencias Kama Merú sigue disponible en 35.000$ negociable.\n\nSe ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
+    let ia = "El apartamento en Residencias Kama Merú sigue disponible en 35.000$ negociable.\n\nEl inmueble se ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
     let r = imponer_forma_borrador(ia);
-    assert!(r.contains("Se ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz."), "{r}");
+    assert!(r.contains("El inmueble se ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz."), "{r}");
+}
+
+/// Un trozo de ubicación sin la forma pedida no sale; la frase completa sí.
+#[test]
+fn forma_ubicacion_solo_completa() {
+    let suelta = "El apartamento sigue disponible en 35.000$ negociable.\n\nSe ubica en Av. Principal de Villa Icabarú.\n\nCuéntame qué estás buscando.";
+    let r = imponer_forma_borrador(suelta);
+    assert!(!r.contains("Principal de Villa"), "{r}");
+    let completa = "El apartamento sigue disponible en 35.000$ negociable.\n\nEl inmueble se ubica en Av. Principal de Villa Icabarú.\n\nCuéntame qué estás buscando.";
+    let r = imponer_forma_borrador(completa);
+    assert!(r.contains("El inmueble se ubica en Av. Principal de Villa Icabarú."), "{r}");
 }
 
 #[test]

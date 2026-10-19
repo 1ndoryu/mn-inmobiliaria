@@ -47,7 +47,9 @@ pub fn imponer_forma_borrador(ia: &str) -> String {
     let mut medio: Option<String> = None;
     for m in ps.iter().skip(1).take(fin.saturating_sub(1)) {
         for f in partir_frases(m) {
-            if es_dato_util(&f) {
+            // Una ubicación solo sale completa, con la forma pedida («El inmueble se ubica…»):
+            // un trozo suelto («Principal de Villa…») no es un dato útil.
+            if es_dato_util(&f) && (!f.to_lowercase().contains("ubic") || f.starts_with("El inmueble se ubica")) {
                 medio = Some(f);
                 break;
             }
