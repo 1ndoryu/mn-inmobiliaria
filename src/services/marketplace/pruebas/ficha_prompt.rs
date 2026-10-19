@@ -3,12 +3,13 @@
 
 use super::*;
 
-/* El strip deja pasar exactamente los 7 campos del allowlist: ni el
+/* El strip deja pasar exactamente los 8 campos del allowlist: ni el
  * slug, ni el estado interno, ni la receta viajan al prompt.
  * (`serde_json::Map` ordena claves: se compara ordenado.)
- * [08AA-25] `operacion` viaja (v2): sin ella la IA vendía alquileres. */
+ * [08AA-25] `operacion` viaja (v2): sin ella la IA vendía alquileres.
+ * [18AA-5] `nombre_corto` viaja (v3): el sujeto lo monta Rust. */
 #[test]
-fn strip_solo_allowlist_siete_campos() {
+fn strip_solo_allowlist_ocho_campos() {
     let s = strip_ficha_para_prompt(&ficha(), STRIP_VERSION).unwrap();
     let v = serde_json::to_value(&s).unwrap();
     let mut claves: Vec<&str> = v.as_object().unwrap().keys().map(String::as_str).collect();
@@ -19,6 +20,7 @@ fn strip_solo_allowlist_siete_campos() {
             "descripcion_corta",
             "habitaciones",
             "m2",
+            "nombre_corto",
             "operacion",
             "precio_publico",
             "titulo",
@@ -28,6 +30,30 @@ fn strip_solo_allowlist_siete_campos() {
     assert_eq!(s.precio_publico, "$43.000");
     assert_eq!(s.operacion, "venta");
     assert_eq!(s.zona, "Puerto Ordaz, Riberas del Caroní");
+    assert_eq!(s.nombre_corto, "la casa en Riberas del Caroní");
+}
+
+/* [18AA-5] El sujeto sale del tipo y la residencia, nunca del título: es lo
+ * que evita «el apartamento planta baja con patio en Residencias Kama Merú». */
+#[test]
+fn nombre_corto_usa_tipo_y_lugar() {
+    assert_eq!(
+        nombre_corto("casa", "Loma Linda", "Puerto Ordaz"),
+        "la casa en Loma Linda"
+    );
+    assert_eq!(
+        nombre_corto("Apartamento", "Residencias Kama Merú", ""),
+        "el apartamento en Residencias Kama Merú"
+    );
+    /* Sin residencia, el lugar es la ubicación; sin tipo, un genérico. */
+    assert_eq!(
+        nombre_corto("townhouse", "  ", "Arivana"),
+        "el townhouse en Arivana"
+    );
+    assert_eq!(
+        nombre_corto("", "Los Pinos", "Chacao"),
+        "el inmueble en Los Pinos"
+    );
 }
 
 #[test]

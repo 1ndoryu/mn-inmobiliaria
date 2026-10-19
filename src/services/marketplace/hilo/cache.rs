@@ -43,7 +43,7 @@ pub fn sha_hex(canon: &str) -> String {
 }
 
 /// Hash del catálogo: serialización canónica de exactamente lo que entra al
-/// prompt (los 7 campos del strip + `estado`, que condiciona disponibilidad),
+/// prompt (los 8 campos del strip + `estado`, que condiciona disponibilidad),
 /// calculada sobre la fila recién leída y antes de stripeear. Si la ficha
 /// cambia en algo que la respuesta cita → hash distinto → miss → regenera.
 #[must_use]
@@ -57,6 +57,7 @@ pub fn hash_ficha(ficha: &InmuebleRow) -> String {
             "m2": s.m2,
             "hab": s.habitaciones,
             "desc": s.descripcion_corta,
+            "nombre": s.nombre_corto,
             "estado": ficha.estado,
         }),
         /* Inalcanzable con v2 (el handler lo rechazaría antes); clave

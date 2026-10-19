@@ -1,7 +1,9 @@
 /// Versión del strip aceptada (`strip_vN` del plan).
 /// [08AA-25] v2 suma `operacion` al allowlist: sin ella la IA presentaba
 /// los alquileres como ventas (testigo: Townhouse Arivana, hilo cristo).
-pub const STRIP_VERSION: &str = "v2";
+/// [18AA-5] v3 suma `nombre_corto`: el sujeto de la frase lo monta Rust en
+/// vez de la IA, que lo componía con el título entero.
+pub const STRIP_VERSION: &str = "v3";
 /// Fallback exacto cuando no hay ficha o falla la IA.
 /// [09AA-2] Sin «confirmo»: el prompt prohíbe anunciar confirmaciones y el
 /// texto anterior («te confirmo precio/entrega») minaba ese veto.

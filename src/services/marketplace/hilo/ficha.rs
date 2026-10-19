@@ -20,6 +20,29 @@ pub struct PromptSeguro {
     pub m2: f64,
     pub habitaciones: i32,
     pub descripcion_corta: String,
+    /// [18AA-5] Cómo se cita el inmueble en la conversación, ya montado
+    /// («el apartamento en Residencias Kama Merú»): tipo + residencia, con
+    /// artículo. La IA lo usa tal cual en vez de componerlo con el título.
+    pub nombre_corto: String,
+}
+
+/// Sujeto del borrador: artículo + tipo + lugar. El lugar es la residencia y,
+/// si no la hay, la ubicación. [18AA-5] Antes lo componía la IA a partir del
+/// título y salía «el apartamento planta baja con patio en Residencias Kama
+/// Merú»: leído en un chat suena a ficha, no a conversación.
+pub(crate) fn nombre_corto(tipo: &str, residencia: &str, ubicacion: &str) -> String {
+    /* El tipo va en minúscula: en la tabla llega a veces capitalizado
+     * («Apartamento») y el sujeto no abre la frase. */
+    let tipo = tipo.trim().to_lowercase();
+    let tipo = if tipo.is_empty() { "inmueble" } else { &tipo };
+    let lugar = if residencia.trim().is_empty() {
+        ubicacion
+    } else {
+        residencia
+    };
+    /* El único tipo femenino del catálogo (`tools_definiciones`) es `casa`. */
+    let articulo = if tipo == "casa" { "la" } else { "el" };
+    format!("{articulo} {tipo} en {}", lugar.trim())
 }
 
 /// Recorta la ficha al allowlist. `strip` distinto de la versión vigente se
@@ -48,6 +71,7 @@ pub fn strip_ficha_para_prompt(ficha: &InmuebleRow, strip: &str) -> Result<Promp
          * preguntaban el canon. El tope sigue (nunca sin límite), pero por
          * encima de cualquier descripción real de la tabla. */
         descripcion_corta: ficha.descripcion.chars().take(1500).collect(),
+        nombre_corto: nombre_corto(&ficha.tipo, &ficha.residencia, &ficha.ubicacion),
     })
 }
 
