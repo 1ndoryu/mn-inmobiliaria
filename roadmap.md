@@ -12,6 +12,13 @@ Cola operativa (AGENTS §7.1). Stack y comandos: `README.md`. Historial íntegro
   **Decidido 2026-10-12 (la usuaria):** la tarea programada del 13/10 05:15 que lo cerraba se cancela. El cierre queda manual: comprobar el gateway y decidir a mano.
 
 - **15AA-12 — El panel no alcanza el servidor de mejora desde que el dev está en la 89.** El panel llama a `/api/mejora` y el proxy de Vite (`frontend/vite.config.ts:35`) lo manda a `127.0.0.1:3122`, que en la 89 no escucha: el servidor de mejora solo puede correr en el portátil (necesita Chrome y las cookies de Gemini). Síntoma: «Backend no disponible» en la pestaña Imágenes y ningún «Reintentar» funciona. Mitigado a mano el 2026-10-15 con `ssh -f -N -R 3122:127.0.0.1:3122 dev89` (verificado: la 89 responde `{"listo":true}` por su 127.0.0.1:3122 y el panel pasa a «Backend listo»). Pendiente: que no dependa de un túnel a mano — o un `frontend/scripts/arrancar-mejora.mjs` que abra Chrome, renueve cookies, levante el túnel inverso y arranque el `:3122` (mismo patrón que el lanzador de la lab, 15AA-9), o que el panel hable directo con `127.0.0.1:3122` (CORS en `server/mejora.mjs` + `VITE_MEJORA_BASE`). Decidir cuál al empezar.
+- **18AA-8 — El borrador no tiene tope global: su peor caso son ~285 s.** `POST /api/admin/marketplace/borrador`
+  (`src/handlers/marketplace/borrador.rs`) no lleva `TimeoutLayer` en el Router y la IA se da 45 s de vía rápida
+  más dos intentos de 120 s (`src/handlers/ia/ia_proveedores.rs:216,337`), así que un fallo de caché puede
+  tardar casi cinco minutos y el cliente tiene que esperar todo ese rato. Medido el 2026-10-19: 750 peticiones
+  (p50 5,5 s, p99 27,7 s, máx 29,5 s) y 15 abortadas por el cliente; glory-web cortaba a los 30 s y lo pintaba
+  como «MN no responde» (arreglado allí subiendo el tope a 300 s, 18AA-7 de glory-web). Arreglo: un presupuesto
+  total para el handler (p. ej. una sola pasada de 120 s) o devolver el trabajo como tarea y consultarlo.
 
 ## 2. Decisiones de la usuaria (bloqueos)
 
