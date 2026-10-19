@@ -49,7 +49,6 @@ Cola viva en `opencode-propio-dev/PROMOCION-VENTANA.md` («Pendiente por promove
 - **169A-1:** fijar `AGENTE_CONTACTO` real en `MN-Inmobiliaria/.env`.
 - **169A-3..6 (WhatsApp):** `GLORY_ALERT_GATEWAY_URL` y número admin (`whatsapp_admin`).
 - **199A-1/199A-2 (IA central):** `GLORY_API_KEY` real en `.env`; sin ella GloryAPI queda `sin-clave`.
-- **18AA-3, despliegue de producción:** el vínculo ya se compara y se resuelve desde el panel, pero el panel de la 89 informa «sin soporte» frente a producción hasta que producción corra el mismo código (`huella::VERSION` 2; el servidor de la 1 no manda el campo). Desplegar MN es acción reservada a la usuaria: se hace cuando lo diga.
 
 ## 6. Desarrollo pendiente (por dependencia)
 
