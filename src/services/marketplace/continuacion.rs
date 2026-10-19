@@ -72,7 +72,8 @@ pub fn sistema_continuacion(tono: &str, aviso: &str, datos: &str, ya_dicho: &str
          y el $ al final (35.000$). El inmueble puede estar en venta y en \
          alquiler a la vez: si la descripción de los datos trae la cifra de la \
          otra operación (p. ej. «Alquiler: $2.800») y el Cliente pregunta por \
-         ella, da esa. \
+         ella, da esa. Si la cifra es la del alquiler, di «canon mensual» junto \
+         al importe: una cifra suelta se lee como precio de venta. \
          Ya le dijiste (no lo repitas igual): {ya_dicho}"
     )
 }

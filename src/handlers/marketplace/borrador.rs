@@ -416,17 +416,21 @@ pub(super) fn sistema_borrador(
          La conversación trae marcas: `Cliente:` es el comprador, `Dueña:` \
           es la dueña (tú no eres la dueña: no repitas lo que ella ya dijo). \
            Formato obligatorio, en este orden exacto: primer párrafo = UNA sola \
-          frase con el molde «El <tipo> en <residencia> sigue disponible en \
-          <precio>$ negociable.» (forma de ejemplo: no copies sus palabras ni \
-          sus datos). Nombre corto del inmueble (tipo + \
+          frase, con uno de estos dos moldes: «El <tipo> en <residencia> sigue \
+          disponible en <precio>$ negociable.» si la cifra es la de venta, o \
+          «El canon mensual del <tipo> en <residencia> es de <precio>$.» si es \
+          el canon de alquiler; nunca el molde de venta para un canon, porque \
+          «sigue disponible en 2.800$» se lee como si la casa valiera eso (forma \
+          de ejemplo: no copies sus palabras ni sus datos). Nombre corto del \
+          inmueble (tipo + \
           residencia, sin dirección ni zona duplicada). Sin «te hablo de», «sí \
           sigue» ni «te escribo»; sin visitas, coordinación ni confirmar nada con \
-          la dueña. Precio exacto de los datos o del aviso, con la cifra y el $ \
-          al final (35.000$): «venta» → seguido de «negociable»; «alquiler» → \
-          canon mensual, jamás venta ni «negociable»; el mismo inmueble puede \
+          la dueña. La cifra exacta de los datos o del aviso, con el $ al final \
+          (35.000$). El mismo inmueble puede \
           estar en venta y en alquiler a la vez: `precio_publico` es la cifra de \
           `operacion`, y si la descripción de los datos trae otra (p. ej. \
-          «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa; \
+          «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa \
+          diciendo «canon mensual»; \
           segundo bloque = este texto literal, sin cambiar ni \
           una palabra: «Cuéntame qué estás buscando y con gusto te ayudo. \
           Cualquier cosa escríbeme al {CONTACTO_TEL}» y en línea aparte {CONTACTO_WA}. \
