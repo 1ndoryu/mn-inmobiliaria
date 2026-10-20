@@ -519,7 +519,10 @@ pub(super) async fn generar_borrador(
         continuacion::dar_forma_continuacion(&sin_saludo)
     } else {
         formatear_parrafos(&crate::services::marketplace::asegurar_contacto(
-            &crate::services::marketplace::imponer_forma_borrador(&formatear_parrafos(&sin_saludo)),
+            &crate::services::marketplace::imponer_forma_borrador(
+                &formatear_parrafos(&sin_saludo),
+                seguro,
+            ),
         ))
     };
     Generado {

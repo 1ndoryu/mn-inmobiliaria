@@ -1,4 +1,6 @@
-use crate::services::marketplace::{CONTACTO_TEL, CONTACTO_WA, CTA_FIJO, FALLBACK_BORRADOR};
+use crate::services::marketplace::{
+    CONTACTO_TEL, CONTACTO_WA, CTA_FIJO, FALLBACK_BORRADOR, PromptSeguro,
+};
 
 /// [07AA-8] Garantía determinista del formato: si el texto generado no trae
 /// el teléfono o el enlace, se agregan (teléfono como penúltima línea,
@@ -18,9 +20,41 @@ pub fn asegurar_contacto(texto: &str) -> String {
     t
 }
 
-/// Garantía determinista de forma sobre el texto crudo de la IA.
+/// [20AA-1] Apertura que impone la ficha: la cifra publicada sin el `$`
+/// (`"86.000"`) y el primer párrafo de los dos moldes del prompt, construido
+/// aquí. `None` cuando no hay precio que decir (un `0` no es un precio) o no
+/// hay `nombre_corto` con el que citar el inmueble: sin dato, la forma la
+/// decide la IA y el fallback sigue valiendo.
+pub(in crate::services::marketplace) fn apertura_de_ficha(
+    ficha: &PromptSeguro,
+) -> Option<(String, String)> {
+    let cifra = ficha
+        .precio_publico
+        .trim()
+        .trim_start_matches('$')
+        .trim()
+        .to_string();
+    if !cifra.chars().any(|c| c.is_ascii_digit() && c != '0') {
+        return None;
+    }
+    let nombre = ficha.nombre_corto.trim();
+    if nombre.is_empty() {
+        return None;
+    }
+    let molde = if ficha.operacion.trim().eq_ignore_ascii_case("alquiler") {
+        format!("El canon mensual es de {cifra}$ para {nombre}.")
+    } else {
+        format!("{nombre} sigue disponible en {cifra}$ negociable.")
+    };
+    Some((cifra, molde))
+}
+
+/// Garantía determinista de forma sobre el texto crudo de la IA. `ficha` es la
+/// que se le dio al modelo (si la hay): con precio conocido, el primer párrafo
+/// lo lleva siempre.
 #[must_use]
-pub fn imponer_forma_borrador(ia: &str) -> String {
+pub fn imponer_forma_borrador(ia: &str, ficha: Option<&PromptSeguro>) -> String {
+    let apertura = ficha.and_then(apertura_de_ficha);
     let norm = formatear_parrafos(ia);
     let ps: Vec<String> = norm
         .split("\n\n")
@@ -28,7 +62,7 @@ pub fn imponer_forma_borrador(ia: &str) -> String {
         .filter(|s| !s.is_empty())
         .collect();
     if ps.is_empty() {
-        return borrador_minimo();
+        return borrador_minimo(apertura.as_ref().map(|(_, m)| m.as_str()));
     }
     /* Ancla final: último párrafo con contacto o CTA (lo que la IA haya
      * puesto ahí se descarta igual; el final se reconstruye canónico). */
@@ -39,8 +73,17 @@ pub fn imponer_forma_borrador(ia: &str) -> String {
         })
         .unwrap_or(ps.len() - 1);
     let p1 = sanear_p1(&ps[0]);
-    if !p1_valido(&p1) {
-        return borrador_minimo();
+    /* [20AA-1] La cifra no se le confía al modelo: el mismo inmueble, con la
+     * ficha en `datos` y el mismo hilo, dio el fallback a las 03:42 y el
+     * precio correcto a las 11:02 (base de la 89, `mp_respuestas_cache`). Si
+     * su primer párrafo no trae el precio publicado (fallback, cifra de otro
+     * inmueble o frase sin cifra), lo pone Rust. */
+    let p1 = match &apertura {
+        Some((cifra, molde)) if !p1.contains(cifra.as_str()) => molde.clone(),
+        _ => p1,
+    };
+    if !p1_valido(&p1, apertura.is_some()) {
+        return borrador_minimo(apertura.as_ref().map(|(_, m)| m.as_str()));
     }
     /* Medios = párrafos entre P1 y el ancla; se conserva como máximo UNA
      * frase que sea dato útil (respuesta a pregunta concreta no cubierta). */
@@ -70,8 +113,12 @@ pub fn imponer_forma_borrador(ia: &str) -> String {
 }
 
 /// P1 trae disponibilidad o precio (o el fallback): si la IA alucinó otro
-/// texto, se descarta todo y va el mínimo.
-pub(in crate::services::marketplace) fn p1_valido(p1: &str) -> bool {
+/// texto, se descarta todo y va el mínimo. [20AA-1] Con ficha no vale el
+/// fallback: hay precio que decir y el párrafo ya es el molde con la cifra.
+pub(in crate::services::marketplace) fn p1_valido(p1: &str, hay_ficha: bool) -> bool {
+    if hay_ficha {
+        return p1.contains('$');
+    }
     p1.contains("disponible") || p1.contains('$') || p1.contains(&FALLBACK_BORRADOR[..10])
 }
 
@@ -238,9 +285,12 @@ fn es_abreviatura(act: &str) -> bool {
 }
 
 /// Mínimo servible cuando la IA devolvió basura: fallback + contacto + wa.
-pub(in crate::services::marketplace) fn borrador_minimo() -> String {
+/// [20AA-1] `apertura` es el molde con la cifra cuando hay ficha: el mínimo
+/// nunca cae al fallback si hay precio que dar.
+pub(in crate::services::marketplace) fn borrador_minimo(apertura: Option<&str>) -> String {
     formatear_parrafos(&format!(
-        "{FALLBACK_BORRADOR}\nCualquier cosa escríbeme al {CONTACTO_TEL}\n{CONTACTO_WA}"
+        "{}\nCualquier cosa escríbeme al {CONTACTO_TEL}\n{CONTACTO_WA}",
+        apertura.unwrap_or(FALLBACK_BORRADOR)
     ))
 }
 
