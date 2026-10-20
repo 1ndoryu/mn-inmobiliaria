@@ -4,9 +4,6 @@
 
 ## Siguiente bloque
 
-- [ ] `20AA-1` — **El primer mensaje de Marketplace no siempre dice el precio.**
-  Pedido de la usuaria el 2026-10-20 («a veces dice el precio a veces sí; siempre tiene que decirlo en el primer mensaje»). Causa hallada: no es de datos. En `mp_respuestas_cache` (base de la 89) el mismo inmueble, con el mismo `precio_hash` real (`1daeeea0…`) y el mismo hilo `eduanys|apartamento planta baja con patio en residencias kama merú…`, dio el fallback a las 03:42 del 2026-10-20 y el precio correcto («Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable.») a las 04:19, 11:02 y 11:06: la ficha estaba en `datos` y la IA aun así eligió el fallback. `imponer_forma_borrador` no lo impide porque `p1_valido` (`src/services/marketplace/texto/forma.rs:74`) acepta el fallback incondicionalmente, sin saber si hay ficha. Arreglo: la apertura canónica se construye en Rust cuando hay ficha y el fallback deja de valer como primer párrafo. Registrada 2026-10-20.
-
 - [ ] `13AA-12` — **Estado de sincronización de inmuebles (local ↔ servidor), en ambos sentidos.**
   Plan: `Agente/planes/plan-sync-inmuebles-2026-10-13.md`. Estado: en ejecución (F6, cierre). F1–F4 hechas y verificadas (matriz de escenarios contra servidor simulado: 10/10). Columna «Sync» en tiempo real (local adelante / servidor adelante / ambos / solo uno / igual) comparando campos, ficha y fotos por bytes; solo lectura. F5 hecha el 2026-10-19: producción desplegada (`cm-local/inmobiliaria:96278d9b1e6d`, backup pre-deploy `20261019_161550-pre_deploy_service`) y comparación real contra producción en el panel: 20/20 Igual, sin ninguna diferencia pendiente. Pendiente: cierre F6. Cada operación remota se declara al ejecutarla.
 
