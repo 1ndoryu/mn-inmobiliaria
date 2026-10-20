@@ -4,9 +4,6 @@
 
 ## Siguiente bloque
 
-- [ ] `13AA-12` — **Estado de sincronización de inmuebles (local ↔ servidor), en ambos sentidos.**
-  Plan: `Agente/planes/plan-sync-inmuebles-2026-10-13.md`. Estado: en ejecución (F6, cierre). F1–F4 hechas y verificadas (matriz de escenarios contra servidor simulado: 10/10). Columna «Sync» en tiempo real (local adelante / servidor adelante / ambos / solo uno / igual) comparando campos, ficha y fotos por bytes; solo lectura. F5 hecha el 2026-10-19: producción desplegada (`cm-local/inmobiliaria:96278d9b1e6d`, backup pre-deploy `20261019_161550-pre_deploy_service`) y comparación real contra producción en el panel: 20/20 Igual, sin ninguna diferencia pendiente. Pendiente: cierre F6. Cada operación remota se declara al ejecutarla.
-
 - [ ] `14AA-2` — **Resolver diferencias de sync por inmueble (botón «Resolver», elección por campo, imágenes lado a lado).**
   Plan: `Agente/planes/plan-resolver-diferencias-sync-2026-10-14.md`. Estado: F1 hecha (plan de lectura y panel claro, sin escrituras; `services::sync` 32/32, type-check y lint OK). F5a–F5c (publicar y traer el inmueble completo) implementadas en `main` (`7b991fe4`, `28786374`). F5d hecha el 2026-10-14 (`f109e8b0`): test de integración `tests/sync_f5d.rs` contra dos BD temporales (`DATABASE_URL`, nunca `PROD_BASE`), cubre publicar, traer, slug ocupado y fallo a mitad de fotos; sin `DATABASE_URL` falla en vez de omitirse. De F5d queda la comprobación en navegador contra el remoto de prueba. F2 hecha el 2026-10-16 (16AA-2): la usuaria probó el panel y el botón «Aplicar cambios» estaba deshabilitado; ya está el `POST /api/admin/sync/resolver/{slug}/aplicar` (plan antes de escribir y 409 si el `plan_id` no coincide, D3; cerrojo por slug, D15) y el diálogo que nombra el servidor antes de escribir (D4/D16) y enseña después lo escrito, lo pendiente y el residuo (D5). Verificado con la matriz `tests/sync_aplicar.rs` contra servidor simulado y en el panel real (confirma y no escribe sin pulsar «Aplicar ahora»). F3 hecha el 2026-10-16 (16AA-3): «Aplicar cambios» mueve también las fotos, por bytes y en los dos sentidos (`remoto::borrar_foto` es nuevo); el borrado va de mayor a menor orden y la `mejorada` antes que su `original`, para no pisar la renumeración en cascada, y el contador del plan cuenta solo lo que de verdad se puede escribir. Verificado con `tests/sync_aplicar.rs` (foto subida y luego borrada, con `Estado::Igual` tras cada paso), `sync_f5d` y `fotos_orden`. Pendiente: F4 (verificación end-to-end en el navegador). Ninguna escritura contra producción sin permiso explícito de la usuaria por operación (plan D4).
 
@@ -69,9 +66,6 @@
 - [ ] `19AA-7` — **Alta de proyecto: 8/11.**
   Faltan `quality:check`, `target-dir` en `.cargo/config.toml` y `.runtime/` en `.gitignore` (`Agente/documentacion/alta-proyectos-2026-10-11.md:43`).
 
-- [ ] `19AA-8` — **Traslado a GitHub.**
-  `main` → `github.com/1ndoryu/mn-inmobiliaria`, 0 commits pendientes (revisión 2026-10-15, `Agente/documentacion/inventario-traslado-2026-10-14.md:16`).
-
 - [ ] `19AA-9` — **Sentinel: el contador de líneas efectivas de Rust estaba mal (arreglado, sin propagar).**
   `contarLineasEfectivas` truncaba el archivo en el primer `#[cfg(test)]`; un `#[cfg(test)] use ...` de cabecera dejaba el archivo entero fuera del recuento. `src/handlers/ia/rutas.rs` contaba 12 efectivas en vez de 537, así que `limite-lineas` no disparaba. Arreglado en `glory-sentinel` `4d63473` (`origin/main`), certificado y sin propagar: el pin de los consumidores sigue en `f691510` y subirlo arrastra 14 commits CSS ya commiteados del lote de KAMPLES. Decisión de la usuaria del 2026-10-16: que entre con ese release, no forzarlo ahora. Cuando entre, este proyecto gana un hallazgo (`ia/rutas.rs`) y hay que rehacer la base del gate. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
 
@@ -117,7 +111,6 @@
 
 ## Planes activos
 
-- `Agente/planes/plan-sync-inmuebles-2026-10-13.md` — `13AA-12` — columna «Sync» y despliegue del estado de sincronización.
 - `Agente/planes/plan-resolver-diferencias-sync-2026-10-14.md` — `14AA-2` — resolver diferencias por inmueble (botón «Resolver»).
 - `Agente/planes/plan-clave-chat-estable-2026-10-13.md` — `13AA-13` — clave de chat estable por conversación (Marketplace).
 - `Agente/planes/plan-vinculo-marketplace-2026-10-13.md` — `13AA-4` — vincular inmuebles con avisos de Facebook Marketplace.
