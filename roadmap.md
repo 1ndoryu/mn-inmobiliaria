@@ -36,8 +36,6 @@
 - [ ] `15AA-6` — **WhatsApp del taller (restos, 2026-10-15).**
   El puente gateway(laptop)↔backend(89) está cerrado y en marcha (`Agente/documentacion/puente-whatsapp-taller-2026-10-15.md`). Prueba viva del 2026-10-15 19:11: 13 fotos mandadas al número A entraron por el webhook y el backend de la 89 las archivó en `uploads/whatsapp/5214427789328/`; se engancharon al inmueble `5a5cd58e-68ff-4f3b-9275-ef1a28e49a10` con `POST /api/admin/fotos/upload` (13 filas, orden 0–12, miniaturas `min160-` generadas). Queda: (a) una foto mandada a las vías mudas B y C no se archiva sola (`gateway/src/sesion.mjs:150` la descarta antes de bajar media; hoy se recupera con `gateway/src/rescatar-historial.mjs --sesion=wa_c` y una copia a mano a la 89) — falta que C archive sin responder; (b) `reparto` solo acepta el número A, así que un webhook con destino C responde 400 `numero_destino desconocido` (`src/services/mensajeria/transporte.rs`); (c) la foto que envía la IA (`src/handlers/chat/tools/fotos.rs:71`) usaría `PUBLIC_BASE_URL` público, detrás de Cloudflare Access: camino dormido.
 
-- [ ] `09AA-14` — **scraper: fix en origen.**
-  Fix en origen, `plugins-opencode/src/burbujas` (chip task_7d226a2c). Copia al lab con sha256 hecha; prueba viva en Facebook cerrada 2026-10-13.
 
 - [ ] `299A-3` — **Notas de voz.**
   Pendiente de proveedor IA operativo (ver Bloqueos) para reproducir las dos notas de voz (`src/services/turno.rs:511-517`).
