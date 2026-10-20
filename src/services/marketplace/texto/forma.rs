@@ -294,6 +294,17 @@ pub(in crate::services::marketplace) fn borrador_minimo(apertura: Option<&str>) 
     ))
 }
 
+/// [20AA-1] Reserva: la IA no respondió (relay caído o respuesta sin texto, que
+/// en la base de la 89 pasa varias veces al día). Pasa por la misma autoridad de
+/// forma que el camino feliz: con la ficha en `datos`, un fallo del relay no
+/// puede borrar el precio ya conocido — el 2026-10-20 la reserva del hilo de
+/// Kama Merú salió con el fallback y sin la cifra, con la ficha emparejada.
+#[must_use]
+pub fn borrador_de_reserva(ficha: Option<&PromptSeguro>) -> String {
+    let apertura = ficha.and_then(apertura_de_ficha);
+    borrador_minimo(apertura.as_ref().map(|(_, m)| m.as_str()))
+}
+
 /// [08AA-11] Párrafos coherentes para el borrador que se copia a
 /// `WhatsApp`: la IA a veces devuelve líneas sueltas (venía de pedirle
 /// "máximo 6 líneas") o pega el contacto al final de la frase anterior.

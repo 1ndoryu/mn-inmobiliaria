@@ -148,3 +148,24 @@ fn forma_sin_precio_en_la_ficha_conserva_el_fallback() {
     let r = imponer_forma_borrador(FALLBACK_BORRADOR, Some(&s));
     assert!(r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
 }
+
+/* [20AA-1] La reserva (IA caída) es la otra vía por la que se perdía el precio:
+ * el 2026-10-20 el hilo de Eduanys, con la ficha emparejada, salió por reserva
+ * con el fallback pelado. Testigo: `mp_respuestas_cache` de la 89 + el warn
+ * «borrador mp: IA caída (OpenCode Go devolvio una respuesta sin texto)». */
+
+#[test]
+fn reserva_con_ficha_lleva_el_precio() {
+    let r = borrador_de_reserva(Some(&seguro_kama_meru()));
+    assert!(r.starts_with("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable."), "{r}");
+    assert!(!r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
+    assert!(r.contains(CONTACTO_TEL), "{r}");
+    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+}
+
+#[test]
+fn reserva_sin_ficha_conserva_el_fallback() {
+    let r = borrador_de_reserva(None);
+    assert!(r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
+    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+}

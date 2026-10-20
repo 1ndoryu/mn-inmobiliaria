@@ -492,9 +492,9 @@ pub(super) async fn generar_borrador(
             let texto = if cont {
                 continuacion::FALLBACK_CONTINUACION.to_string()
             } else {
-                formatear_parrafos(&crate::services::marketplace::asegurar_contacto(
-                    FALLBACK_BORRADOR,
-                ))
+                /* [20AA-1] La reserva pasa por la forma canónica: con la ficha
+                 * en `datos`, un relay caído no puede llevarse el precio. */
+                crate::services::marketplace::borrador_de_reserva(seguro)
             };
             return Generado {
                 texto,
