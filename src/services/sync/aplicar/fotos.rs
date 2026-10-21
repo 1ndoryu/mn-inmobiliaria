@@ -72,9 +72,17 @@ pub(super) async fn al_local(
     hecho: &mut Vec<String>,
     pendientes: &mut Vec<String>,
 ) -> Result<(), String> {
-    let destino: Vec<(String, i32)> = mover.local.iter().map(|f| (f.origen.clone(), f.orden)).collect();
+    let destino: Vec<(String, i32)> = mover
+        .local
+        .iter()
+        .map(|f| (f.origen.clone(), f.orden))
+        .collect();
     let mut total = 0usize;
-    for fila in mover.plan.iter().filter(|f| f.ganador == Eleccion::Servidor && f.accion == Accion::Escribir) {
+    for fila in mover
+        .plan
+        .iter()
+        .filter(|f| f.ganador == Eleccion::Servidor && f.accion == Accion::Escribir)
+    {
         let Some(remota) = hay_remota(mover.servidor, fila) else {
             pendientes.push(format!("{} (el servidor ya no la tiene)", fila.clave));
             continue;
@@ -148,9 +156,17 @@ pub(super) async fn al_servidor(
     hecho: &mut Vec<String>,
     pendientes: &mut Vec<String>,
 ) -> Result<(), String> {
-    let destino: Vec<(String, i32)> = mover.servidor.iter().map(|f| (f.origen.clone(), f.orden)).collect();
+    let destino: Vec<(String, i32)> = mover
+        .servidor
+        .iter()
+        .map(|f| (f.origen.clone(), f.orden))
+        .collect();
     let mut total = 0usize;
-    for fila in mover.plan.iter().filter(|f| f.ganador == Eleccion::Local && f.accion == Accion::Escribir) {
+    for fila in mover
+        .plan
+        .iter()
+        .filter(|f| f.ganador == Eleccion::Local && f.accion == Accion::Escribir)
+    {
         if hay_remota(mover.servidor, fila).is_some() {
             // Su API solo sabe borrar (y renumera) o añadir: reemplazar los bytes
             // de una foto que ya está necesita un endpoint nuevo, o sea desplegar.
@@ -180,9 +196,16 @@ pub(super) async fn al_servidor(
                 format!("las fotos del plan pasan de {MAX_BYTES_TOTALES} bytes"),
             ));
         }
-        remoto::subir_foto(cred, id, &nombre_de(&actual.url), &fila.origen, fila.orden, bytes)
-            .await
-            .map_err(|e| paso(&fila.clave, e))?;
+        remoto::subir_foto(
+            cred,
+            id,
+            &nombre_de(&actual.url),
+            &fila.origen,
+            fila.orden,
+            bytes,
+        )
+        .await
+        .map_err(|e| paso(&fila.clave, e))?;
         hecho.push(format!("Foto {} copiada al servidor", fila.clave));
     }
     for fila in de_mayor_a_menor(&mover.plan, Eleccion::Local) {
@@ -207,7 +230,7 @@ pub(super) async fn al_servidor(
 /// Las filas de borrado del lado contrario a `ganador`, de mayor a menor `orden`
 /// y la `mejorada` antes que su `original` (así, cuando le toca a la original, la
 /// cascada ya no encuentra hermana).
-fn de_mayor_a_menor<'a>(plan: &'a [FilaFoto], ganador: Eleccion) -> Vec<&'a FilaFoto> {
+fn de_mayor_a_menor(plan: &[FilaFoto], ganador: Eleccion) -> Vec<&FilaFoto> {
     let mut quitar: Vec<&FilaFoto> = plan
         .iter()
         .filter(|f| f.ganador == ganador && f.accion == Accion::Quitar)
@@ -226,11 +249,15 @@ async fn leer_foto_local(upload_dir: &Path, foto: &FotoPublica) -> Result<Vec<u8
 }
 
 fn hay_local<'a>(fotos: &'a [FotoPublica], fila: &FilaFoto) -> Option<&'a FotoPublica> {
-    fotos.iter().find(|f| f.origen == fila.origen && f.orden == fila.orden)
+    fotos
+        .iter()
+        .find(|f| f.origen == fila.origen && f.orden == fila.orden)
 }
 
 fn hay_remota<'a>(fotos: &'a [FotoRemota], fila: &FilaFoto) -> Option<&'a FotoRemota> {
-    fotos.iter().find(|f| f.origen == fila.origen && f.orden == fila.orden)
+    fotos
+        .iter()
+        .find(|f| f.origen == fila.origen && f.orden == fila.orden)
 }
 
 /// ¿Borrar esta `original` se llevaría por delante una `mejorada` que el plan
@@ -289,8 +316,12 @@ mod pruebas {
 
     #[test]
     fn las_claves_de_foto_se_leen_origen_y_orden() {
-        let f = fila_foto(&fila("foto:mejorada:12", Eleccion::Local, Accion::Quitar)).expect("es foto");
-        assert_eq!((f.origen.as_str(), f.orden, f.ganador, f.accion), ("mejorada", 12, Eleccion::Local, Accion::Quitar));
+        let f =
+            fila_foto(&fila("foto:mejorada:12", Eleccion::Local, Accion::Quitar)).expect("es foto");
+        assert_eq!(
+            (f.origen.as_str(), f.orden, f.ganador, f.accion),
+            ("mejorada", 12, Eleccion::Local, Accion::Quitar)
+        );
         assert!(fila_foto(&fila("titulo", Eleccion::Local, Accion::Escribir)).is_none());
         assert!(fila_foto(&fila("foto:original", Eleccion::Local, Accion::Escribir)).is_none());
         assert!(fila_foto(&fila("foto:original:x", Eleccion::Local, Accion::Escribir)).is_none());
@@ -313,7 +344,12 @@ mod pruebas {
             .collect();
         assert_eq!(
             orden,
-            vec!["foto:original:3", "foto:mejorada:2", "foto:original:2", "foto:original:1"],
+            vec![
+                "foto:original:3",
+                "foto:mejorada:2",
+                "foto:original:2",
+                "foto:original:1"
+            ],
             "de mayor a menor orden y la mejorada antes que su original"
         );
     }
@@ -321,7 +357,8 @@ mod pruebas {
     #[test]
     fn borrar_una_original_con_mejorada_viva_queda_pendiente() {
         let destino = [("original".to_string(), 2), ("mejorada".to_string(), 2)];
-        let solo_original = vec![fila_foto(&fila("foto:original:2", Eleccion::Servidor, Accion::Quitar)).unwrap()];
+        let solo_original =
+            vec![fila_foto(&fila("foto:original:2", Eleccion::Servidor, Accion::Quitar)).unwrap()];
         let borrar = solo_original[0].clone();
         assert!(
             arrastra_mejorada(&destino, &solo_original, &borrar, Eleccion::Servidor),
@@ -332,9 +369,20 @@ mod pruebas {
             .iter()
             .map(|c| fila_foto(&fila(c, Eleccion::Servidor, Accion::Quitar)).unwrap())
             .collect();
-        assert!(!arrastra_mejorada(&destino, &ambas, &borrar, Eleccion::Servidor));
+        assert!(!arrastra_mejorada(
+            &destino,
+            &ambas,
+            &borrar,
+            Eleccion::Servidor
+        ));
         // Y una mejorada nunca arrastra nada.
-        let mejorada = fila_foto(&fila("foto:mejorada:2", Eleccion::Servidor, Accion::Quitar)).unwrap();
-        assert!(!arrastra_mejorada(&destino, &ambas, &mejorada, Eleccion::Servidor));
+        let mejorada =
+            fila_foto(&fila("foto:mejorada:2", Eleccion::Servidor, Accion::Quitar)).unwrap();
+        assert!(!arrastra_mejorada(
+            &destino,
+            &ambas,
+            &mejorada,
+            Eleccion::Servidor
+        ));
     }
 }

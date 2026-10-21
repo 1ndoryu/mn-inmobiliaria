@@ -95,7 +95,7 @@ fn credenciales_remoto(dir: &Path, base: &str) -> Credenciales {
 /// Bytes con cabecera JPEG válida; `semilla` distingue el contenido (y el sha256).
 fn jpeg(semilla: u8) -> Vec<u8> {
     let mut bytes = vec![0xFF, 0xD8, 0xFF, 0xE0];
-    bytes.extend(std::iter::repeat(semilla).take(256));
+    bytes.extend(std::iter::repeat_n(semilla, 256));
     bytes
 }
 
@@ -260,7 +260,11 @@ async fn publicar_y_traer_quedan_iguales_en_ambos_lados() {
     let informe = publicar(&pool_local, &dir_local, &cred, &slug1)
         .await
         .expect("publicar");
-    assert!(informe.fallo.is_none(), "publicar falló: {:?}", informe.fallo);
+    assert!(
+        informe.fallo.is_none(),
+        "publicar falló: {:?}",
+        informe.fallo
+    );
     assert!(
         informe.hecho.iter().any(|h| h == "2 fotos"),
         "hecho: {:?}",
@@ -302,13 +306,12 @@ async fn publicar_y_traer_quedan_iguales_en_ambos_lados() {
 
     // 4. Fallo de una foto a mitad: informe del paso y ninguna fila local borrada.
     let (id4, slug4) = sembrar(&pool_local, &dir_local, "Galeria F5d fallo").await;
-    let clave4: String = sqlx::query_scalar(
-        "SELECT storage_key FROM fotos WHERE inmueble_id = $1 AND orden = 2",
-    )
-    .bind(id4)
-    .fetch_one(&pool_local)
-    .await
-    .unwrap();
+    let clave4: String =
+        sqlx::query_scalar("SELECT storage_key FROM fotos WHERE inmueble_id = $1 AND orden = 2")
+            .bind(id4)
+            .fetch_one(&pool_local)
+            .await
+            .unwrap();
     std::fs::write(
         InmuebleService::ruta_archivo(&dir_local, &clave4),
         b"no soy una imagen",
@@ -347,12 +350,11 @@ async fn publicar_y_traer_quedan_iguales_en_ambos_lados() {
         (1, 2),
         "filas locales intactas"
     );
-    let publicado: bool =
-        sqlx::query_scalar("SELECT publicado FROM inmuebles WHERE slug = $1")
-            .bind(&slug4)
-            .fetch_one(&pool_local)
-            .await
-            .unwrap();
+    let publicado: bool = sqlx::query_scalar("SELECT publicado FROM inmuebles WHERE slug = $1")
+        .bind(&slug4)
+        .fetch_one(&pool_local)
+        .await
+        .unwrap();
     assert!(publicado, "la visibilidad local no cambia");
 
     // Limpieza: solo tras éxito. Las BD son desechables y se borran con su conexión.

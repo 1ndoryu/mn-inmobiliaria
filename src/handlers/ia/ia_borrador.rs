@@ -216,9 +216,12 @@ mod pruebas {
      * desatasca el `incomplete` por `max_output_tokens`. */
     #[test]
     fn presupuesto_del_borrador_cabe_bajo_el_corte_del_nucleo() {
+        /* `const` en vez de `assert!` sobre constantes: clippy marca el
+         * `assert!` como valor constante, y aquí el fallo debe doler en
+         * compilación, no en el test. */
         const CORTE_NUCLEO_SEGS: u64 = 90;
-        assert!(PRESUPUESTO_BORRADOR_SEGS < CORTE_NUCLEO_SEGS);
-        assert!(TIMEOUT_RAPIDO_SEGS < PRESUPUESTO_BORRADOR_SEGS);
-        assert!(TOPE_IA_ESTANDAR > TOPE_BORRADOR_RAPIDO);
+        const _: () = assert!(PRESUPUESTO_BORRADOR_SEGS < CORTE_NUCLEO_SEGS);
+        const _: () = assert!(TIMEOUT_RAPIDO_SEGS < PRESUPUESTO_BORRADOR_SEGS);
+        const _: () = assert!(TOPE_IA_ESTANDAR > TOPE_BORRADOR_RAPIDO);
     }
 }

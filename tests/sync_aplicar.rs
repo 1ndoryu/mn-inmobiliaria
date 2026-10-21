@@ -12,11 +12,15 @@ use std::str::FromStr;
 
 use glory_backend::config::AppConfig;
 use glory_backend::errors::AppError;
-use glory_backend::models::{CreateInmuebleRequest, RecetaPublicidad, RegisterRequest, UpdateInmuebleRequest};
+use glory_backend::models::{
+    CreateInmuebleRequest, RecetaPublicidad, RegisterRequest, UpdateInmuebleRequest,
+};
 
 use glory_backend::repositories::InmuebleRepository;
 use glory_backend::services::sync::aplicar::aplicar;
-use glory_backend::services::sync::comparacion::comparar::{comparar_todo, Base, Comparacion, Estado, Lado};
+use glory_backend::services::sync::comparacion::comparar::{
+    comparar_todo, Base, Comparacion, Estado, Lado,
+};
 use glory_backend::services::sync::comparacion::detalle::detalle_local;
 use glory_backend::services::sync::comparacion::resolver::{Accion, Eleccion};
 use glory_backend::services::sync::operacion::Turno;
@@ -100,7 +104,7 @@ fn credenciales_remoto(dir: &Path, base: &str) -> Credenciales {
 /// Bytes con cabecera JPEG válida; `semilla` distingue el contenido (y el sha256).
 fn jpeg(semilla: u8) -> Vec<u8> {
     let mut bytes = vec![0xFF, 0xD8, 0xFF, 0xE0];
-    bytes.extend(std::iter::repeat(semilla).take(256));
+    bytes.extend(std::iter::repeat_n(semilla, 256));
     bytes
 }
 
@@ -208,8 +212,12 @@ async fn acordar_base(pool: &PgPool, slug: &str) {
          fotos = EXCLUDED.fotos, acordado_en = now()",
     )
     .bind(slug)
-    .bind(sqlx::types::Json(serde_json::to_value(&base.campos).unwrap()))
-    .bind(sqlx::types::Json(serde_json::to_value(&base.fotos).unwrap()))
+    .bind(sqlx::types::Json(
+        serde_json::to_value(&base.campos).unwrap(),
+    ))
+    .bind(sqlx::types::Json(
+        serde_json::to_value(&base.fotos).unwrap(),
+    ))
     .execute(pool)
     .await
     .expect("base acordada");
@@ -223,8 +231,14 @@ async fn sembrar_publicado(
     titulo: &str,
 ) -> (Uuid, Uuid, String) {
     let (id, slug) = sembrar(local, upload, titulo).await;
-    let informe = publicar(local, upload, cred, &slug).await.expect("publicar");
-    assert!(informe.fallo.is_none(), "publicar falló: {:?}", informe.fallo);
+    let informe = publicar(local, upload, cred, &slug)
+        .await
+        .expect("publicar");
+    assert!(
+        informe.fallo.is_none(),
+        "publicar falló: {:?}",
+        informe.fallo
+    );
     let id_remoto = remoto::detalle(cred, &slug)
         .await
         .expect("detalle remoto")
@@ -342,13 +356,8 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
 
     /* 1. Un campo cambió en cada lado: cada uno se escribe en el contrario y los
      * dos quedan iguales, sin residuo. */
-    let (id1, id_remoto1, slug1) = sembrar_publicado(
-        &pool_local,
-        &dir_local,
-        &cred,
-        "Casa aplicar dos sentidos",
-    )
-    .await;
+    let (id1, id_remoto1, slug1) =
+        sembrar_publicado(&pool_local, &dir_local, &cred, "Casa aplicar dos sentidos").await;
     InmuebleService::update(
         &pool_local,
         id1,
@@ -381,41 +390,70 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     assert_eq!(de("titulo").elegido, Eleccion::Local);
     assert_eq!(de("precio").elegido, Eleccion::Servidor);
 
-    let informe = aplicar(&pool_local, &dir_local, &cred, &slug1, &plan.plan_id, &sin_conservar())
-        .await
-        .expect("aplicar");
+    let informe = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug1,
+        &plan.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect("aplicar");
     assert!(informe.fallo.is_none(), "fallo: {:?}", informe.fallo);
     assert!(informe.residuo.is_empty(), "residuo: {:?}", informe.residuo);
     assert_eq!(informe.en_local.len(), 1, "hecho: {:?}", informe.en_local);
-    assert_eq!(informe.en_servidor.len(), 1, "hecho: {:?}", informe.en_servidor);
-    assert!(informe.en_local[0].contains("precio"), "hecho: {:?}", informe.en_local);
-    assert!(informe.en_servidor[0].contains("titulo"), "hecho: {:?}", informe.en_servidor);
-    assert_eq!(texto(&pool_local, &slug1, "titulo").await, "Casa aplicar dos sentidos (local)");
+    assert_eq!(
+        informe.en_servidor.len(),
+        1,
+        "hecho: {:?}",
+        informe.en_servidor
+    );
+    assert!(
+        informe.en_local[0].contains("precio"),
+        "hecho: {:?}",
+        informe.en_local
+    );
+    assert!(
+        informe.en_servidor[0].contains("titulo"),
+        "hecho: {:?}",
+        informe.en_servidor
+    );
+    assert_eq!(
+        texto(&pool_local, &slug1, "titulo").await,
+        "Casa aplicar dos sentidos (local)"
+    );
     assert_eq!(
         texto(&pool_remoto, &slug1, "titulo").await,
         "Casa aplicar dos sentidos (local)",
         "el título viaja al servidor"
     );
-    assert_eq!(estado_entre(&pool_local, &cred, &slug1).await, Estado::Igual, "tras aplicar");
+    assert_eq!(
+        estado_entre(&pool_local, &cred, &slug1).await,
+        Estado::Igual,
+        "tras aplicar"
+    );
 
     /* 2. `plan_id` viejo: el servidor cambió desde que se mostró el plan → 409 y
      * no se escribe nada (D3). */
-    let (id2, id_remoto2, slug2) = sembrar_publicado(
-        &pool_local,
-        &dir_local,
-        &cred,
-        "Casa aplicar plan viejo",
-    )
-    .await;
+    let (id2, id_remoto2, slug2) =
+        sembrar_publicado(&pool_local, &dir_local, &cred, "Casa aplicar plan viejo").await;
     let plan2 = plan_de(&pool_local, &cred, &slug2, &sin_conservar())
         .await
         .expect("plan");
     remoto::actualizar_inmueble(&cred, id_remoto2, &json!({"precio": 199_000.0}))
         .await
         .expect("precio remoto");
-    let err = aplicar(&pool_local, &dir_local, &cred, &slug2, &plan2.plan_id, &sin_conservar())
-        .await
-        .expect_err("un plan viejo debe dar 409");
+    let err = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug2,
+        &plan2.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect_err("un plan viejo debe dar 409");
     assert!(matches!(err, AppError::Conflict(_)), "error: {err:?}");
     assert_eq!(
         texto(&pool_local, &slug2, "titulo").await,
@@ -432,13 +470,8 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
      * solo está en el local se sube al servidor; una que el servidor perdió se
      * borra del local. En los dos casos el residuo queda vacío, que es la prueba
      * de que los bytes coinciden (el `original` compara sha256). */
-    let (id3, id_remoto3, slug3) = sembrar_publicado(
-        &pool_local,
-        &dir_local,
-        &cred,
-        "Casa aplicar fotos",
-    )
-    .await;
+    let (id3, id_remoto3, slug3) =
+        sembrar_publicado(&pool_local, &dir_local, &cred, "Casa aplicar fotos").await;
     InmuebleService::subir_foto(
         &pool_local,
         &dir_local,
@@ -463,16 +496,37 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         (Eleccion::Local, Accion::Escribir),
         "la foto la tiene el local: se sube"
     );
-    assert_eq!(plan3.en_servidor, 1, "el contador la cuenta: se puede aplicar");
-    assert_eq!(conteos(&pool_remoto, &slug3).await.1, 2, "el servidor aún no la tiene");
+    assert_eq!(
+        plan3.en_servidor, 1,
+        "el contador la cuenta: se puede aplicar"
+    );
+    assert_eq!(
+        conteos(&pool_remoto, &slug3).await.1,
+        2,
+        "el servidor aún no la tiene"
+    );
 
-    let informe3 = aplicar(&pool_local, &dir_local, &cred, &slug3, &plan3.plan_id, &sin_conservar())
-        .await
-        .expect("aplicar");
+    let informe3 = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug3,
+        &plan3.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect("aplicar");
     assert!(informe3.fallo.is_none(), "fallo: {:?}", informe3.fallo);
-    assert!(informe3.pendientes.is_empty(), "pendientes: {:?}", informe3.pendientes);
     assert!(
-        informe3.en_servidor.iter().any(|h| h.contains("foto:original:3")),
+        informe3.pendientes.is_empty(),
+        "pendientes: {:?}",
+        informe3.pendientes
+    );
+    assert!(
+        informe3
+            .en_servidor
+            .iter()
+            .any(|h| h.contains("foto:original:3")),
         "hecho: {:?}",
         informe3.en_servidor
     );
@@ -482,7 +536,11 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         Estado::Igual,
         "los bytes de la foto son los mismos en los dos lados"
     );
-    assert!(informe3.residuo.is_empty(), "residuo: {:?}", informe3.residuo);
+    assert!(
+        informe3.residuo.is_empty(),
+        "residuo: {:?}",
+        informe3.residuo
+    );
 
     // El servidor pierde esa foto: ahora gana él y se borra del local. La base se
     // refresca antes, como hace la vigilancia tras aplicar: si no, la foto nueva
@@ -524,19 +582,34 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     )
     .await
     .expect("aplicar");
-    assert!(informe3bis.fallo.is_none(), "fallo: {:?}", informe3bis.fallo);
     assert!(
-        informe3bis.en_local.iter().any(|h| h.contains("foto:original:3")),
+        informe3bis.fallo.is_none(),
+        "fallo: {:?}",
+        informe3bis.fallo
+    );
+    assert!(
+        informe3bis
+            .en_local
+            .iter()
+            .any(|h| h.contains("foto:original:3")),
         "hecho: {:?}",
         informe3bis.en_local
     );
-    assert_eq!(conteos(&pool_local, &slug3).await.1, 2, "la foto se borró del local");
+    assert_eq!(
+        conteos(&pool_local, &slug3).await.1,
+        2,
+        "la foto se borró del local"
+    );
     assert_eq!(
         estado_entre(&pool_local, &cred, &slug3).await,
         Estado::Igual,
         "otra vez iguales"
     );
-    assert!(informe3bis.residuo.is_empty(), "residuo: {:?}", informe3bis.residuo);
+    assert!(
+        informe3bis.residuo.is_empty(),
+        "residuo: {:?}",
+        informe3bis.residuo
+    );
 
     /* 3b. La otra dirección de F3: una foto que solo tiene el servidor se baja al
      * local. Es el caso del álbum que creció en producción, y el que la subida no
@@ -558,8 +631,15 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         (Eleccion::Servidor, Accion::Escribir),
         "la foto la tiene el servidor: se baja"
     );
-    assert_eq!(plan3c.en_local, 1, "el contador la cuenta: se puede aplicar");
-    assert_eq!(conteos(&pool_local, &slug3).await.1, 2, "el local aún no la tiene");
+    assert_eq!(
+        plan3c.en_local, 1,
+        "el contador la cuenta: se puede aplicar"
+    );
+    assert_eq!(
+        conteos(&pool_local, &slug3).await.1,
+        2,
+        "el local aún no la tiene"
+    );
     let informe3c = aplicar(
         &pool_local,
         &dir_local,
@@ -571,9 +651,16 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     .await
     .expect("aplicar");
     assert!(informe3c.fallo.is_none(), "fallo: {:?}", informe3c.fallo);
-    assert!(informe3c.pendientes.is_empty(), "pendientes: {:?}", informe3c.pendientes);
     assert!(
-        informe3c.en_local.iter().any(|h| h.contains("foto:original:4")),
+        informe3c.pendientes.is_empty(),
+        "pendientes: {:?}",
+        informe3c.pendientes
+    );
+    assert!(
+        informe3c
+            .en_local
+            .iter()
+            .any(|h| h.contains("foto:original:4")),
         "hecho: {:?}",
         informe3c.en_local
     );
@@ -583,7 +670,11 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         Estado::Igual,
         "los bytes bajaron enteros"
     );
-    assert!(informe3c.residuo.is_empty(), "residuo: {:?}", informe3c.residuo);
+    assert!(
+        informe3c.residuo.is_empty(),
+        "residuo: {:?}",
+        informe3c.residuo
+    );
 
     /* 3c. El destino ya tiene esa clave con **otra** foto, no con los mismos
      * bytes: al local se le cambia el archivo en su sitio, conservando la fila y
@@ -603,7 +694,11 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     let informe3d = publicar(&pool_local, &dir_local, &cred, &slug3d)
         .await
         .expect("publicar");
-    assert!(informe3d.fallo.is_none(), "publicar falló: {:?}", informe3d.fallo);
+    assert!(
+        informe3d.fallo.is_none(),
+        "publicar falló: {:?}",
+        informe3d.fallo
+    );
     acordar_base(&pool_local, &slug3d).await;
     let id_remoto3d = remoto::detalle(&cred, &slug3d)
         .await
@@ -646,7 +741,10 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         (Eleccion::Servidor, Accion::Escribir),
         "otra foto en el mismo orden: gana el servidor"
     );
-    assert_eq!(plan3d.en_local, 1, "el contador la cuenta: se puede aplicar");
+    assert_eq!(
+        plan3d.en_local, 1,
+        "el contador la cuenta: se puede aplicar"
+    );
     let informe3d = aplicar(
         &pool_local,
         &dir_local,
@@ -658,7 +756,11 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     .await
     .expect("aplicar");
     assert!(informe3d.fallo.is_none(), "fallo: {:?}", informe3d.fallo);
-    assert!(informe3d.pendientes.is_empty(), "pendientes: {:?}", informe3d.pendientes);
+    assert!(
+        informe3d.pendientes.is_empty(),
+        "pendientes: {:?}",
+        informe3d.pendientes
+    );
     assert!(
         informe3d.en_local.iter().any(|h| h.contains("reemplazada")),
         "hecho: {:?}",
@@ -674,35 +776,48 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         foto_local3d_despues, foto_local3d,
         "se cambió el archivo, no la fila"
     );
-    assert_eq!(conteos(&pool_local, &slug3d).await.1, 1, "ni una fila de más");
+    assert_eq!(
+        conteos(&pool_local, &slug3d).await.1,
+        1,
+        "ni una fila de más"
+    );
     assert_eq!(
         estado_entre(&pool_local, &cred, &slug3d).await,
         Estado::Igual,
         "los bytes nuevos coinciden"
     );
-    assert!(informe3d.residuo.is_empty(), "residuo: {:?}", informe3d.residuo);
+    assert!(
+        informe3d.residuo.is_empty(),
+        "residuo: {:?}",
+        informe3d.residuo
+    );
 
     /* 4. El estado va por su propio camino: «vendido» en el servidor despublica
      * también en el local. */
-    let (_, id_remoto4, slug4) = sembrar_publicado(
-        &pool_local,
-        &dir_local,
-        &cred,
-        "Casa aplicar estado",
-    )
-    .await;
+    let (_, id_remoto4, slug4) =
+        sembrar_publicado(&pool_local, &dir_local, &cred, "Casa aplicar estado").await;
     remoto::poner_estado(&cred, id_remoto4, "vendido")
         .await
         .expect("estado en el servidor");
     let plan4 = plan_de(&pool_local, &cred, &slug4, &sin_conservar())
         .await
         .expect("plan");
-    let informe4 = aplicar(&pool_local, &dir_local, &cred, &slug4, &plan4.plan_id, &sin_conservar())
-        .await
-        .expect("aplicar");
+    let informe4 = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug4,
+        &plan4.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect("aplicar");
     assert!(informe4.fallo.is_none(), "fallo: {:?}", informe4.fallo);
     assert_eq!(texto(&pool_local, &slug4, "estado").await, "vendido");
-    assert!(!booleano(&pool_local, &slug4, "publicado").await, "vendido despublica");
+    assert!(
+        !booleano(&pool_local, &slug4, "publicado").await,
+        "vendido despublica"
+    );
     assert!(
         informe4.residuo.is_empty(),
         "residuo: {:?}",
@@ -711,13 +826,8 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
 
     /* 5. El lado ganador no tiene receta y la API no la borra: queda pendiente en
      * vez de darse por aplicada. */
-    let (id5, _, slug5) = sembrar_publicado(
-        &pool_local,
-        &dir_local,
-        &cred,
-        "Casa aplicar receta",
-    )
-    .await;
+    let (id5, _, slug5) =
+        sembrar_publicado(&pool_local, &dir_local, &cred, "Casa aplicar receta").await;
     sqlx::query(
         "UPDATE inmuebles SET receta = NULL, updated_at = NOW() + interval '1 hour' WHERE id = $1",
     )
@@ -728,11 +838,26 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     let plan5 = plan_de(&pool_local, &cred, &slug5, &sin_conservar())
         .await
         .expect("plan");
-    let fila5 = plan5.filas.iter().find(|f| f.clave == "receta").expect("fila receta");
-    assert_eq!(fila5.elegido, Eleccion::Local, "gana el local, que no tiene receta");
-    let informe5 = aplicar(&pool_local, &dir_local, &cred, &slug5, &plan5.plan_id, &sin_conservar())
-        .await
-        .expect("aplicar");
+    let fila5 = plan5
+        .filas
+        .iter()
+        .find(|f| f.clave == "receta")
+        .expect("fila receta");
+    assert_eq!(
+        fila5.elegido,
+        Eleccion::Local,
+        "gana el local, que no tiene receta"
+    );
+    let informe5 = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug5,
+        &plan5.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect("aplicar");
     assert!(informe5.fallo.is_none(), "fallo: {:?}", informe5.fallo);
     assert!(
         informe5.pendientes.iter().any(|p| p.starts_with("receta")),
@@ -748,13 +873,8 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     assert!(receta_remota.is_some(), "la receta del servidor no se toca");
 
     /* 6. Una operación en curso sobre el mismo inmueble: 409 sin escribir. */
-    let (_, _, slug6) = sembrar_publicado(
-        &pool_local,
-        &dir_local,
-        &cred,
-        "Casa aplicar turno",
-    )
-    .await;
+    let (_, _, slug6) =
+        sembrar_publicado(&pool_local, &dir_local, &cred, "Casa aplicar turno").await;
     InmuebleService::update(
         &pool_local,
         sqlx::query_scalar("SELECT id FROM inmuebles WHERE slug = $1")
@@ -773,9 +893,16 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         .await
         .expect("plan");
     let turno = Turno::tomar(&slug6).expect("turno libre");
-    let err = aplicar(&pool_local, &dir_local, &cred, &slug6, &plan6.plan_id, &sin_conservar())
-        .await
-        .expect_err("con el turno tomado debe dar 409");
+    let err = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug6,
+        &plan6.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect_err("con el turno tomado debe dar 409");
     assert!(matches!(err, AppError::Conflict(_)), "error: {err:?}");
     drop(turno);
     assert_eq!(
@@ -789,13 +916,8 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
      * si el local lo suelta, se borra allí (el PUT del servidor es tri-estado y
      * el plan manda el valor canónico vacío, que para el vínculo es «sin
      * vincular»). */
-    let (id7, _, slug7) = sembrar_publicado(
-        &pool_local,
-        &dir_local,
-        &cred,
-        "Casa aplicar vínculo",
-    )
-    .await;
+    let (id7, _, slug7) =
+        sembrar_publicado(&pool_local, &dir_local, &cred, "Casa aplicar vínculo").await;
     InmuebleService::update(
         &pool_local,
         id7,
@@ -806,7 +928,11 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     )
     .await
     .expect("vínculo en local");
-    assert_eq!(vinculo(&pool_remoto, &slug7).await, None, "el servidor no lo tiene");
+    assert_eq!(
+        vinculo(&pool_remoto, &slug7).await,
+        None,
+        "el servidor no lo tiene"
+    );
     let plan7 = plan_de(&pool_local, &cred, &slug7, &sin_conservar())
         .await
         .expect("plan");
@@ -821,13 +947,28 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
         (Eleccion::Local, Accion::Escribir),
         "gana el local, que lo tiene"
     );
-    assert_eq!((plan7.en_local, plan7.en_servidor), (0, 1), "se escribe en el servidor");
+    assert_eq!(
+        (plan7.en_local, plan7.en_servidor),
+        (0, 1),
+        "se escribe en el servidor"
+    );
 
-    let informe7 = aplicar(&pool_local, &dir_local, &cred, &slug7, &plan7.plan_id, &sin_conservar())
-        .await
-        .expect("aplicar");
+    let informe7 = aplicar(
+        &pool_local,
+        &dir_local,
+        &cred,
+        &slug7,
+        &plan7.plan_id,
+        &sin_conservar(),
+    )
+    .await
+    .expect("aplicar");
     assert!(informe7.fallo.is_none(), "fallo: {:?}", informe7.fallo);
-    assert!(informe7.pendientes.is_empty(), "pendientes: {:?}", informe7.pendientes);
+    assert!(
+        informe7.pendientes.is_empty(),
+        "pendientes: {:?}",
+        informe7.pendientes
+    );
     assert_eq!(
         vinculo(&pool_remoto, &slug7).await.as_deref(),
         Some("7000000001"),
@@ -874,7 +1015,11 @@ async fn aplicar_escribe_en_los_dos_sentidos_y_verifica() {
     )
     .await
     .expect("aplicar");
-    assert!(informe7bis.fallo.is_none(), "fallo: {:?}", informe7bis.fallo);
+    assert!(
+        informe7bis.fallo.is_none(),
+        "fallo: {:?}",
+        informe7bis.fallo
+    );
     assert_eq!(
         vinculo(&pool_remoto, &slug7).await,
         None,
