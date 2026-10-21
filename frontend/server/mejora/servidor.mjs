@@ -1,18 +1,19 @@
 // Servidor HTTP del mini-backend de mejora: CORS (OPTIONS), despacho a las rutas
 // de estado y de trabajos, y 404 para lo demás. Lo escucha la entrada.
 import { createServer } from 'node:http';
-import { ORIGEN_FRONTAL, json } from './http.mjs';
+import { cabecerasCors, json } from './http.mjs';
 import { atenderEstado } from './rutas-estado.mjs';
 import { atenderTrabajos } from './rutas-trabajos.mjs';
 
 export const servidor = createServer(async (req, res) => {
   const url = new URL(req.url || '/', 'http://127.0.0.1');
+  /* [15AA-12] El CORS se fija aquí, con el origen de esta petición, antes de
+   * despachar: las respuestas (`json`) solo ponen el Content-Type. */
+  for (const [clave, valor] of Object.entries(cabecerasCors(req.headers.origin))) {
+    res.setHeader(clave, valor);
+  }
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': ORIGEN_FRONTAL,
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    });
+    res.writeHead(204);
     res.end();
     return;
   }

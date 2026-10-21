@@ -1,15 +1,40 @@
-// Utilidades HTTP del mini-backend: respuestas JSON con CORS solo para el frontal
-// (127.0.0.1:5199) y lectura del cuerpo acotada en tamaño.
-export const ORIGEN_FRONTAL = 'http://127.0.0.1:5199';
+// Utilidades HTTP del mini-backend: CORS para los orígenes que sirven el panel
+// y lectura del cuerpo acotada en tamaño.
+/* [15AA-12] El panel ya no vive solo en el dev de Vite (127.0.0.1:5199): en
+ * `build` lo sirve la 89, así que también llaman el puerto 3110 (túnel) y el dev
+ * público. La lista se amplía con `MEJORA_ORIGENES` (separados por comas) sin
+ * tocar código. */
+const ORIGENES = new Set(
+  [
+    'http://127.0.0.1:5199',
+    'http://127.0.0.1:3110',
+    'http://localhost:3110',
+    'https://mn-dev.wandori.us',
+    ...(process.env.MEJORA_ORIGENES || '').split(','),
+  ]
+    .map((o) => o.trim())
+    .filter(Boolean),
+);
+
+/* Cabeceras de CORS del origen que llama. Un origen no listado recibe el del dev
+ * de siempre: el navegador lo rechaza, que es justo lo que se busca. */
+export function cabecerasCors(origen) {
+  return {
+    'Access-Control-Allow-Origin': origen && ORIGENES.has(origen) ? origen : 'http://127.0.0.1:5199',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    Vary: 'Origin',
+    /* Chrome lo exige cuando la página es pública (https) y llama a 127.0.0.1:
+     * es el permiso de «acceso a red local». */
+    'Access-Control-Allow-Private-Network': 'true',
+  };
+}
 
 export function json(res, codigo, cuerpo) {
   const texto = JSON.stringify(cuerpo);
-  res.writeHead(codigo, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': ORIGEN_FRONTAL,
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  });
+  /* Solo el tipo: el CORS lo fija el servidor antes de despachar, que es quien
+   * conoce el origen de la petición. */
+  res.writeHead(codigo, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(texto);
 }
 

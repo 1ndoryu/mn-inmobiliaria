@@ -69,12 +69,37 @@ export interface EventoCola {
 
 import { urlADataUrl } from '../../platform/red';
 
-const BASE = '/api';
+/* [15AA-12] El mini-backend de mejora vive en el portátil (necesita Chrome y las
+ * cookies de Gemini), así que en `build` —donde el front lo sirve la 89— la ruta
+ * relativa `/api` no lo alcanza y el panel decía «Backend no disponible». Se
+ * resuelve una vez por carga: primero la relativa (dev, la proxya Vite) y, si no
+ * responde, la del portátil. Con la segunda no hace falta túnel. */
+const BASE_RELATIVA = '/api';
+/* Las rutas del mini-backend llevan el prefijo `/api` (es el mismo que proxya
+ * Vite en dev), así que aquí también va. */
+const BASE_PORTATIL = 'http://127.0.0.1:3122/api';
+let basePromesa: Promise<string> | null = null;
+
+function baseMejora(): Promise<string> {
+  basePromesa ??= (async () => {
+    for (const candidata of [BASE_RELATIVA, BASE_PORTATIL]) {
+      try {
+        const sonda = await fetch(`${candidata}/salud`, { signal: AbortSignal.timeout(2000) });
+        if (sonda.ok) return candidata;
+      } catch {
+        /* Se prueba la siguiente. */
+      }
+    }
+    /* Ninguna responde: se devuelve la relativa, cuyo error es el que ve el panel. */
+    return BASE_RELATIVA;
+  })();
+  return basePromesa;
+}
 
 export async function leerSalud(signal?: AbortSignal): Promise<SaludMejora> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${BASE}/salud`, { signal });
+    respuesta = await fetch(`${await baseMejora()}/salud`, { signal });
   } catch {
     return { ok: false, listo: false, cola: 0, procesadosHoy: 0, detalle: 'Backend no disponible. Arranca `npm run server:mejora`.' };
   }
@@ -108,7 +133,7 @@ export async function enviarFoto(fotoId: string, original: string, prompt: strin
   }
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${BASE}/mejora`, {
+    respuesta = await fetch(`${await baseMejora()}/mejora`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fotoId, original: cuerpo, prompt }),
@@ -133,7 +158,7 @@ export async function enviarFoto(fotoId: string, original: string, prompt: strin
 export async function leerTrabajo(jobId: string, signal?: AbortSignal): Promise<EstadoTrabajo | null> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${BASE}/mejora/${encodeURIComponent(jobId)}`, { signal });
+    respuesta = await fetch(`${await baseMejora()}/mejora/${encodeURIComponent(jobId)}`, { signal });
   } catch {
     return null;
   }
@@ -166,7 +191,7 @@ export async function aplicarConfigRemota(config: {
 }): Promise<{ ok: boolean; intervaloSeg?: number; jitterPct?: number; maxPorDia?: number; detalle?: string }> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${BASE}/config`, {
+    respuesta = await fetch(`${await baseMejora()}/config`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -197,7 +222,7 @@ export async function aplicarConfigRemota(config: {
  * re-enviar la foto entera). */
 export async function reintentarTrabajo(jobId: string): Promise<boolean> {
   try {
-    const respuesta = await fetch(`${BASE}/mejora/${encodeURIComponent(jobId)}/reintentar`, { method: 'POST' });
+    const respuesta = await fetch(`${await baseMejora()}/mejora/${encodeURIComponent(jobId)}/reintentar`, { method: 'POST' });
     return respuesta.ok;
   } catch {
     return false;
@@ -208,7 +233,7 @@ export async function reintentarTrabajo(jobId: string): Promise<boolean> {
  * false = no se pudo contactar o ya terminó. */
 export async function cancelarTrabajo(jobId: string): Promise<boolean> {
   try {
-    const respuesta = await fetch(`${BASE}/mejora/${encodeURIComponent(jobId)}/cancelar`, { method: 'POST' });
+    const respuesta = await fetch(`${await baseMejora()}/mejora/${encodeURIComponent(jobId)}/cancelar`, { method: 'POST' });
     return respuesta.ok;
   } catch {
     return false;
@@ -226,7 +251,7 @@ export interface ResultadoReinicio {
  * encolado con intentos a cero; los duplicados por foto se descartan. */
 export async function reiniciarCola(): Promise<ResultadoReinicio> {
   try {
-    const respuesta = await fetch(`${BASE}/cola/reiniciar`, { method: 'POST' });
+    const respuesta = await fetch(`${await baseMejora()}/cola/reiniciar`, { method: 'POST' });
     if (!respuesta.ok) return { ok: false, reencolados: 0, descartados: 0 };
     const cuerpo = (await respuesta.json()) as { reencolados?: unknown; descartados?: unknown };
     return {
@@ -243,7 +268,7 @@ export async function reiniciarCola(): Promise<ResultadoReinicio> {
 export async function probarConexion(): Promise<{ ok: boolean; error?: string } | null> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${BASE}/probar`, { method: 'POST' });
+    respuesta = await fetch(`${await baseMejora()}/probar`, { method: 'POST' });
   } catch {
     return null;
   }
@@ -261,7 +286,7 @@ export async function probarConexion(): Promise<{ ok: boolean; error?: string } 
 export async function leerEstado(signal?: AbortSignal): Promise<EstadoCola | null> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${BASE}/estado`, { signal });
+    respuesta = await fetch(`${await baseMejora()}/estado`, { signal });
   } catch {
     return null;
   }
@@ -277,7 +302,7 @@ export async function leerEstado(signal?: AbortSignal): Promise<EstadoCola | nul
 export async function leerEventos(ultimos = 60, signal?: AbortSignal): Promise<EventoCola[]> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${BASE}/eventos?ultimos=${ultimos}`, { signal });
+    respuesta = await fetch(`${await baseMejora()}/eventos?ultimos=${ultimos}`, { signal });
   } catch {
     return [];
   }
