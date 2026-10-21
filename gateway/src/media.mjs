@@ -5,8 +5,14 @@ import { config } from "./config.mjs";
 
 const EXT_POR_MIME = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a" };
 
+/* [299A-3] WhatsApp manda el tipo con parámetros (`audio/ogg; codecs=opus`).
+ * Sin normalizar no casaba y caía a `.bin`, que `/media` no sirve: el backend
+ * se quedaba sin el audio y la nota de voz no se transcribía. */
+const tipoBase = (mime) =>
+  (mime ?? "").split(";")[0].trim().toLowerCase();
+
 export async function guardarTemporal(buffer, mime) {
-  const ext = EXT_POR_MIME[mime] ?? "bin";
+  const ext = EXT_POR_MIME[tipoBase(mime)] ?? "bin";
   await mkdir(config.mediaDir, { recursive: true });
   const nombre = `${crypto.randomUUID()}.${ext}`;
   await writeFile(new URL(nombre, config.mediaDir), buffer);
