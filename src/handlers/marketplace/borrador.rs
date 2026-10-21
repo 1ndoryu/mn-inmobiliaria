@@ -6,7 +6,10 @@ use super::*;
 use crate::services::marketplace::continuacion;
 use chrono::Timelike as _;
 
-pub(super) const TOPE_BORRADOR_MINUTO: i64 = 30;
+/* [16AA-6] Era 30/min: las burbujas de la lab piden en ráfagas de ~90/min y
+ * a partir de ahí caían a su plantilla local, que da peor borrador sin avisar.
+ * El tope sigue existiendo para que nadie abuse del gasto de IA. */
+pub(super) const TOPE_BORRADOR_MINUTO: i64 = 90;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct BorradorResponse {

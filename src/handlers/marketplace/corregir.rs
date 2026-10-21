@@ -113,7 +113,7 @@ pub struct CorregirResponse {
 }
 
 /// Guarda la corrección de la dueña (`corregida=TRUE`, vigencia +90d). Cubo
-/// propio 30/min (escritura barata pero no gratis); la matriz vale también
+/// propio 90/min (escritura barata pero no gratis); la matriz vale también
 /// para su texto (422 con motivo si trae contacto).
 #[utoipa::path(
     post,

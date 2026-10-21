@@ -55,7 +55,7 @@ pub fn maquina_autorizada(claims_mid: Option<&str>, cabecera: Option<&str>) -> b
 }
 
 /// `MP_SIN_LIMITE_SUB` (coma-separada): la dueña queda exenta del 429 del
-/// borrador; el resto cae al tope de 30/min con `Retry-After`.
+/// borrador; el resto cae al tope de 90/min con `Retry-After`.
 #[must_use]
 pub fn sub_exento(sub: &str) -> bool {
     std::env::var("MP_SIN_LIMITE_SUB")
