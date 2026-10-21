@@ -173,13 +173,22 @@ pub(super) fn despegar_url_wa(linea: &str) -> &str {
     }
 }
 
+/// Arranque del cierre v3 (2026-10-21, antes de que ella quitara el
+/// «Somos inmobiliaria»): sigue impreso en chat y en filas de caché.
+const CIERRE_VIEJO: &str = "Somos inmobiliaria,";
+
 /// Cierre canónico del borrador propio (`CTA_FIJO` y `CIERRE_BORRADOR` de
-/// `imponer_forma_borrador`, más las dos líneas sueltas de la forma vieja,
-/// que sigue viva en filas de caché y en hilos viejos): igualdad exacta; el
-/// cliente nunca escribe estas líneas tal cual.
+/// `imponer_forma_borrador`, más las formas viejas que siguen vivas en filas
+/// de caché y en hilos viejos: las dos líneas sueltas y el cierre con
+/// «Somos inmobiliaria»): igualdad exacta o el arranque conocido; el cliente
+/// nunca escribe estas líneas tal cual.
 fn es_cierre_propio(linea: &str) -> bool {
     let cuerpo = linea.trim();
-    if cuerpo == CTA_FIJO || cuerpo == CONTACTO_WA || cuerpo == CIERRE_BORRADOR {
+    if cuerpo == CTA_FIJO
+        || cuerpo == CONTACTO_WA
+        || cuerpo == CIERRE_BORRADOR
+        || cuerpo.starts_with(CIERRE_VIEJO)
+    {
         return true;
     }
     cuerpo

@@ -14,12 +14,12 @@ use crate::services::marketplace::{
 /// añade `con_saludo` al servir, así que dos compradores con el mismo mensaje
 /// comparten fila. Versionada (`v2`): las filas previas, con el nombre en la
 /// llave y el saludo horneado, quedan huérfanas y no se sirven.
-/// [21AA-2] v3: la fila guarda el cuerpo con el cierre viejo de dos líneas y
-/// se sirve tal cual, así que las filas de v2 quedan huérfanas al cambiar el
-/// cierre (`CIERRE_BORRADOR`); las borra la purga al vencer.
+/// [21AA-2] v3 y v4: la fila guarda el cuerpo servido, así que cada cambio del
+/// cierre (`CIERRE_BORRADOR`) deja huérfanas las filas anteriores (v2, dos
+/// líneas; v3, aún con «Somos inmobiliaria»); las borra la purga al vencer.
 #[must_use]
 pub fn clave_cache_hilo(firma: &str) -> String {
-    sha_hex(&format!("v3\n{firma}"))
+    sha_hex(&format!("v4\n{firma}"))
 }
 
 /* [03AA-3 M4] Caché de respuestas (`mp_respuestas_cache`): la clave es
