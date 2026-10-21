@@ -176,7 +176,11 @@ pub fn sugerir_nombre_corto(tipo: &str, residencia: &str, ubicacion: &str) -> St
     } else {
         residencia.trim()
     };
-    let lugar = if lugar.is_empty() { ubicacion.trim() } else { lugar };
+    let lugar = if lugar.is_empty() {
+        ubicacion.trim()
+    } else {
+        lugar
+    };
     format!("{} en {}", tipo_corto(tipo), lugar_corto(lugar))
 }
 
@@ -321,7 +325,11 @@ mod pruebas {
                 .marketplace_id
         };
         assert_eq!(leer("{}"), None, "ausente: no se toca");
-        assert_eq!(leer(r#"{"marketplace_id":null}"#), Some(None), "null: desvincula");
+        assert_eq!(
+            leer(r#"{"marketplace_id":null}"#),
+            Some(None),
+            "null: desvincula"
+        );
         assert_eq!(
             leer(r#"{"marketplace_id":"1234567890"}"#),
             Some(Some("1234567890".into())),

@@ -120,7 +120,12 @@ pub async fn miniaturas(
     let mini_local = SyncRepository::claves_de_fotos(pool, local.huella.id)
         .await?
         .into_iter()
-        .map(|f| (clave_foto(&f.origen, f.orden), url_publica_de_foto(&f.storage_key)))
+        .map(|f| {
+            (
+                clave_foto(&f.origen, f.orden),
+                url_publica_de_foto(&f.storage_key),
+            )
+        })
         .collect();
     let mini_servidor = remoto::fotos(cred, servidor.huella.id)
         .await

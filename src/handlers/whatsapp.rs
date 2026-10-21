@@ -131,7 +131,11 @@ async fn webhook(
         }
         tracing::warn!(
             "webhook WhatsApp: destino {} {} (rol={} trato={})",
-            if rep.ok { "que solo archiva" } else { "jubilado" },
+            if rep.ok {
+                "que solo archiva"
+            } else {
+                "jubilado"
+            },
             rep.canal,
             rep.rol,
             rep.trato

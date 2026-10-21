@@ -282,10 +282,7 @@ fn clave_hilo_separa_dos_compradores_con_el_mismo_nombre_y_aviso() {
     assert_ne!(ana_a, ana_b);
     assert_eq!(ana_a, "ana|casa en venta|100000000001");
     /* La cifra inyectada parpadea; el id no. Misma clave con y sin cifra. */
-    assert_eq!(
-        clave_hilo("ana|$43.000 casa en venta|100000000001"),
-        ana_a
-    );
+    assert_eq!(clave_hilo("ana|$43.000 casa en venta|100000000001"), ana_a);
 }
 
 #[test]

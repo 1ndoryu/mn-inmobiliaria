@@ -470,7 +470,8 @@ mod pruebas {
         assert_eq!(r.estado, Estado::Diferente);
         assert_eq!(claves(&r), vec![("marketplace_id", Lado::Indeterminado)]);
         // Y sin vínculo en ninguno de los dos, coinciden.
-        b.campos.insert("marketplace_id".into(), a.campos["marketplace_id"].clone());
+        b.campos
+            .insert("marketplace_id".into(), a.campos["marketplace_id"].clone());
         assert_eq!(comparar(&a, &b, None).estado, Estado::Igual);
     }
 

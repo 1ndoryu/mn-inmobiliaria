@@ -27,7 +27,6 @@ pub const MODELO_GLORYAPI: &str = "auto";
 /// con el del crate `glory-agent`; si alli cambia, cambia aqui.
 pub const MODELO_OPENCODE: &str = "muse-spark-1.3-contributor";
 
-
 /// Identidad del producto: la IA se presenta como tal, consulta inmuebles
 /// reales con sus tools (nunca inventa precios/direcciones), capta nombre
 /// y teléfono, da el teléfono oficial (vía `datos_contacto`, nunca de
@@ -140,9 +139,19 @@ mod pruebas {
     fn el_prompt_lleva_la_hora_y_el_contacto() {
         let p = prompt_chat("el WhatsApp oficial", "de mañana, lunes 10:30");
         assert_eq!(p.agent_name, "Asistente de IA de MN Inmobiliaria");
-        assert!(p.identity.contains("de mañana, lunes 10:30"), "{}", p.identity);
-        assert!(p.business_rules.contains(crate::services::politica::REGLA_FRONTERA));
-        assert!(p.escalation.contains("el WhatsApp oficial"), "{}", p.escalation);
+        assert!(
+            p.identity.contains("de mañana, lunes 10:30"),
+            "{}",
+            p.identity
+        );
+        assert!(p
+            .business_rules
+            .contains(crate::services::politica::REGLA_FRONTERA));
+        assert!(
+            p.escalation.contains("el WhatsApp oficial"),
+            "{}",
+            p.escalation
+        );
     }
 
     #[test]

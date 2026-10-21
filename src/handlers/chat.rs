@@ -74,7 +74,6 @@ fn linea_hora_venezuela() -> String {
     )
 }
 
-
 /// Router del chat con estado propio (`AgentState`), listo para anidar.
 /// Comparte `hub` con las rutas staff para el realtime humano→visitante.
 pub fn agent_router(pool: sqlx::PgPool, hub: ChatHub) -> Router<()> {

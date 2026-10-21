@@ -52,5 +52,4 @@ mod pruebas {
         marcar_atendida();
         assert!(lectura_pedida().is_none());
     }
-
 }

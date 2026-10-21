@@ -90,7 +90,10 @@ impl SyncRepository {
     }
 
     /// Claves de archivo de las fotos de un inmueble (sin huella: solo para miniaturas).
-    pub async fn claves_de_fotos(pool: &PgPool, inmueble_id: Uuid) -> Result<Vec<FotoClave>, sqlx::Error> {
+    pub async fn claves_de_fotos(
+        pool: &PgPool,
+        inmueble_id: Uuid,
+    ) -> Result<Vec<FotoClave>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- columnas nuevas fuera de `.sqlx`; ver cabecera del módulo
         sqlx::query_as::<_, FotoClave>(
             "SELECT origen, orden, storage_key FROM fotos \

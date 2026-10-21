@@ -268,7 +268,12 @@ fn ordenar_candidatos(
 ) -> Vec<CandidatoInmueble> {
     let mut puntuados: Vec<((bool, usize, usize), &InmuebleSinVincular)> = inmuebles
         .iter()
-        .map(|i| (mejor_puntaje_con_alias(aviso_titulo, &i.titulo, &i.alias), i))
+        .map(|i| {
+            (
+                mejor_puntaje_con_alias(aviso_titulo, &i.titulo, &i.alias),
+                i,
+            )
+        })
         .collect();
     puntuados.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.titulo.cmp(&b.1.titulo)));
     puntuados
@@ -359,7 +364,11 @@ mod tests {
         ] {
             assert!(imagen_valida(mala).is_none(), "{mala}");
         }
-        assert!(imagen_valida(&format!("https://scontent.xx.fbcdn.net/{}", "a".repeat(MAX_IMAGEN))).is_none());
+        assert!(imagen_valida(&format!(
+            "https://scontent.xx.fbcdn.net/{}",
+            "a".repeat(MAX_IMAGEN)
+        ))
+        .is_none());
     }
 
     #[test]
@@ -372,7 +381,10 @@ mod tests {
             avisos: vec![con_foto, ajena],
         })
         .unwrap();
-        assert_eq!(avisos[0].imagen_url.as_deref(), Some("https://scontent.xx.fbcdn.net/a.jpg"));
+        assert_eq!(
+            avisos[0].imagen_url.as_deref(),
+            Some("https://scontent.xx.fbcdn.net/a.jpg")
+        );
         assert_eq!(avisos[1].imagen_url, None);
     }
 
@@ -427,7 +439,11 @@ mod tests {
         let (a, b) = ("913013000000001", "913013000000002");
         let ids = vec![a.to_string(), b.to_string()];
         let limpiar = "DELETE FROM marketplace_avisos_perfil WHERE aviso_id = ANY($1)";
-        sqlx::query(limpiar).bind(&ids).execute(&pool).await.unwrap();
+        sqlx::query(limpiar)
+            .bind(&ids)
+            .execute(&pool)
+            .await
+            .unwrap();
 
         reemplazar_avisos_perfil(&pool, &[aviso_nuevo(a), aviso_nuevo(b)])
             .await
@@ -443,7 +459,10 @@ mod tests {
         let ausentes = reemplazar_avisos_perfil(&pool, &[aviso_nuevo(a)])
             .await
             .unwrap();
-        assert!(ausentes >= 1, "b dejó de venir y debe contarse como ausente");
+        assert!(
+            ausentes >= 1,
+            "b dejó de venir y debe contarse como ausente"
+        );
         let filas = avisos_perfil_sin_vincular(&pool).await.unwrap();
         let despues: Vec<&str> = filas.iter().map(|f| f.aviso_id.as_str()).collect();
         assert!(despues.contains(&a));
@@ -462,8 +481,15 @@ mod tests {
         .fetch_one(&pool)
         .await
         .unwrap();
-        assert!(!presente_b, "el aviso ausente se guarda con presente = false");
+        assert!(
+            !presente_b,
+            "el aviso ausente se guarda con presente = false"
+        );
 
-        sqlx::query(limpiar).bind(&ids).execute(&pool).await.unwrap();
+        sqlx::query(limpiar)
+            .bind(&ids)
+            .execute(&pool)
+            .await
+            .unwrap();
     }
 }

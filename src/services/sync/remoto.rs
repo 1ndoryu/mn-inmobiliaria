@@ -22,7 +22,10 @@ use crate::models::{CopyInmueble, CreateInmuebleRequest, RecetaPublicidad, MAX_F
 
 mod http;
 
-use http::{cliente, enviar, error_de_estado, escribir, escribir_sin_cuerpo, leer, red, Envio, TOPE_ESCRITURA};
+use http::{
+    cliente, enviar, error_de_estado, escribir, escribir_sin_cuerpo, leer, red, Envio,
+    TOPE_ESCRITURA,
+};
 
 /// Por qué no se pudo leer al servidor. Se traduce a `EstadoRemoto` en la
 /// vigilancia y a un mensaje en las respuestas HTTP.
@@ -43,7 +46,10 @@ pub enum ErrorRemoto {
 impl std::fmt::Display for ErrorRemoto {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Desactivado => write!(f, "sincronización desactivada (falta el archivo de credenciales)"),
+            Self::Desactivado => write!(
+                f,
+                "sincronización desactivada (falta el archivo de credenciales)"
+            ),
             Self::SinCredenciales => {
                 write!(f, "credenciales del servidor rechazadas o incompletas")
             }
@@ -69,7 +75,8 @@ impl Credenciales {
     /// el archivo no exige reiniciar el backend.
     pub fn cargar() -> Result<Self, ErrorRemoto> {
         // `from_path_iter` no toca el entorno del proceso: las claves no se filtran a otros hijos.
-        let pares = dotenvy::from_path_iter(ruta_credenciales()).map_err(|_| ErrorRemoto::Desactivado)?;
+        let pares =
+            dotenvy::from_path_iter(ruta_credenciales()).map_err(|_| ErrorRemoto::Desactivado)?;
         let (mut base, mut email, mut password) = (None, None, None);
         for par in pares {
             let (clave, valor) = par.map_err(|_| ErrorRemoto::SinCredenciales)?;
@@ -165,11 +172,18 @@ impl Sesion {
 static SESION: Sesion = Sesion(Mutex::new(None));
 
 async fn manifiesto_con(cred: &Credenciales, sesion: &Sesion) -> Result<Manifiesto, ErrorRemoto> {
-    let m: Manifiesto = leer(enviar(cred, sesion, &Envio::lectura("/api/admin/sync/manifiesto".into())).await?)
-        .await?
-        .ok_or_else(|| {
-            ErrorRemoto::SinSoporte("falta /api/admin/sync/manifiesto en el servidor".into())
-        })?;
+    let m: Manifiesto = leer(
+        enviar(
+            cred,
+            sesion,
+            &Envio::lectura("/api/admin/sync/manifiesto".into()),
+        )
+        .await?,
+    )
+    .await?
+    .ok_or_else(|| {
+        ErrorRemoto::SinSoporte("falta /api/admin/sync/manifiesto en el servidor".into())
+    })?;
     if m.version != VERSION {
         return Err(ErrorRemoto::SinSoporte(format!(
             "versión de huella {} (local {VERSION})",
@@ -255,9 +269,13 @@ fn absoluta(cred: &Credenciales, url: &str) -> String {
 
 /// Inmueble del servidor por su id. `Ok(None)` = no existe allí. Las URLs de
 /// sus fotos salen ya absolutas.
-pub async fn inmueble(cred: &Credenciales, id: Uuid) -> Result<Option<InmuebleRemoto>, ErrorRemoto> {
+pub async fn inmueble(
+    cred: &Credenciales,
+    id: Uuid,
+) -> Result<Option<InmuebleRemoto>, ErrorRemoto> {
     let ruta = format!("/api/admin/inmuebles/{id}");
-    let leido: Option<InmuebleRemoto> = leer(enviar(cred, &SESION, &Envio::lectura(ruta)).await?).await?;
+    let leido: Option<InmuebleRemoto> =
+        leer(enviar(cred, &SESION, &Envio::lectura(ruta)).await?).await?;
     Ok(leido.map(|mut inmueble| {
         for foto in &mut inmueble.fotos {
             foto.url = absoluta(cred, &foto.url);
@@ -351,7 +369,14 @@ pub async fn poner_ficha(
     precio_minimo: Option<f64>,
 ) -> Result<(), ErrorRemoto> {
     let ruta = format!("/api/admin/inmuebles/{id}/ficha");
-    let envio = Envio::json(reqwest::Method::PUT, ruta, &FichaEnvio { extras, precio_minimo })?;
+    let envio = Envio::json(
+        reqwest::Method::PUT,
+        ruta,
+        &FichaEnvio {
+            extras,
+            precio_minimo,
+        },
+    )?;
     escribir::<IgnoredAny>(enviar(cred, &SESION, &envio).await?).await?;
     Ok(())
 }
@@ -405,7 +430,11 @@ pub async fn poner_publicacion(
     publicado: bool,
 ) -> Result<InmuebleRemoto, ErrorRemoto> {
     let ruta = format!("/api/admin/inmuebles/{id}/publicacion");
-    let envio = Envio::json(reqwest::Method::PATCH, ruta, &PublicacionEnvio { publicado })?;
+    let envio = Envio::json(
+        reqwest::Method::PATCH,
+        ruta,
+        &PublicacionEnvio { publicado },
+    )?;
     escribir(enviar(cred, &SESION, &envio).await?).await
 }
 
@@ -423,7 +452,9 @@ pub async fn descargar_foto(cred: &Credenciales, url: &str) -> Result<Vec<u8>, E
     match respuesta.status() {
         s if s.is_success() => {}
         StatusCode::NOT_FOUND => {
-            return Err(ErrorRemoto::Rechazado("la foto ya no está en el servidor".into()))
+            return Err(ErrorRemoto::Rechazado(
+                "la foto ya no está en el servidor".into(),
+            ))
         }
         s => return Err(error_de_estado(s)),
     }
@@ -618,8 +649,14 @@ mod pruebas {
             });
         let base = arrancar(app).await;
         let cred = credenciales(&base, "secreto");
-        let envio = Envio::json(reqwest::Method::POST, "/api/admin/inmuebles".into(), &json!({})).unwrap();
-        let res = escribir::<IgnoredAny>(enviar(&cred, &Sesion::default(), &envio).await.unwrap()).await;
+        let envio = Envio::json(
+            reqwest::Method::POST,
+            "/api/admin/inmuebles".into(),
+            &json!({}),
+        )
+        .unwrap();
+        let res =
+            escribir::<IgnoredAny>(enviar(&cred, &Sesion::default(), &envio).await.unwrap()).await;
         assert_eq!(res.err(), Some(ErrorRemoto::Rechazado("ya existe".into())));
     }
 

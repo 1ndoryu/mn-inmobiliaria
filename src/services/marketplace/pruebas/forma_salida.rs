@@ -5,7 +5,10 @@ use super::*;
 
 #[test]
 fn forma_poda_oferta_de_fotos() {
-    let r = imponer_forma_borrador(&ia_fabio("¿Te comparto fotos para que la veas por dentro?"), None);
+    let r = imponer_forma_borrador(
+        &ia_fabio("¿Te comparto fotos para que la veas por dentro?"),
+        None,
+    );
     assert!(!r.contains("fotos"), "{r}");
     assert!(!r.contains('?'), "{r}");
     assert!(r.contains("$43.000"), "{r}");
@@ -62,7 +65,12 @@ fn forma_partir_no_rompe_cifras() {
 fn forma_no_corta_ubicacion_con_abreviatura() {
     let ia = "El apartamento en Residencias Kama Merú sigue disponible en 35.000$ negociable.\n\nEl inmueble se ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
     let r = imponer_forma_borrador(ia, None);
-    assert!(r.contains("El inmueble se ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz."), "{r}");
+    assert!(
+        r.contains(
+            "El inmueble se ubica en Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz."
+        ),
+        "{r}"
+    );
 }
 
 /// Un trozo de ubicación sin la forma pedida no sale; la frase completa sí.
@@ -73,7 +81,10 @@ fn forma_ubicacion_solo_completa() {
     assert!(!r.contains("Principal de Villa"), "{r}");
     let completa = "El apartamento sigue disponible en 35.000$ negociable.\n\nEl inmueble se ubica en Av. Principal de Villa Icabarú.\n\nCuéntame qué estás buscando.";
     let r = imponer_forma_borrador(completa, None);
-    assert!(r.contains("El inmueble se ubica en Av. Principal de Villa Icabarú."), "{r}");
+    assert!(
+        r.contains("El inmueble se ubica en Av. Principal de Villa Icabarú."),
+        "{r}"
+    );
 }
 
 #[test]
@@ -124,7 +135,10 @@ fn forma_con_ficha_corrige_cifra_ajena() {
 fn forma_con_ficha_respeta_la_cifra_buena() {
     let ia = "Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
     let r = imponer_forma_borrador(ia, Some(&seguro_kama_meru()));
-    assert!(r.starts_with("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable."), "{r}");
+    assert!(
+        r.starts_with("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable."),
+        "{r}"
+    );
 }
 
 /// Alquiler: el molde es el del canon, no el de venta (08AA-25).
@@ -156,7 +170,10 @@ fn forma_sin_precio_en_la_ficha_conserva_el_fallback() {
 #[test]
 fn reserva_con_ficha_lleva_el_precio() {
     let r = borrador_de_reserva(Some(&seguro_kama_meru()));
-    assert!(r.starts_with("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable."), "{r}");
+    assert!(
+        r.starts_with("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable."),
+        "{r}"
+    );
     assert!(!r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
     assert!(r.contains(CONTACTO_TEL), "{r}");
     assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");

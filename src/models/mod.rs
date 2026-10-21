@@ -10,11 +10,11 @@ mod visita;
 
 pub use cliente::{Cliente, ClienteRow, CreateClienteRequest};
 pub use inmueble::{
-    url_publica_de_foto, validar_extras, ActualizacionInmueble, AddFotoRequest, CopyInmueble, ReordenarFotosRequest,
-    CreateInmuebleRequest, CreateUserRequest, EstadoRequest, FichaAskRequest, FichaAskResponse,
-    Foto, FotoPublica, Inmueble, InmuebleRow, PublicacionRequest, RecetaPublicidad,
-    UpdateInmuebleRequest, ESTADOS, EXTENSIONES_FOTO, FORMATOS_RECETA, MAX_FOTO_BYTES, OPERACIONES,
-    ORIGENES_FOTO, TIPOS, sugerir_nombre_corto,
+    sugerir_nombre_corto, url_publica_de_foto, validar_extras, ActualizacionInmueble,
+    AddFotoRequest, CopyInmueble, CreateInmuebleRequest, CreateUserRequest, EstadoRequest,
+    FichaAskRequest, FichaAskResponse, Foto, FotoPublica, Inmueble, InmuebleRow,
+    PublicacionRequest, RecetaPublicidad, ReordenarFotosRequest, UpdateInmuebleRequest, ESTADOS,
+    EXTENSIONES_FOTO, FORMATOS_RECETA, MAX_FOTO_BYTES, OPERACIONES, ORIGENES_FOTO, TIPOS,
 };
 pub use inmueble_alias::{normalizar_alias_titulos, MAX_ALIAS, MAX_ALIAS_LEN};
 pub use inmueble_paginacion::{FiltrosPublicos, PaginatedInmuebles};

@@ -117,9 +117,11 @@ impl InmuebleRepository {
         let mut huecos: Vec<(i32, i32)> = Vec::with_capacity(ids.len());
         let mut vistos: HashMap<Uuid, ()> = HashMap::with_capacity(ids.len());
         for (nuevo, id) in ids.iter().enumerate() {
-            let (Some(viejo), Ok(nuevo), None) =
-                (orden_de.get(id), i32::try_from(nuevo), vistos.insert(*id, ()))
-            else {
+            let (Some(viejo), Ok(nuevo), None) = (
+                orden_de.get(id),
+                i32::try_from(nuevo),
+                vistos.insert(*id, ()),
+            ) else {
                 return Ok(false);
             };
             huecos.push((*viejo, nuevo));

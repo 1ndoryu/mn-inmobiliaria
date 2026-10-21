@@ -333,7 +333,9 @@ mod pruebas {
             huella_de(&con_vinculo, vec![]).campos,
             huella_de(&fila(), vec![]).campos
         );
-        assert!(huella_de(&con_vinculo, vec![]).campos.contains_key("marketplace_id"));
+        assert!(huella_de(&con_vinculo, vec![])
+            .campos
+            .contains_key("marketplace_id"));
     }
 
     #[test]

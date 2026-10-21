@@ -189,7 +189,9 @@ pub(super) async fn enviar(
 
 /// Lectura. `Ok(None)` = 404: el servidor no tiene esa ruta o ese inmueble; el
 /// llamador decide si eso es «sin soporte» o «no existe».
-pub(super) async fn leer<T: DeserializeOwned>(respuesta: reqwest::Response) -> Result<Option<T>, ErrorRemoto> {
+pub(super) async fn leer<T: DeserializeOwned>(
+    respuesta: reqwest::Response,
+) -> Result<Option<T>, ErrorRemoto> {
     match respuesta.status() {
         s if s.is_success() => respuesta
             .json::<T>()
@@ -203,7 +205,9 @@ pub(super) async fn leer<T: DeserializeOwned>(respuesta: reqwest::Response) -> R
 
 /// Escritura: 2xx devuelve el cuerpo; otros 4xx (salvo credenciales) son `Rechazado`
 /// con el motivo del servidor; 5xx y red son `SinConexion`.
-pub(super) async fn escribir<T: DeserializeOwned>(respuesta: reqwest::Response) -> Result<T, ErrorRemoto> {
+pub(super) async fn escribir<T: DeserializeOwned>(
+    respuesta: reqwest::Response,
+) -> Result<T, ErrorRemoto> {
     let estado = respuesta.status();
     if estado.is_success() {
         return respuesta
@@ -211,7 +215,9 @@ pub(super) async fn escribir<T: DeserializeOwned>(respuesta: reqwest::Response) 
             .await
             .map_err(|e| ErrorRemoto::SinSoporte(format!("respuesta no válida: {e}")));
     }
-    if estado.is_client_error() && !matches!(estado, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
+    if estado.is_client_error()
+        && !matches!(estado, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN)
+    {
         let motivo = respuesta
             .json::<CuerpoError>()
             .await
@@ -230,7 +236,9 @@ pub(super) async fn escribir_sin_cuerpo(respuesta: reqwest::Response) -> Result<
     if estado.is_success() {
         return Ok(());
     }
-    if estado.is_client_error() && !matches!(estado, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
+    if estado.is_client_error()
+        && !matches!(estado, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN)
+    {
         let motivo = respuesta
             .json::<CuerpoError>()
             .await

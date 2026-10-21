@@ -15,7 +15,8 @@ use crate::models::{ActualizacionInmueble, FiltrosPublicos, Foto, InmuebleRow};
  * en `inmueble/fotos.rs`: mismo `impl InmuebleRepository`, otra unidad. */
 mod fotos;
 
-pub(crate) const COLUMNAS: &str = "id, titulo, descripcion, ubicacion, puestos, residencia, precio, \
+pub(crate) const COLUMNAS: &str =
+    "id, titulo, descripcion, ubicacion, puestos, residencia, precio, \
     tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, publicado, \
     slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, receta, extras, \
     precio_minimo, marketplace_id, created_at, updated_at, alias_titulos, nombre_corto";

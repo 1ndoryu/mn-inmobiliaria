@@ -266,7 +266,15 @@ mod pruebas {
         assert_eq!(h.modo.as_deref(), Some("completo"));
         assert!(h.session_id.is_none());
         assert_eq!(h.tokens_est, 1);
-        let h2 = huella(&pool, "584120825234", "", "04120000000", "+34609123456", "hola").await;
+        let h2 = huella(
+            &pool,
+            "584120825234",
+            "",
+            "04120000000",
+            "+34609123456",
+            "hola",
+        )
+        .await;
         assert!(h2.canal.is_none());
         assert!(h2.modo.is_none());
         assert!(h2.session_id.is_none());

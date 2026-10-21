@@ -94,7 +94,10 @@ pub(super) async fn urls_sitemap(pool: &PgPool) -> Result<String, AppError> {
             break;
         }
         if pagina >= MAX_LOTES_SITEMAP {
-            tracing::warn!(total = lote.total, "sitemap: inmuebles truncados por el tope de lotes");
+            tracing::warn!(
+                total = lote.total,
+                "sitemap: inmuebles truncados por el tope de lotes"
+            );
             break;
         }
         pagina += 1;
@@ -162,7 +165,11 @@ fn quitar_titulo(html: &str) -> String {
 }
 
 fn texto_descripcion(i: &Inmueble) -> String {
-    let operacion = if i.operacion == "venta" { "venta" } else { "alquiler" };
+    let operacion = if i.operacion == "venta" {
+        "venta"
+    } else {
+        "alquiler"
+    };
     let ubicacion = match i.ubicacion.trim() {
         "" => "Puerto Ordaz",
         u => u,
@@ -264,7 +271,10 @@ mod pruebas {
 
     #[test]
     fn quitar_titulo_borra_el_de_la_portada() {
-        assert_eq!(quitar_titulo("<head><title>A</title></head>"), "<head></head>");
+        assert_eq!(
+            quitar_titulo("<head><title>A</title></head>"),
+            "<head></head>"
+        );
     }
 
     #[test]

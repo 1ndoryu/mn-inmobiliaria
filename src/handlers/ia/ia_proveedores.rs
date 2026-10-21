@@ -711,7 +711,9 @@ mod pruebas {
                 };
                 comer_peticion(&mut zocalo).await;
                 zocalo
-                    .write_all(b"HTTP/1.1 400 X\r\nContent-Length: 3\r\nConnection: close\r\n\r\nmal")
+                    .write_all(
+                        b"HTTP/1.1 400 X\r\nContent-Length: 3\r\nConnection: close\r\n\r\nmal",
+                    )
                     .await
                     .unwrap();
                 usadas += 1;

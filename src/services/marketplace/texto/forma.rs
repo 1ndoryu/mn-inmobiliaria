@@ -1,5 +1,5 @@
 use crate::services::marketplace::{
-    CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, FALLBACK_BORRADOR, PromptSeguro,
+    PromptSeguro, CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, FALLBACK_BORRADOR,
 };
 
 /// [07AA-8] Garantía determinista del formato: si el texto generado no trae
@@ -89,7 +89,9 @@ pub fn imponer_forma_borrador(ia: &str, ficha: Option<&PromptSeguro>) -> String 
         for f in partir_frases(m) {
             // Una ubicación solo sale completa, con la forma pedida («El inmueble se ubica…»):
             // un trozo suelto («Principal de Villa…») no es un dato útil.
-            if es_dato_util(&f) && (!f.to_lowercase().contains("ubic") || f.starts_with("El inmueble se ubica")) {
+            if es_dato_util(&f)
+                && (!f.to_lowercase().contains("ubic") || f.starts_with("El inmueble se ubica"))
+            {
                 medio = Some(f);
                 break;
             }
@@ -247,9 +249,7 @@ pub(in crate::services::marketplace) fn partir_frases(t: &str) -> Vec<String> {
         act.push(c);
         let corta = match c {
             '?' | '!' | '\n' => true,
-            '.' => {
-                !matches!(it.peek(), Some(n) if n.is_ascii_digit()) && !es_abreviatura(&act)
-            }
+            '.' => !matches!(it.peek(), Some(n) if n.is_ascii_digit()) && !es_abreviatura(&act),
             _ => false,
         };
         if corta {
@@ -277,7 +277,10 @@ const ABREVIATURAS: &[&str] = &[
 /// `act` termina en «.»: true si la palabra que lo precede es abreviatura.
 fn es_abreviatura(act: &str) -> bool {
     let base = act.trim_end_matches('.');
-    let palabra = base.rsplit(|c: char| !c.is_alphabetic()).next().unwrap_or("");
+    let palabra = base
+        .rsplit(|c: char| !c.is_alphabetic())
+        .next()
+        .unwrap_or("");
     ABREVIATURAS.contains(&palabra.to_lowercase().as_str())
 }
 

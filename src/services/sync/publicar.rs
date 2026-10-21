@@ -43,8 +43,14 @@ pub async fn publicar(
             "el servidor asignaría «{generado}» desde el título, no «{slug}»: no se publica para no crear un slug distinto"
         )));
     }
-    if remoto::detalle(cred, slug).await.map_err(conflicto)?.is_some() {
-        return Err(AppError::Conflict(format!("{slug} ya existe en el servidor")));
+    if remoto::detalle(cred, slug)
+        .await
+        .map_err(conflicto)?
+        .is_some()
+    {
+        return Err(AppError::Conflict(format!(
+            "{slug} ya existe en el servidor"
+        )));
     }
     let alta = alta_desde(&local);
     alta.validate()

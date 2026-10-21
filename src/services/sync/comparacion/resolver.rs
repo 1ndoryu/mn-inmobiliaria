@@ -147,8 +147,14 @@ pub fn planificar(
             Eleccion::Local => f.servidor.is_none(),
         }
     };
-    let en_local = filas.iter().filter(|f| aplicable(f, Eleccion::Servidor)).count();
-    let en_servidor = filas.iter().filter(|f| aplicable(f, Eleccion::Local)).count();
+    let en_local = filas
+        .iter()
+        .filter(|f| aplicable(f, Eleccion::Servidor))
+        .count();
+    let en_servidor = filas
+        .iter()
+        .filter(|f| aplicable(f, Eleccion::Local))
+        .count();
     let plan_id = plan_id(&dif.slug, &filas, local, remoto)?;
     Ok(PlanResolucion {
         slug: dif.slug.clone(),
@@ -198,7 +204,12 @@ mod pruebas {
         }
     }
 
-    fn fila(clave: &str, lado: Lado, local: Option<&str>, servidor: Option<&str>) -> FilaDiferencia {
+    fn fila(
+        clave: &str,
+        lado: Lado,
+        local: Option<&str>,
+        servidor: Option<&str>,
+    ) -> FilaDiferencia {
         FilaDiferencia {
             clave: clave.into(),
             lado,
@@ -225,7 +236,12 @@ mod pruebas {
         }
     }
 
-    fn plan(d: &DiferenciasSync, l: &InmuebleHuella, r: &InmuebleHuella, conservar: &[&str]) -> PlanResolucion {
+    fn plan(
+        d: &DiferenciasSync,
+        l: &InmuebleHuella,
+        r: &InmuebleHuella,
+        conservar: &[&str],
+    ) -> PlanResolucion {
         let conservar: BTreeSet<String> = conservar.iter().map(|c| (*c).to_string()).collect();
         planificar(d, l, r, &conservar, &HashMap::new(), &HashMap::new()).unwrap()
     }
@@ -250,10 +266,19 @@ mod pruebas {
             fila("precio", Lado::Indeterminado, Some("1"), Some("2")),
         ]);
         let todo = |p: &PlanResolucion, e: Eleccion| p.filas.iter().all(|f| f.elegido == e);
-        assert!(todo(&plan(&d, &huella(100), &huella(0), &[]), Eleccion::Local));
-        assert!(todo(&plan(&d, &huella(0), &huella(100), &[]), Eleccion::Servidor));
+        assert!(todo(
+            &plan(&d, &huella(100), &huella(0), &[]),
+            Eleccion::Local
+        ));
+        assert!(todo(
+            &plan(&d, &huella(0), &huella(100), &[]),
+            Eleccion::Servidor
+        ));
         // Empate: gana el local.
-        assert!(todo(&plan(&d, &huella(5), &huella(5), &[]), Eleccion::Local));
+        assert!(todo(
+            &plan(&d, &huella(5), &huella(5), &[]),
+            Eleccion::Local
+        ));
     }
 
     #[test]
@@ -269,14 +294,25 @@ mod pruebas {
 
     #[test]
     fn foto_solo_en_un_lado_se_añade_o_se_quita_segun_lo_elegido() {
-        let d = dif(vec![fila("foto:original:1", Lado::Local, Some("presente (aaaaaaaa)"), None)]);
+        let d = dif(vec![fila(
+            "foto:original:1",
+            Lado::Local,
+            Some("presente (aaaaaaaa)"),
+            None,
+        )]);
         // Lo último es el local: la foto se sube al servidor.
         let nueva = plan(&d, &huella(0), &huella(0), &[]);
-        assert_eq!((nueva.filas[0].elegido, nueva.filas[0].accion), (Eleccion::Local, Accion::Escribir));
+        assert_eq!(
+            (nueva.filas[0].elegido, nueva.filas[0].accion),
+            (Eleccion::Local, Accion::Escribir)
+        );
         assert_eq!((nueva.en_local, nueva.en_servidor), (0, 1));
         // Conservar lo viejo (sin la foto): se quita del local.
         let vieja = plan(&d, &huella(0), &huella(0), &["foto:original:1"]);
-        assert_eq!((vieja.filas[0].elegido, vieja.filas[0].accion), (Eleccion::Servidor, Accion::Quitar));
+        assert_eq!(
+            (vieja.filas[0].elegido, vieja.filas[0].accion),
+            (Eleccion::Servidor, Accion::Quitar)
+        );
         assert_eq!((vieja.en_local, vieja.en_servidor), (1, 0));
     }
 
@@ -285,16 +321,36 @@ mod pruebas {
         let d = dif(vec![fila("titulo", Lado::Local, Some("a"), Some("b"))]);
         let a = plan(&d, &huella(0), &huella(0), &[]);
         assert_eq!(a.plan_id, plan(&d, &huella(0), &huella(0), &[]).plan_id);
-        assert_ne!(a.plan_id, plan(&d, &huella(0), &huella(0), &["titulo"]).plan_id);
+        assert_ne!(
+            a.plan_id,
+            plan(&d, &huella(0), &huella(0), &["titulo"]).plan_id
+        );
         assert_ne!(a.plan_id, plan(&d, &huella(1), &huella(0), &[]).plan_id);
     }
 
     #[test]
     fn miniaturas_se_asignan_por_clave() {
-        let d = dif(vec![fila("foto:original:0", Lado::Local, Some("presente (aa)"), None)]);
-        let mini_local = HashMap::from([("foto:original:0".to_string(), "/uploads/a.jpg".to_string())]);
-        let p = planificar(&d, &huella(0), &huella(0), &BTreeSet::new(), &mini_local, &HashMap::new()).unwrap();
-        assert_eq!(p.filas[0].miniatura_local.as_deref(), Some("/uploads/a.jpg"));
+        let d = dif(vec![fila(
+            "foto:original:0",
+            Lado::Local,
+            Some("presente (aa)"),
+            None,
+        )]);
+        let mini_local =
+            HashMap::from([("foto:original:0".to_string(), "/uploads/a.jpg".to_string())]);
+        let p = planificar(
+            &d,
+            &huella(0),
+            &huella(0),
+            &BTreeSet::new(),
+            &mini_local,
+            &HashMap::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            p.filas[0].miniatura_local.as_deref(),
+            Some("/uploads/a.jpg")
+        );
         assert_eq!(p.filas[0].miniatura_servidor, None);
     }
 }

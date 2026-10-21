@@ -24,7 +24,10 @@ fn formatear_parrafos_respeta_lista_y_no_duplica() {
     assert_eq!(salido.matches(CONTACTO_WA).count(), 1);
     /* [21AA-2] El cierre entero abre su párrafo, con teléfono y enlace juntos. */
     let con_cierre = formatear_parrafos(&format!("Sigue disponible. {CIERRE_BORRADOR}"));
-    assert!(con_cierre.ends_with(&format!("\n\n{CIERRE_BORRADOR}")), "{con_cierre}");
+    assert!(
+        con_cierre.ends_with(&format!("\n\n{CIERRE_BORRADOR}")),
+        "{con_cierre}"
+    );
 }
 
 #[test]

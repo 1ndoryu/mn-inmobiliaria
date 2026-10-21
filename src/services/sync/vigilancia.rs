@@ -202,9 +202,11 @@ fn estado_de_error(e: &ErrorRemoto) -> EstadoRemoto {
             motivo: motivo.clone(),
         },
         // Una operación rechazada no cambia el estado de la vigilancia; es el motivo de una escritura.
-        ErrorRemoto::SinSoporte(motivo) | ErrorRemoto::Rechazado(motivo) => EstadoRemoto::SinSoporte {
-            motivo: motivo.clone(),
-        },
+        ErrorRemoto::SinSoporte(motivo) | ErrorRemoto::Rechazado(motivo) => {
+            EstadoRemoto::SinSoporte {
+                motivo: motivo.clone(),
+            }
+        }
     }
 }
 

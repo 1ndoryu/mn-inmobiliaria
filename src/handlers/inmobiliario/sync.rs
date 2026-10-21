@@ -17,8 +17,8 @@ use crate::services::sync::operacion::InformeSync;
 use crate::services::sync::plan;
 use crate::services::sync::remoto::{self, Credenciales, ErrorRemoto};
 use crate::services::sync::resolver::PlanResolucion;
-use crate::services::sync::{publicar, traer};
 use crate::services::sync::vigilancia::{self, EstadoSync};
+use crate::services::sync::{publicar, traer};
 use crate::AppState;
 
 /* [13AA-12] Sincronización de inmuebles local ↔ servidor. Las rutas de
@@ -132,7 +132,9 @@ pub async fn get_diferencias(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("inmueble {slug}")))?;
     let cred = Credenciales::cargar().map_err(|e| error_remoto(&e))?;
-    let remoto = remoto::detalle(&cred, &slug).await.map_err(|e| error_remoto(&e))?;
+    let remoto = remoto::detalle(&cred, &slug)
+        .await
+        .map_err(|e| error_remoto(&e))?;
     let diferencias = detalle::diferencias(&state.pool, &local, remoto.as_ref()).await?;
     Ok(Json(diferencias))
 }
@@ -166,7 +168,9 @@ pub async fn post_plan(
 ) -> Result<Json<PlanResolucion>, AppError> {
     let cred = Credenciales::cargar().map_err(|e| error_remoto(&e))?;
     let conservar: BTreeSet<String> = peticion.conservar_viejo.into_iter().collect();
-    Ok(Json(plan::plan_de(&state.pool, &cred, &slug, &conservar).await?))
+    Ok(Json(
+        plan::plan_de(&state.pool, &cred, &slug, &conservar).await?,
+    ))
 }
 
 /// Elecciones del panel más el plan que se mostró: aplicar exige que siga vigente (D3).

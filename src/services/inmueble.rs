@@ -13,9 +13,9 @@ use crate::repositories::InmuebleRepository;
 use crate::services::sync::vigilancia::notificar;
 
 pub(crate) mod alias;
+mod fotos;
 pub(crate) mod slug;
 pub(crate) mod vinculo;
-mod fotos;
 
 /* [159A-1] Lógica del catálogo: normalización de enums, slug único con
  * reintento ante carrera (UNIQUE 23505) y ensamblado fila+fotos sin N+1.
@@ -140,7 +140,9 @@ impl InmuebleService {
                 Err(e) if vinculo::es_conflicto(&e) => {
                     return Err(vinculo::error_duplicado());
                 }
-                Err(e) if reintentar && InmuebleRepository::es_conflicto_slug(&e) && intento < 3 => {
+                Err(e)
+                    if reintentar && InmuebleRepository::es_conflicto_slug(&e) && intento < 3 =>
+                {
                     intento += 1;
                 }
                 /* Sin reintentos o agotados: conflicto explícito, no un 500. */
