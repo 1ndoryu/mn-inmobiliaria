@@ -11,9 +11,6 @@
 
 ## Pendientes
 
-- [ ] `19AA-1` — **`continuacion.rs:acotar` corta mal en dos casos (revisión 2026-10-19, sin cambio).**
-  `src/services/marketplace/continuacion.rs:97-107`. El corte por bytes es seguro: `rfind` de un patrón ASCII devuelve frontera de carácter válida. Dos defectos reales, ninguno grave: si la ventana de `max` caracteres no tiene puntuación alguna, corta a mitad de palabra; y una abreviatura (`Av.`, `Sr.`) da la frase por terminada antes de tiempo. Salida: cortar por el último espacio cuando no haya puntuación, y no contar el `.` de una abreviatura conocida.
-
 - [ ] `19AA-2` — **`cargo fmt` y `cargo clippy` fallan en la 89 por deriva del toolchain (heredado, 2026-10-19).**
   `rust-toolchain.toml` fija `channel = "stable"`, sin versión, así que la 89 va con rustc 1.99.0: 31 archivos con diff de `rustfmt` y 36 errores con `cargo clippy --all-targets -- -D warnings` (`assert_is_empty` ×19, `assert_is_not_empty` ×11, `#[must_use]`, `Option<Option<T>>`, backticks en doc…). Ninguno está en archivos tocados hoy y `cargo test` pasa (324/324, 2 ignorados), así que es deriva del linter, no código roto: la regla «antes de cada commit: `cargo fmt --check && cargo clippy`» del README no se puede cumplir hoy. Aparte, `cargo test` deja un aviso del compilador en `src/services/sync/comparacion/comparar.rs:466` (`let mut a` que no se muta): heredado, fuera de los archivos tocados. Salida: fijar una versión en `rust-toolchain.toml` o correr clippy sin `-D warnings`.
 
