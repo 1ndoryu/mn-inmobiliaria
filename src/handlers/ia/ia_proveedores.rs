@@ -109,30 +109,33 @@ pub(super) async fn completar_glory(
     if key.is_empty() {
         return Err("Sin GLORY_API_KEY en .env".to_string());
     }
-    let base = glory_base();
-    let mut partes = vec![serde_json::json!({"type": "text", "text": texto})];
-    for foto in fotos.iter().take(MAX_FOTOS) {
-        partes.push(serde_json::json!({"type": "image_url", "image_url": {"url": foto}}));
-    }
-    let cliente = cliente_http(120).map_err(|e| e.to_string())?;
+    completar_glory_con(&glory_base(), &key, system, texto, fotos).await
+}
+
+/* Un intento contra GloryAPI. El `bool` dice si merece repetirse: un 4xx de
+ * verdad (400 mal armado, 401/403 clave) no cambia por insistir y solo quema
+ * tiempo; red rota, 408, 429 y 5xx sí son pasajeros. */
+async fn intento_glory(
+    cliente: &reqwest::Client,
+    base: &str,
+    key: &str,
+    cuerpo: &serde_json::Value,
+) -> Result<serde_json::Value, (bool, String)> {
     let resp = cliente
         .post(format!("{base}/v1/chat/completions"))
         .header("Authorization", format!("Bearer {key}"))
-        .json(&serde_json::json!({
-            "model": crate::config::ia::MODELO_GLORYAPI,
-            "stream": false,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": partes},
-            ],
-        }))
+        .json(cuerpo)
         .send()
         .await
-        .map_err(|e| format!("GloryAPI red: {e}"))?;
+        .map_err(|e| (true, format!("GloryAPI red: {e}")))?;
     if resp.status() == 401 || resp.status() == 403 {
-        return Err("GloryAPI rechazo la clave (revisa GLORY_API_KEY)".to_string());
+        return Err((
+            false,
+            "GloryAPI rechazo la clave (revisa GLORY_API_KEY)".to_string(),
+        ));
     }
     if !resp.status().is_success() {
+        let estado = resp.status().as_u16();
         let trozo: String = resp
             .text()
             .await
@@ -140,18 +143,64 @@ pub(super) async fn completar_glory(
             .chars()
             .take(200)
             .collect();
-        return Err(format!("GloryAPI HTTP: {trozo}"));
+        let pasajero = estado == 408 || estado == 429 || estado >= 500;
+        return Err((pasajero, format!("GloryAPI HTTP: {trozo}")));
     }
-    let cuerpo: serde_json::Value = resp
-        .json()
+    resp.json()
         .await
-        .map_err(|e| format!("GloryAPI respuesta no JSON: {e}"))?;
-    let modelo = cuerpo
+        .map_err(|e| (false, format!("GloryAPI respuesta no JSON: {e}")))
+}
+
+/* [09AA-11] Base y clave inyectables (testeable con un mock local). Un fallo
+ * pasajero se repite una sola vez: antes, una caída puntual dejaba al cliente
+ * sin respuesta y el hilo se quedaba a medias. La pausa es corta a propósito:
+ * el tope de 18AA-8 ya es largo y esto suma como mucho un intento. */
+async fn completar_glory_con(
+    base: &str,
+    key: &str,
+    system: &str,
+    texto: &str,
+    fotos: &[String],
+) -> Result<(String, String), String> {
+    let mut partes = vec![serde_json::json!({"type": "text", "text": texto})];
+    for foto in fotos.iter().take(MAX_FOTOS) {
+        partes.push(serde_json::json!({"type": "image_url", "image_url": {"url": foto}}));
+    }
+    let cuerpo = serde_json::json!({
+        "model": crate::config::ia::MODELO_GLORYAPI,
+        "stream": false,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": partes},
+        ],
+    });
+    let cliente = cliente_http(120).map_err(|e| e.to_string())?;
+    let respuesta = match intento_glory(&cliente, base, key, &cuerpo).await {
+        Ok(r) => r,
+        Err((true, primero)) => {
+            tokio::time::sleep(Duration::from_millis(400)).await;
+            match intento_glory(&cliente, base, key, &cuerpo).await {
+                Ok(r) => {
+                    mp_log(
+                        LogNivel::Info,
+                        "ia.reintento_glory",
+                        "ia",
+                        "el reintento a GloryAPI trajo respuesta".to_string(),
+                        &[("primer_fallo", serde_json::json!(primero))],
+                    );
+                    r
+                }
+                Err((_, segundo)) => return Err(format!("{primero} (tras reintento: {segundo})")),
+            }
+        }
+        Err((false, fallo)) => return Err(fallo),
+    };
+    let modelo = respuesta
         .pointer("/model")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("auto")
         .to_string();
-    texto_glory(&cuerpo)
+    texto_glory(&respuesta)
         .map(|t| (t, modelo))
         .ok_or_else(|| "GloryAPI devolvio una respuesta sin texto".to_string())
 }
@@ -181,13 +230,11 @@ pub(super) fn diagnostico_respuesta_vacia(resp: &serde_json::Value) -> String {
         .and_then(|d| d.get("reason"))
         .and_then(serde_json::Value::as_str)
         .unwrap_or("-");
-    let uso = resp.get("uso").map_or_else(
-        || {
-            resp.get("usage")
-                .map_or_else(|| "-".to_string(), uso_responses)
-        },
-        uso_responses,
-    );
+    /* [09AA-11] Solo `usage`: la rama de `uso` se escribió por si el relay lo
+     * mandaba en castellano y nunca hubo productor (grep en `src/`: ninguno). */
+    let uso = resp
+        .get("usage")
+        .map_or_else(|| "-".to_string(), uso_responses);
     format!(
         "estado={estado} tipos=[{}] motivo={motivo} uso={uso}",
         tipos.join(",")
@@ -615,5 +662,64 @@ mod pruebas {
             super::transcribir_audio_con(&[1, 2, 3], "a.mp3", "audio/mpeg", &claves, &url).await;
         assert!(r.is_err());
         servo.await.unwrap();
+    }
+
+    /* [09AA-11] Un 5xx pasajero se repite una vez y se usa la respuesta
+     * buena: antes el hilo se quedaba sin texto por una caída puntual. */
+    #[tokio::test]
+    async fn glory_reintenta_tras_5xx() {
+        use tokio::io::AsyncWriteExt;
+        let oyente = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://127.0.0.1:{}", oyente.local_addr().unwrap().port());
+        let bueno = r#"{"model":"glory-1","choices":[{"message":{"content":"hola"}}]}"#;
+        let servo = tokio::spawn(async move {
+            let mut usadas = 0;
+            for (estado, cuerpo) in [(502, "mal"), (200, bueno)] {
+                let (mut zocalo, _) = oyente.accept().await.unwrap();
+                comer_peticion(&mut zocalo).await;
+                let resp = format!(
+                    "HTTP/1.1 {estado} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{cuerpo}",
+                    cuerpo.len()
+                );
+                zocalo.write_all(resp.as_bytes()).await.unwrap();
+                usadas += 1;
+            }
+            usadas
+        });
+        let (texto, modelo) = super::completar_glory_con(&base, "k", "sys", "hola", &[])
+            .await
+            .unwrap();
+        assert_eq!(texto, "hola");
+        assert_eq!(modelo, "glory-1");
+        assert_eq!(servo.await.unwrap(), 2, "debio repetir tras el 5xx");
+    }
+
+    /* [09AA-11] Un 400 no se repite: la petición está mal y el reintento solo
+     * alargaría la espera del cliente. */
+    #[tokio::test]
+    async fn glory_no_reintenta_tras_400() {
+        use std::time::Duration;
+        use tokio::io::AsyncWriteExt;
+        let oyente = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://127.0.0.1:{}", oyente.local_addr().unwrap().port());
+        let servo = tokio::spawn(async move {
+            let mut usadas = 0;
+            while usadas < 2 {
+                let aceptado = tokio::time::timeout(Duration::from_millis(600), oyente.accept());
+                let Ok(Ok((mut zocalo, _))) = aceptado.await else {
+                    break;
+                };
+                comer_peticion(&mut zocalo).await;
+                zocalo
+                    .write_all(b"HTTP/1.1 400 X\r\nContent-Length: 3\r\nConnection: close\r\n\r\nmal")
+                    .await
+                    .unwrap();
+                usadas += 1;
+            }
+            usadas
+        });
+        let r = super::completar_glory_con(&base, "k", "sys", "hola", &[]).await;
+        assert!(r.is_err());
+        assert_eq!(servo.await.unwrap(), 1, "un 400 no se repite");
     }
 }
