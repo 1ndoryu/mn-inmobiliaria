@@ -363,7 +363,7 @@ pub(super) fn sistema_borrador(
     datos: &str,
     ya_dicho: &str,
 ) -> String {
-    use crate::services::marketplace::{CONTACTO_TEL, CONTACTO_WA};
+    use crate::services::marketplace::{CIERRE_BORRADOR, CTA_FIJO};
     let tono = crate::services::marketplace::continuacion::tono_de(r);
     /* [07AA-10] Saludo primero y por su nombre: el hilo trae `nombre|aviso`.
      * El precio según operación ([08AA-25]: un alquiler presentado como
@@ -434,9 +434,9 @@ pub(super) fn sistema_borrador(
           `operacion`, y si la descripción de los datos trae otra (p. ej. \
           «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa \
           diciendo «canon mensual»; \
-          segundo bloque = este texto literal, sin cambiar ni \
-          una palabra: «Cuéntame qué estás buscando y con gusto te ayudo. \
-          Cualquier cosa escríbeme al {CONTACTO_TEL}» y en línea aparte {CONTACTO_WA}. \
+          segundo bloque = estos dos párrafos, sin cambiar ni una palabra: \
+          primero «{CTA_FIJO}», y debajo el cierre «{CIERRE_BORRADOR}» (el \
+          teléfono y el enlace van en el MISMO párrafo, sin salto entre ellos). \
           Excepción: un párrafo intermedio de UNA sola frase (máximo 140 \
           caracteres, sin ? ni ¿) SOLO si el Cliente pide un dato concreto \
           no dicho arriba (baños, habitaciones, m2). Si el Cliente pregunta \

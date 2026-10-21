@@ -1,4 +1,4 @@
-use super::super::{CONTACTO_TEL, CONTACTO_WA, CTA_FIJO};
+use super::super::{CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, CTA_FIJO};
 use super::excerpt::{es_etiqueta, sin_tilde_min};
 
 /* [08AA-29] Ruido por CONTENIDO (no por prefijo): el aviso de
@@ -173,12 +173,13 @@ pub(super) fn despegar_url_wa(linea: &str) -> &str {
     }
 }
 
-/// Cierre canónico del borrador propio (`CTA_FIJO` + contacto de
-/// `imponer_forma_borrador`): igualdad exacta; el cliente nunca escribe
-/// estas líneas tal cual.
+/// Cierre canónico del borrador propio (`CTA_FIJO` y `CIERRE_BORRADOR` de
+/// `imponer_forma_borrador`, más las dos líneas sueltas de la forma vieja,
+/// que sigue viva en filas de caché y en hilos viejos): igualdad exacta; el
+/// cliente nunca escribe estas líneas tal cual.
 fn es_cierre_propio(linea: &str) -> bool {
     let cuerpo = linea.trim();
-    if cuerpo == CTA_FIJO || cuerpo == CONTACTO_WA {
+    if cuerpo == CTA_FIJO || cuerpo == CONTACTO_WA || cuerpo == CIERRE_BORRADOR {
         return true;
     }
     cuerpo

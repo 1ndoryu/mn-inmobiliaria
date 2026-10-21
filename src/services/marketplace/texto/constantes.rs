@@ -15,6 +15,13 @@ pub const FALLBACK_BORRADOR: &str = "Lo reviso y te escribo el precio por aquí"
 pub const CONTACTO_TEL: &str = "04249208855";
 pub const CONTACTO_WA: &str = "https://wa.me/584249208855";
 
+/// [21AA-2] Cierre del borrador, decidido por ella el 2026-10-21: el teléfono
+/// y el enlace van pegados en el MISMO párrafo, y queda claro que es la
+/// inmobiliaria quien atiende (antes eran dos líneas sueltas, y el wa.me solo
+/// se veía como una URL desnuda). El enlace de un solo nivel conserva la
+/// promesa del `203`: `formatear_parrafos` parte por `\n` y no toca esta línea.
+pub const CIERRE_BORRADOR: &str = "Somos inmobiliaria, puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp: https://wa.me/584249208855";
+
 /// [09AA-2] Fin del bucle del párrafo de relleno (08AA-36/37/38 burlados con
 /// sinónimos): el prompt mismo ORDENABA el relleno («avanza la conversación:
 /// ofrece fotos o pregunta qué busca») y esa orden positiva siempre le ganó

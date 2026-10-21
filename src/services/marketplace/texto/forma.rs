@@ -1,21 +1,18 @@
 use crate::services::marketplace::{
-    CONTACTO_TEL, CONTACTO_WA, CTA_FIJO, FALLBACK_BORRADOR, PromptSeguro,
+    CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, CTA_FIJO, FALLBACK_BORRADOR, PromptSeguro,
 };
 
 /// [07AA-8] Garantía determinista del formato: si el texto generado no trae
-/// el teléfono o el enlace, se agregan (teléfono como penúltima línea,
-/// enlace cerrando). Solo se aplica al borrador de IA, nunca al texto
-/// manual de la dueña.
+/// el cierre canónico, se agrega. [21AA-2] El cierre es un solo párrafo con
+/// teléfono y enlace (`CIERRE_BORRADOR`), así que basta con que aparezca el
+/// teléfono: el enlace va dentro. Solo se aplica al borrador de IA, nunca al
+/// texto manual de la dueña.
 #[must_use]
 pub fn asegurar_contacto(texto: &str) -> String {
     use std::fmt::Write as _;
     let mut t = texto.trim_end().to_string();
     if !t.contains(CONTACTO_TEL) {
-        let _ = write!(t, "\nCualquier cosa escríbeme al {CONTACTO_TEL}");
-    }
-    if !t.contains(CONTACTO_WA) {
-        t.push('\n');
-        t.push_str(CONTACTO_WA);
+        let _ = write!(t, "\n{CIERRE_BORRADOR}");
     }
     t
 }
@@ -105,10 +102,10 @@ pub fn imponer_forma_borrador(ia: &str, ficha: Option<&PromptSeguro>) -> String 
     if let Some(m) = medio {
         out.push(m);
     }
-    out.push(format!(
-        "{CTA_FIJO} Cualquier cosa escríbeme al {CONTACTO_TEL}"
-    ));
-    out.push(CONTACTO_WA.to_string());
+    /* [21AA-2] Párrafo final propio: la invitación y, debajo, el teléfono y
+     * el enlace juntos (`CIERRE_BORRADOR`). */
+    out.push(CTA_FIJO.to_string());
+    out.push(CIERRE_BORRADOR.to_string());
     formatear_parrafos(&out.join("\n\n"))
 }
 
@@ -289,7 +286,7 @@ fn es_abreviatura(act: &str) -> bool {
 /// nunca cae al fallback si hay precio que dar.
 pub(in crate::services::marketplace) fn borrador_minimo(apertura: Option<&str>) -> String {
     formatear_parrafos(&format!(
-        "{}\nCualquier cosa escríbeme al {CONTACTO_TEL}\n{CONTACTO_WA}",
+        "{}\n\n{CIERRE_BORRADOR}",
         apertura.unwrap_or(FALLBACK_BORRADOR)
     ))
 }
@@ -315,9 +312,9 @@ pub fn borrador_de_reserva(ficha: Option<&PromptSeguro>) -> String {
 #[must_use]
 pub fn formatear_parrafos(texto: &str) -> String {
     let plano = texto.replace("\r\n", "\n").replace('\r', "\n");
-    let marca_contacto = format!("Cualquier cosa escríbeme al {CONTACTO_TEL}");
-    let con_contacto = partir_pegado(&plano, &marca_contacto);
-    let con_wa = partir_pegado(&con_contacto, CONTACTO_WA);
+    /* [21AA-2] Una sola marca: el cierre ya lleva teléfono y enlace en el
+     * mismo párrafo. */
+    let con_wa = partir_pegado(&plano, CIERRE_BORRADOR);
     let mut parrafos: Vec<String> = Vec::new();
     let mut actual = String::new();
     for linea in con_wa.lines() {

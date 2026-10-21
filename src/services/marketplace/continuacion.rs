@@ -3,7 +3,9 @@
 //! el hilo, en una o dos frases. El modo de apertura (saludo + molde + contacto
 //! fijo) sigue siendo el de siempre para el primer mensaje.
 
-use super::{formatear_parrafos, BorradorRequest, Tono, CONTACTO_TEL, CONTACTO_WA};
+use super::{
+    formatear_parrafos, BorradorRequest, Tono, CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA,
+};
 
 /// Respuesta de reserva en continuación (la IA falló): neutra, sin apertura ni
 /// contacto, para no pegar el molde de primer mensaje en mitad de un hilo.
@@ -88,7 +90,14 @@ pub fn dar_forma_continuacion(ia: &str) -> String {
     let limpio: Vec<String> = formatear_parrafos(ia)
         .split("\n\n")
         .map(|p| p.trim().trim_matches(['"', '«', '»']).trim().to_string())
-        .filter(|p| !p.is_empty() && !p.contains(CONTACTO_WA) && !p.contains(CONTACTO_TEL))
+        /* [21AA-2] Fuera el cierre completo (`CIERRE_BORRADOR`) además de las
+         * dos líneas sueltas de la forma vieja, que aún vive en caché. */
+        .filter(|p| {
+            !p.is_empty()
+                && !p.contains(CONTACTO_WA)
+                && !p.contains(CONTACTO_TEL)
+                && !p.contains(CIERRE_BORRADOR)
+        })
         .collect();
     let texto = acotar(&limpio.join("\n\n"), CONTINUACION_MAX_CHARS);
     if texto.is_empty() {

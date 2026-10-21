@@ -26,9 +26,12 @@ pub struct ClaveCompartida<'a> {
 /// Clave de los mensajes del cliente: cada uno normalizado (espacios
 /// colapsados, minúsculas) en su línea, con versión. La línea separa los
 /// mensajes: `["a b"]` y `["a", "b"]` no colisionan.
+/// [21AA-2] v3: la plantilla compartida lleva horneado el cierre del borrador
+/// y las filas de v2 traen el viejo (dos líneas con el wa.me suelto); sin
+/// subir la versión, el inmueble seguiría sirviendo ese texto.
 #[must_use]
 pub fn mensaje_clave_de(textos: &[&str]) -> String {
-    let mut canon = String::from("v2\n");
+    let mut canon = String::from("v3\n");
     for (i, texto) in textos.iter().enumerate() {
         if i > 0 {
             canon.push('\n');
