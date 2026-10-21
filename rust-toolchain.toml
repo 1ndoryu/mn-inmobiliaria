@@ -1,2 +1,5 @@
 [toolchain]
-channel = "stable"
+# [19AA-2] Versión fija, no «stable»: sin pin, la 89 actualizaba sola y
+# `cargo fmt --check` / `clippy -D warnings` empezaban a fallar sin que
+# cambiara una línea de código (31 archivos de diff, 36 errores el 2026-10-19).
+channel = "1.96.0"
