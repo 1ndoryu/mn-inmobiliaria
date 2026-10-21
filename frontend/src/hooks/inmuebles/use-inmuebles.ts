@@ -53,6 +53,9 @@ export function useInmuebles() {
       const { lista, resultado } = await crearInmueble(inmueble, listaRef.current);
       if (resultado.ok) {
         fijar(lista);
+        /* [16AA-14] El inmueble se guardó pero algo secundario (la ficha /ask)
+         * falló: el banner lo dice sin tratarlo como error del guardado. */
+        if (resultado.aviso) setAviso(resultado.aviso);
         return true;
       }
       setError(resultado.motivo);
@@ -85,6 +88,7 @@ export function useInmuebles() {
       const { lista, resultado } = await actualizarInmueble(inmueble, listaRef.current);
       if (resultado.ok) {
         fijar(lista);
+        if (resultado.aviso) setAviso(resultado.aviso);
         return true;
       }
       setError(resultado.motivo);

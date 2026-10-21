@@ -9,8 +9,11 @@ import {
   sincronizarFotos,
 } from './api';
 import { borrarFotosDeInmueble } from '../mejora/repositorio-fotos';
+import { guardarFicha } from './ficha-ask';
 
-export type ResultadoGuardado = { ok: true } | { ok: false; motivo: string };
+/* `aviso` solo acompaña a un guardado que sí se hizo: el registro quedó bien
+ * pero algo secundario (la ficha /ask) falló y hay que decirlo sin fingir error. */
+export type ResultadoGuardado = { ok: true; aviso?: string } | { ok: false; motivo: string };
 
 // Repositorio: única puerta de entrada a los inmuebles. La API es la única
 // fuente (nada local): cada mutación escribe primero el registro y luego
@@ -26,6 +29,21 @@ export async function cargarInmuebles(): Promise<{ lista: Inmueble[]; fotosOk: b
   return { lista: await listarRemoto(), fotosOk: true };
 }
 
+/* [16AA-14] `extras` y `precio_minimo` no viajan en el PUT del inmueble
+ * (`dominioACuerpo` los omite: mapa aparte y columna privada). El único
+ * escritor es `PUT .../ficha`, así que se guardan aquí, con el id ya conocido,
+ * para que el modal no pierda lo escrito en «Ficha /ask». Se omite cuando el
+ * inmueble no trae ninguna de las dos cosas (p. ej. una receta), para no
+ * vaciar una ficha que el llamador no estaba tocando. */
+async function persistirFicha(guardado: Inmueble, original: Inmueble): Promise<Inmueble> {
+  if (original.extras === undefined && original.precioMinimo === undefined) return guardado;
+  const ficha = await guardarFicha(guardado.id, {
+    extras: original.extras ?? {},
+    precioMinimo: original.precioMinimo ?? null,
+  });
+  return { ...guardado, extras: ficha.extras, precioMinimo: ficha.precioMinimo ?? undefined };
+}
+
 /* Crear: primero el registro (devuelve id y slug), luego las fotos. Si la
  * subida falla, el registro queda creado sin fotos y se informa: nada se
  * pierde porque el modal conserva el borrador con sus fotos. */
@@ -38,6 +56,14 @@ export async function crearInmueble(
     creado = await crearRemoto(inmueble);
   } catch (error) {
     return { lista: actuales, resultado: { ok: false, motivo: motivo(error, 'No se pudo crear el inmueble.') } };
+  }
+  /* Si la ficha falla, el inmueble ya existe: no se devuelve error (el modal
+   * seguiría abierto y al reintentar se duplicaría), se avisa. */
+  let avisoFicha: string | undefined;
+  try {
+    creado = await persistirFicha(creado, inmueble);
+  } catch (error) {
+    avisoFicha = `Inmueble creado, pero la ficha /ask no se guardó: ${motivo(error, 'no se pudo guardar')}.`;
   }
   if (inmueble.fotos.length > 0) {
     try {
@@ -54,7 +80,7 @@ export async function crearInmueble(
       };
     }
   }
-  return { lista: [creado, ...actuales], resultado: { ok: true } };
+  return { lista: [creado, ...actuales], resultado: avisoFicha ? { ok: true, aviso: avisoFicha } : { ok: true } };
 }
 
 export async function actualizarInmueble(
@@ -66,6 +92,13 @@ export async function actualizarInmueble(
     guardado = await actualizarRemoto(actualizado);
   } catch (error) {
     return { lista: actuales, resultado: { ok: false, motivo: motivo(error, 'No se pudo guardar el inmueble.') } };
+  }
+  /* La ficha va aparte y no tumba el guardado del inmueble: si falla, se avisa. */
+  let avisoFicha: string | undefined;
+  try {
+    guardado = await persistirFicha(guardado, actualizado);
+  } catch (error) {
+    avisoFicha = `Datos guardados, pero la ficha /ask no: ${motivo(error, 'no se pudo guardar')}.`;
   }
   try {
     const sync = await sincronizarFotos(guardado.id, actualizado.fotos);
@@ -90,7 +123,7 @@ export async function actualizarInmueble(
       resultado: { ok: false, motivo: `Datos guardados, pero las fotos no: ${motivo(error, 'falló la subida')}.` },
     };
   }
-  return { lista: actuales.map((i) => (i.id === guardado.id ? guardado : i)), resultado: { ok: true } };
+  return { lista: actuales.map((i) => (i.id === guardado.id ? guardado : i)), resultado: avisoFicha ? { ok: true, aviso: avisoFicha } : { ok: true } };
 }
 
 export async function eliminarInmueble(
