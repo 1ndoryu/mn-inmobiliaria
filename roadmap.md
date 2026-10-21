@@ -11,9 +11,6 @@
 
 ## Pendientes
 
-- [ ] `16AA-6` — **Tope de borradores del marketplace y la lab (2026-10-16).**
-  Las burbujas de la lab agotan el tope de MN (`TOPE_BORRADOR_MINUTO = 30` por sub, `src/handlers/marketplace/borrador.rs:9`) y reciben `429` en ráfagas (≈90 peticiones/min observadas en `C:\tmp\lab-dev.log`); la lab ignora el `Retry-After` y cae a su plantilla local, así que el borrador que ve la usuaria empeora sin avisar (`src/packages/desktop/src/main/marketplace-nucleo.ts:216`). Sin efecto en el latido del panel (`borradores/version` no tiene tope). Decidir al empezar: que la lab respete `Retry-After` y agrupe por ventana, o subir/eximir el sub de la lab (`MP_SIN_LIMITE_SUB`, `src/services/marketplace/chat/tokens.rs:57`) — `MP_SIN_LIMITE_SUB` y `MP_CLI_MINUTOS` ya viajan en el `envRemoto` de la ficha desde el 2026-10-19. Cualquier cambio en la lab pasa por la ventana de promoción (ver Bloqueos).
-
 - [ ] `19AA-1` — **`continuacion.rs:acotar` corta mal en dos casos (revisión 2026-10-19, sin cambio).**
   `src/services/marketplace/continuacion.rs:97-107`. El corte por bytes es seguro: `rfind` de un patrón ASCII devuelve frontera de carácter válida. Dos defectos reales, ninguno grave: si la ventana de `max` caracteres no tiene puntuación alguna, corta a mitad de palabra; y una abreviatura (`Av.`, `Sr.`) da la frase por terminada antes de tiempo. Salida: cortar por el último espacio cuando no haya puntuación, y no contar el `.` de una abreviatura conocida.
 
