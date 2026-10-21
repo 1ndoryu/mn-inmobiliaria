@@ -11,9 +11,6 @@
 
 ## Pendientes
 
-- [ ] `19AA-3` — **Fuera de MN: `new-site` rust-aware; el despliegue Rust ya va por el modo builder de `coolify-manager-rs`.**
-  Queda `new-site` rust-aware (hoy `--build-mode` vale `laptop`).
-
 - [ ] `19AA-4` — **Dev público en la 89 (S6.3).**
   El dev de MN ya no depende del túnel SSH: se sirve en `mn-dev.wandori.us` (Cloudflare Access) con `MN_DEV_PUBLIC_HOST` y proxy `/rust` (`85042446`, `a7929fb2`; comentarios de `.env.example` hechos, S6.2). Auto-entrada del admin (15AA-1, cerrada el 2026-10-15): el host exacto entra solo, como en local; `Arranque up` copia las claves `VITE_DEV_*` de `envRemoto` al `.env` de la 89 y a `frontend/.env.local` (0600), porque Vite lee su propio `envDir`, no el `.env` de la raíz. Verificado en la 89: `POST /rust/api/auth/login` y `inmobiliaria:token`/`email` en `localStorage`, panel con datos sin pasar por el login. Comprobado 2026-10-15: backend en debug (3110), Vite (5199) y `cloudflared` (20241) corriendo en la 89. Pendiente S6.3: actualizar la skill `taller-remoto` y el README de dev de MN, incluido el puente de WhatsApp del gateway con la 89 (`Agente/documentacion/puente-whatsapp-taller-2026-10-15.md`).
 
@@ -21,7 +18,7 @@
   MN es el sitio piloto: compila en la 89 y despliega en 66. Intento 3 OK el 2026-10-14 (`85d2a73`): `https://mn-inmobiliaria.com/api/health` = 200, contenedor `Up (healthy)` con el ID de la imagen pedida. Pendiente: fase B (ensayo en la 89 con `--sin-envio`), D (respaldo `pre-builder`) y E (producción) — D y E con permiso de la usuaria por operación.
 
 - [ ] `19AA-6` — **Tareas aparte de `coolify-manager-rs`.**
-  Arreglar el backup pre-deploy que aborta cuando la app está en bucle (`fases_inicio.rs:22-55`); hacer `new-site` rust-aware (`src/cli/mod.rs:96`). Detalle en el plan del piloto, §G.
+  Arreglar el backup pre-deploy que aborta cuando la app está en bucle (`fases_inicio.rs:22-55`). Detalle en el plan del piloto, §G.
 
 - [ ] `19AA-7` — **Alta de proyecto: 8/11.**
   Faltan `quality:check`, `target-dir` en `.cargo/config.toml` y `.runtime/` en `.gitignore` (`Agente/documentacion/alta-proyectos-2026-10-11.md:43`).
