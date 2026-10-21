@@ -9,8 +9,7 @@ fn forma_poda_oferta_de_fotos() {
     assert!(!r.contains("fotos"), "{r}");
     assert!(!r.contains('?'), "{r}");
     assert!(r.contains("$43.000"), "{r}");
-    assert!(r.contains(CTA_FIJO), "{r}");
-    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
 }
 
 #[test]
@@ -18,16 +17,16 @@ fn forma_poda_sinonimo_vigente() {
     let r = imponer_forma_borrador(&ia_fabio("Sí, la publicación sigue vigente."), None);
     assert!(!r.contains("vigente"), "{r}");
     assert!(!r.contains("publicación"), "{r}");
-    /* [21AA-2] P1 + CTA + cierre (teléfono y enlace en el mismo párrafo). */
-    assert_eq!(r.split("\n\n").count(), 3, "{r}");
+    /* [21AA-2] Apertura + cierre. */
+    assert_eq!(r.split("\n\n").count(), 2, "{r}");
 }
 
 #[test]
 fn forma_conserva_dato_banos() {
     let r = imponer_forma_borrador(&ia_fabio("Tiene 2 baños y 3 habitaciones."), None);
     assert!(r.contains("Tiene 2 baños y 3 habitaciones."), "{r}");
-    /* [21AA-2] P1 + dato + CTA + cierre. */
-    assert_eq!(r.split("\n\n").count(), 4, "{r}");
+    /* [21AA-2] La frase del dato va pegada a la apertura: un solo párrafo. */
+    assert_eq!(r.split("\n\n").count(), 2, "{r}");
 }
 
 #[test]
@@ -168,4 +167,22 @@ fn reserva_sin_ficha_conserva_el_fallback() {
     let r = borrador_de_reserva(None);
     assert!(r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
     assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+}
+
+/// [21AA-2] Forma aprobada por ella el 2026-10-21, literal: apertura con el
+/// dato, la ubicación en la misma línea y el cierre (teléfono + enlace) como
+/// único final, sin la invitación «Cuéntame qué estás buscando».
+#[test]
+fn forma_aprobada_2026_10_21() {
+    let ia = "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable.\n\nEl inmueble se ubica en Av. Atlántico, Riberas del Caroní.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
+    let r = imponer_forma_borrador(ia, None);
+    assert_eq!(
+        r,
+        format!(
+            "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable. \
+             El inmueble se ubica en Av. Atlántico, Riberas del Caroní.\n\n\
+             Somos inmobiliaria, puede llamarnos al {CONTACTO_TEL} para cualquier \
+             consulta, o escribirnos al whatsapp: {CONTACTO_WA}"
+        )
+    );
 }
