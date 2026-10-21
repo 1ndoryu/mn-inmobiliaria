@@ -11,9 +11,6 @@
 
 ## Pendientes
 
-- [ ] `19AA-2` — **`cargo fmt` y `cargo clippy` fallan en la 89 por deriva del toolchain (heredado, 2026-10-19).**
-  `rust-toolchain.toml` fija `channel = "stable"`, sin versión, así que la 89 va con rustc 1.99.0: 31 archivos con diff de `rustfmt` y 36 errores con `cargo clippy --all-targets -- -D warnings` (`assert_is_empty` ×19, `assert_is_not_empty` ×11, `#[must_use]`, `Option<Option<T>>`, backticks en doc…). Ninguno está en archivos tocados hoy y `cargo test` pasa (324/324, 2 ignorados), así que es deriva del linter, no código roto: la regla «antes de cada commit: `cargo fmt --check && cargo clippy`» del README no se puede cumplir hoy. Aparte, `cargo test` deja un aviso del compilador en `src/services/sync/comparacion/comparar.rs:466` (`let mut a` que no se muta): heredado, fuera de los archivos tocados. Salida: fijar una versión en `rust-toolchain.toml` o correr clippy sin `-D warnings`.
-
 - [ ] `19AA-3` — **Fuera de MN: `new-site` rust-aware; el despliegue Rust ya va por el modo builder de `coolify-manager-rs`.**
   Queda `new-site` rust-aware (hoy `--build-mode` vale `laptop`).
 
