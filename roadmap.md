@@ -11,9 +11,6 @@
 
 ## Pendientes
 
-- [ ] `19AA-5` — **Piloto builder (`build_mode=builder`).**
-  MN es el sitio piloto: compila en la 89 y despliega en 66. Intento 3 OK el 2026-10-14 (`85d2a73`): `https://mn-inmobiliaria.com/api/health` = 200, contenedor `Up (healthy)` con el ID de la imagen pedida. Pendiente: fase B (ensayo en la 89 con `--sin-envio`), D (respaldo `pre-builder`) y E (producción) — D y E con permiso de la usuaria por operación.
-
 - [ ] `19AA-6` — **Tareas aparte de `coolify-manager-rs`.**
   Arreglar el backup pre-deploy que aborta cuando la app está en bucle (`fases_inicio.rs:22-55`). Detalle en el plan del piloto, §G.
 
