@@ -68,58 +68,34 @@ pub async fn aplicar(
     conservar_viejo: &BTreeSet<String>,
 ) -> Result<InformeAplicar, AppError> {
     let _turno = Turno::tomar(slug)?;
+    let Preparado {
+        local,
+        servidor,
+        servidor_id,
+        plan_id,
+        en_local,
+        en_servidor,
+        filas_foto,
+    } = preparar(pool, cred, slug, plan_id_pedido, conservar_viejo).await?;
 
-    // 1. Estado de los dos lados, tal como está ahora.
-    let local_det = detalle::detalle_local(pool, slug)
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("inmueble {slug}")))?;
-    let local = InmuebleService::get_admin(pool, local_det.huella.id).await?;
-    let ficha_local = InmuebleRepository::get_ficha(pool, local.id).await?;
-    let remoto_det = remoto::detalle(cred, slug)
-        .await
-        .map_err(conflicto)?
-        .ok_or_else(|| AppError::Conflict(format!("{slug} no existe en el servidor")))?;
-    let servidor_id = remoto_det.huella.id;
-    let servidor = remoto::inmueble(cred, servidor_id)
-        .await
-        .map_err(conflicto)?
-        .ok_or_else(|| AppError::Conflict(format!("{slug} no existe en el servidor")))?;
-    let ficha_servidor = remoto::ficha(cred, servidor_id).await.map_err(conflicto)?;
-
-    // 2. El plan de ahora tiene que ser el que el panel mostró (D3).
-    let plan = plan::plan_con(pool, cred, &local_det, &remoto_det, conservar_viejo).await?;
-    if plan.plan_id != plan_id_pedido {
-        return Err(AppError::Conflict(
-            "el plan cambió desde que se mostró: vuelve a abrir el diálogo y decide otra vez".into(),
-        ));
-    }
-
-    // 3. Cada fila es una operación en el lado contrario a su elección. Las de
-    // foto van por su propio camino (bytes), así que se sacan del plan antes.
-    let fuente_local = campos_local(&local, ficha_local.as_ref());
-    let fuente_servidor = campos_servidor(&servidor, ficha_servidor.as_ref());
-    let en_local = reunir(&plan.filas, Eleccion::Servidor, &fuente_servidor, local.copy.as_ref());
-    let en_servidor = reunir(&plan.filas, Eleccion::Local, &fuente_local, servidor.copy.as_ref());
     let fotos = MoverFotos {
-        plan: plan.filas.iter().filter_map(fila_foto).collect(),
+        plan: filas_foto,
         local: &local.fotos,
         servidor: &servidor.fotos,
     };
-    // Antes de escribir nada: un plan con más fotos que el tope es un error de
-    // planteamiento, no algo que se descubra a mitad.
-    let copias = fotos.plan.iter().filter(|f| f.accion == Accion::Escribir).count();
-    if copias > MAX_FOTOS {
-        return Err(AppError::Validation(format!(
-            "el plan mueve {copias} fotos y el tope es {MAX_FOTOS}: hazlo en varios pasos"
-        )));
-    }
+    comprobar_tope(&fotos)?;
 
     let mut informe = InformeAplicar {
         slug: slug.to_string(),
-        plan_id: plan.plan_id,
+        plan_id,
         en_local: Vec::new(),
         en_servidor: Vec::new(),
-        pendientes: en_local.pendientes.iter().chain(&en_servidor.pendientes).cloned().collect(),
+        pendientes: en_local
+            .pendientes
+            .iter()
+            .chain(&en_servidor.pendientes)
+            .cloned()
+            .collect(),
         fallo: None,
         residuo: Vec::new(),
     };
@@ -165,6 +141,93 @@ pub async fn aplicar(
     // 5. Verificación: se releen los dos lados y se dice qué sigue distinto (D5).
     informe.residuo = residuo(pool, cred, slug).await;
     Ok(informe)
+}
+
+/// Todo lo que hace falta antes de escribir una sola fila: los dos lados
+/// releídos, el plan recalculado (tiene que ser el que el panel mostró, D3) y
+/// las operaciones ya separadas por lado. Si algo falla aquí, no se escribió nada.
+struct Preparado {
+    local: Inmueble,
+    servidor: InmuebleRemoto,
+    servidor_id: Uuid,
+    plan_id: String,
+    en_local: Cambios,
+    en_servidor: Cambios,
+    filas_foto: Vec<fotos::FilaFoto>,
+}
+
+async fn preparar(
+    pool: &PgPool,
+    cred: &Credenciales,
+    slug: &str,
+    plan_id_pedido: &str,
+    conservar_viejo: &BTreeSet<String>,
+) -> Result<Preparado, AppError> {
+    // 1. Estado de los dos lados, tal como está ahora.
+    let local_det = detalle::detalle_local(pool, slug)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("inmueble {slug}")))?;
+    let local = InmuebleService::get_admin(pool, local_det.huella.id).await?;
+    let ficha_local = InmuebleRepository::get_ficha(pool, local.id).await?;
+    let remoto_det = remoto::detalle(cred, slug)
+        .await
+        .map_err(conflicto)?
+        .ok_or_else(|| AppError::Conflict(format!("{slug} no existe en el servidor")))?;
+    let servidor_id = remoto_det.huella.id;
+    let servidor = remoto::inmueble(cred, servidor_id)
+        .await
+        .map_err(conflicto)?
+        .ok_or_else(|| AppError::Conflict(format!("{slug} no existe en el servidor")))?;
+    let ficha_servidor = remoto::ficha(cred, servidor_id).await.map_err(conflicto)?;
+
+    // 2. El plan de ahora tiene que ser el que el panel mostró (D3).
+    let plan = plan::plan_con(pool, cred, &local_det, &remoto_det, conservar_viejo).await?;
+    if plan.plan_id != plan_id_pedido {
+        return Err(AppError::Conflict(
+            "el plan cambió desde que se mostró: vuelve a abrir el diálogo y decide otra vez"
+                .into(),
+        ));
+    }
+
+    // 3. Cada fila es una operación en el lado contrario a su elección. Las de
+    // foto van por su propio camino (bytes), así que se sacan del plan antes.
+    let fuente_local = campos_local(&local, ficha_local.as_ref());
+    let fuente_servidor = campos_servidor(&servidor, ficha_servidor.as_ref());
+    Ok(Preparado {
+        en_local: reunir(
+            &plan.filas,
+            Eleccion::Servidor,
+            &fuente_servidor,
+            local.copy.as_ref(),
+        ),
+        en_servidor: reunir(
+            &plan.filas,
+            Eleccion::Local,
+            &fuente_local,
+            servidor.copy.as_ref(),
+        ),
+        filas_foto: plan.filas.iter().filter_map(fila_foto).collect(),
+        plan_id: plan.plan_id,
+        servidor_id,
+        local,
+        servidor,
+    })
+}
+
+/// Antes de escribir nada: un plan con más fotos que el tope es un error de
+/// planteamiento, no algo que se descubra a mitad.
+fn comprobar_tope(fotos: &MoverFotos<'_>) -> Result<(), AppError> {
+    let copias = fotos
+        .plan
+        .iter()
+        .filter(|f| f.accion == Accion::Escribir)
+        .count();
+    if copias > MAX_FOTOS {
+        return Err(AppError::Validation(format!(
+            "el plan mueve {copias} fotos y el tope es {MAX_FOTOS}: hazlo en varios pasos"
+        )));
+    }
+    Ok(())
 }
 
 /// Diferencias que quedan entre los dos lados, ya releídos. Un fallo al releer
@@ -221,7 +284,9 @@ fn reunir(
             // El estado va por su propio camino: `vendido`/`alquilado` despublican.
             "estado" => match valor.as_str() {
                 Some(estado) => cambios.estado = Some(estado.to_string()),
-                None => cambios.pendientes.push("estado (el lado ganador no lo tiene)".into()),
+                None => cambios
+                    .pendientes
+                    .push("estado (el lado ganador no lo tiene)".into()),
             },
             // La visibilidad va la última, para que nada quede público a medias.
             "publicado" => match valor.as_bool() {
@@ -232,9 +297,9 @@ fn reunir(
             "precio_minimo" => cambios.precio_minimo = Some(valor.as_f64()),
             "receta" => {
                 if valor.is_null() {
-                    cambios
-                        .pendientes
-                        .push("receta (el lado ganador no tiene receta y la API no la borra)".into());
+                    cambios.pendientes.push(
+                        "receta (el lado ganador no tiene receta y la API no la borra)".into(),
+                    );
                 } else {
                     cambios.cuerpo.insert("receta".into(), valor);
                 }
@@ -314,8 +379,8 @@ async fn escribir_local(
 ) -> Result<(), String> {
     if !cambios.cuerpo.is_empty() {
         let claves = claves_de(&cambios.cuerpo);
-        let req: UpdateInmuebleRequest = serde_json::from_value(Value::Object(cambios.cuerpo))
-            .map_err(|e| paso("campos", e))?;
+        let req: UpdateInmuebleRequest =
+            serde_json::from_value(Value::Object(cambios.cuerpo)).map_err(|e| paso("campos", e))?;
         InmuebleService::update(pool, destino.id, req)
             .await
             .map_err(|e| paso("campos", e))?;
@@ -323,12 +388,26 @@ async fn escribir_local(
     }
     if let Some(extras) = cambios.extras {
         validar_extras(&extras).map_err(|e| paso("ficha", e))?;
-        InmuebleRepository::set_ficha(pool, destino.id, Json(extras), cambios.precio_minimo.flatten())
-            .await
-            .map_err(|e| paso("ficha", e))?;
+        InmuebleRepository::set_ficha(
+            pool,
+            destino.id,
+            Json(extras),
+            cambios.precio_minimo.flatten(),
+        )
+        .await
+        .map_err(|e| paso("ficha", e))?;
         hecho.push("Ficha privada (/ask) en el local".into());
     }
-    fotos::al_local(pool, destino.upload_dir, destino.cred, destino.id, destino.fotos, hecho, pendientes).await?;
+    fotos::al_local(
+        pool,
+        destino.upload_dir,
+        destino.cred,
+        destino.id,
+        destino.fotos,
+        hecho,
+        pendientes,
+    )
+    .await?;
     if let Some(estado) = cambios.estado {
         InmuebleService::set_estado(pool, destino.id, &estado)
             .await
@@ -364,12 +443,25 @@ async fn escribir_servidor(
     }
     if let Some(extras) = cambios.extras {
         validar_extras(&extras).map_err(|e| paso("ficha", e))?;
-        remoto::poner_ficha(destino.cred, destino.id, &extras, cambios.precio_minimo.flatten())
-            .await
-            .map_err(|e| paso("ficha", e))?;
+        remoto::poner_ficha(
+            destino.cred,
+            destino.id,
+            &extras,
+            cambios.precio_minimo.flatten(),
+        )
+        .await
+        .map_err(|e| paso("ficha", e))?;
         hecho.push("Ficha privada (/ask) en el servidor".into());
     }
-    fotos::al_servidor(destino.upload_dir, destino.cred, destino.id, destino.fotos, hecho, pendientes).await?;
+    fotos::al_servidor(
+        destino.upload_dir,
+        destino.cred,
+        destino.id,
+        destino.fotos,
+        hecho,
+        pendientes,
+    )
+    .await?;
     if let Some(estado) = cambios.estado {
         remoto::poner_estado(destino.cred, destino.id, &estado)
             .await
@@ -507,7 +599,10 @@ mod pruebas {
     }
 
     fn fuente(pares: &[(&str, Value)]) -> BTreeMap<String, Value> {
-        pares.iter().map(|(k, v)| ((*k).to_string(), v.clone())).collect()
+        pares
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), v.clone()))
+            .collect()
     }
 
     fn copy() -> CopyInmueble {
@@ -545,8 +640,14 @@ mod pruebas {
         assert_eq!(c.publicado, Some(true));
         assert_eq!(c.extras, Some(json!({"piso": "4"})));
         assert_eq!(c.precio_minimo, Some(Some(40000.0)));
-        assert!(!c.cuerpo.contains_key("publicado"), "la visibilidad no va en el PUT");
-        assert!(!c.cuerpo.contains_key("estado"), "el estado tiene su propio camino");
+        assert!(
+            !c.cuerpo.contains_key("publicado"),
+            "la visibilidad no va en el PUT"
+        );
+        assert!(
+            !c.cuerpo.contains_key("estado"),
+            "el estado tiene su propio camino"
+        );
         assert!(
             c.pendientes.is_empty(),
             "las fotos no pasan por aquí: {:?}",
@@ -574,7 +675,11 @@ mod pruebas {
         let c = reunir(&filas, Eleccion::Local, &f, Some(&copy()));
         let copy = c.cuerpo.get("copy").expect("copy en el cuerpo");
         assert_eq!(copy["corta"], json!("corta nueva"));
-        assert_eq!(copy["larga"], json!("larga vieja"), "lo no tocado se conserva");
+        assert_eq!(
+            copy["larga"],
+            json!("larga vieja"),
+            "lo no tocado se conserva"
+        );
         assert_eq!(copy["modelo"], json!("modelo viejo"));
     }
 
@@ -584,7 +689,10 @@ mod pruebas {
         let f = fuente(&[("copy_corta", Value::Null)]);
         let c = reunir(&filas, Eleccion::Local, &f, None);
         assert!(!c.cuerpo.contains_key("copy"));
-        assert_eq!(c.pendientes, vec!["copy (ninguno de los dos lados tiene copy)"]);
+        assert_eq!(
+            c.pendientes,
+            vec!["copy (ninguno de los dos lados tiene copy)"]
+        );
     }
 
     #[test]
