@@ -15,7 +15,7 @@ use super::{glory_base, leer_env, MAX_FOTOS};
 /* [09AA-5] Eventos de la tab de Logs (sin PII). */
 use crate::handlers::marketplace::logs::{mp_log, LogNivel};
 
-fn cliente_http(segs: u64) -> Result<reqwest::Client, AppError> {
+pub(super) fn cliente_http(segs: u64) -> Result<reqwest::Client, AppError> {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(segs))
         .build()
@@ -225,7 +225,11 @@ async fn llamar_opencode(
 /* [09AA-15] Entrada Responses compartida por la vía estándar y la rápida
  * (mismo system + texto + fotos): lo único que cambia es el cuerpo
  * (tope + `reasoning.effort`) y el timeout. */
-fn entrada_borrador(system: &str, texto: &str, fotos: &[String]) -> Vec<serde_json::Value> {
+pub(super) fn entrada_borrador(
+    system: &str,
+    texto: &str,
+    fotos: &[String],
+) -> Vec<serde_json::Value> {
     let mut contenido: Vec<serde_json::Value> =
         vec![serde_json::json!({"type": "input_text", "text": texto})];
     for foto in fotos.iter().take(MAX_FOTOS) {
@@ -253,6 +257,16 @@ pub(crate) async fn completar_opencode(
         .map(|(t, modelo, _)| (t, modelo))
 }
 
+/* [08AA-19] 4000, no 2500: el modelo razona antes de redactar y un prompt
+ * normal ya quema ~1788 tokens de razonamiento (medido 2026-10-08 contra el
+ * endpoint real); con 2500 el borrador largo caía en `incomplete` sin
+ * `message` y acababa en `reserva`. El texto útil son ~150 tokens.
+ * [09AA-4] 8000, no 4000: el vacío del 2026-10-09 no era tope (sin `AI
+ * incompleta`), pero el razonamiento varía por hilo y 4000 se midió una sola
+ * vez; 8000 da aire como `standard()` (8192) sin cambiar el coste del texto
+ * útil. */
+pub(super) const TOPE_IA_ESTANDAR: u32 = 8000;
+
 /// [09AA-30] Igual que `completar_opencode` pero devuelve también los tokens
 /// del `usage` de la respuesta que trajo el texto (`None` si el relay no lo
 /// trae).
@@ -262,16 +276,6 @@ pub(crate) async fn completar_opencode_con_uso(
     fotos: &[String],
     sesion: &str,
 ) -> Result<(String, String, Option<UsoIa>), String> {
-    /* [08AA-19] 4000, no 2500: el modelo razona antes de redactar
-     * y un prompt normal ya quema ~1788 tokens de razonamiento
-     * (medido 2026-10-08 contra el endpoint real); con 2500 el
-     * borrador largo caía en `incomplete` sin `message` y acababa
-     * en `reserva`. El texto útil son ~150 tokens.
-     * [09AA-4] 8000, no 4000: el vacío del 2026-10-09 no era tope
-     * (sin `AI incompleta`), pero el razonamiento varía por hilo y
-     * 4000 se midió una sola vez; 8000 da aire como `standard()`
-     * (8192) sin cambiar el coste del texto útil. */
-    const TOPE_BORRADOR: u32 = 8000;
     let key = leer_env("OPENCODE_GO_API_KEY");
     if key.is_empty() {
         return Err("Sin OPENCODE_GO_API_KEY en .env".to_string());
@@ -279,13 +283,14 @@ pub(crate) async fn completar_opencode_con_uso(
     let config = glory_agent::providers::ProviderConfig::opencode_go(key.clone());
     let entrada = entrada_borrador(system, texto, fotos);
     let cliente = cliente_http(120).map_err(|e| e.to_string())?;
-    let mut respuesta = llamar_opencode(&config, &entrada, &cliente, TOPE_BORRADOR, sesion).await?;
+    let mut respuesta =
+        llamar_opencode(&config, &entrada, &cliente, TOPE_IA_ESTANDAR, sesion).await?;
     let mut texto_ia = glory_agent::providers::extract_first_text(&respuesta);
     /* [09AA-4] Un reintento ante vacío: el relay a veces devuelve 200 sin
      * `message` de forma transitoria (incidente 2026-10-09 con relay sano
      * en replay). Solo en el camino de fallo, como mucho una llamada más. */
     if texto_ia.is_none() {
-        respuesta = llamar_opencode(&config, &entrada, &cliente, TOPE_BORRADOR, sesion).await?;
+        respuesta = llamar_opencode(&config, &entrada, &cliente, TOPE_IA_ESTANDAR, sesion).await?;
         texto_ia = glory_agent::providers::extract_first_text(&respuesta);
         /* [09AA-5] Lo que hizo el reintento queda en la tab de Logs (el
          * WARN de abajo sigue yendo además al log de texto del vivo). */
@@ -322,36 +327,6 @@ pub(crate) async fn completar_opencode_con_uso(
         })
 }
 
-/* [09AA-15] Vía rápida sin razonamiento para borradores (pedido de ella:
- * el borrador tardó 75 s en un hilo). Sonda real contra el relay: SÍ
- * acepta `"reasoning": {"effort": "low"}` (la nota de 09AA-3 que decía que
- * no había perilla era inferencia sin probar; lo que da 400 es
- * `reasoningSummary`, no `effort`). Con esfuerzo bajo el modelo piensa
- * ~60 tokens en vez de ~2000 (medido con prompt mínimo: 61 de
- * razonamiento en 2,1 s), así que el tope puede ser chico (2500 cubre
- * razonamiento + ~150 de texto útil). Fail-open: ante 400, vacío,
- * `incomplete`, timeout o red se usa la vía estándar y queda
- * `ia.rapido_fallback` en Logs; el llamador no cambia de forma. Solo la
- * usa el borrador de Marketplace; centro IA y fotos siguen estándar. */
-const TOPE_BORRADOR_RAPIDO: u32 = 2500;
-const TIMEOUT_RAPIDO_SEGS: u64 = 45;
-
-/// Cuerpo Responses igual al estándar más `reasoning.effort=low`.
-/// Pura (testeable sin red).
-fn cuerpo_borrador_rapido(modelo: &str, entrada: &[serde_json::Value]) -> serde_json::Value {
-    let mut cuerpo = glory_agent::providers::build_responses_body(
-        modelo,
-        entrada,
-        None,
-        glory_agent::providers::ChatApiOptions {
-            max_output_tokens: TOPE_BORRADOR_RAPIDO,
-            timeout_secs: TIMEOUT_RAPIDO_SEGS,
-        },
-    );
-    cuerpo["reasoning"] = serde_json::json!({"effort": "low"});
-    cuerpo
-}
-
 /// [09AA-30] Tokens que la Responses API reporta en `usage`. `None` si el
 /// relay no lo trae (el texto vale igual; solo falta el coste).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -360,71 +335,12 @@ pub(crate) struct UsoIa {
     pub salida: i64,
 }
 
-fn uso_de(json: &serde_json::Value) -> Option<UsoIa> {
+pub(super) fn uso_de(json: &serde_json::Value) -> Option<UsoIa> {
     let usage = json.get("usage")?;
     Some(UsoIa {
         entrada: usage.get("input_tokens")?.as_i64()?,
         salida: usage.get("output_tokens")?.as_i64()?,
     })
-}
-
-/// Un intento rápido; `None` = ir a la vía estándar (nunca error: el
-/// llamador decide el fallback y lo anota en Logs).
-async fn intento_borrador_rapido(
-    config: &glory_agent::providers::ProviderConfig,
-    entrada: &[serde_json::Value],
-    sesion: &str,
-) -> Option<(String, String, Option<UsoIa>)> {
-    let cliente = cliente_http(TIMEOUT_RAPIDO_SEGS).ok()?;
-    let cuerpo = cuerpo_borrador_rapido(&config.model, entrada);
-    let resp = cliente
-        .post(config.responses_url())
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .header("Content-Type", "application/json")
-        .header("x-opencode-session", sesion)
-        .timeout(std::time::Duration::from_secs(TIMEOUT_RAPIDO_SEGS))
-        .json(&cuerpo)
-        .send()
-        .await
-        .ok()?;
-    if !resp.status().is_success() {
-        return None;
-    }
-    let json: serde_json::Value = resp.json().await.ok()?;
-    if json.get("status").and_then(serde_json::Value::as_str) == Some("incomplete") {
-        return None;
-    }
-    let texto = glory_agent::providers::extract_first_text(&json)?;
-    Some((texto, config.model.clone(), uso_de(&json)))
-}
-
-/// [09AA-30] Devuelve también los tokens del intento que trajo el texto: la
-/// rápida si respondió, o la estándar si cayó a ella.
-pub(crate) async fn completar_opencode_rapido(
-    system: &str,
-    texto: &str,
-    fotos: &[String],
-    sesion: &str,
-) -> Result<(String, String, Option<UsoIa>), String> {
-    let key = leer_env("OPENCODE_GO_API_KEY");
-    if key.is_empty() {
-        return Err("Sin OPENCODE_GO_API_KEY en .env".to_string());
-    }
-    let config = glory_agent::providers::ProviderConfig::opencode_go(key);
-    let entrada = entrada_borrador(system, texto, fotos);
-    if let Some(rapido) = intento_borrador_rapido(&config, &entrada, sesion).await {
-        return Ok(rapido);
-    }
-    /* [09AA-5] La caída a la vía estándar queda en la tab de Logs (el
-     * WARN de abajo sigue yendo además al log de texto del vivo). */
-    mp_log(
-        LogNivel::Info,
-        "ia.rapido_fallback",
-        "ia",
-        "la vía rápida no trajo texto; va la estándar".to_string(),
-        &[("modelo", serde_json::json!(config.model))],
-    );
-    completar_opencode_con_uso(system, texto, fotos, sesion).await
 }
 
 /// [309A-4] Transcribe una nota de voz con Groq Whisper
@@ -563,19 +479,7 @@ pub(crate) async fn describir_foto(data_url: &str, pie: &str) -> Result<String, 
 /* [09AA-4] Puras, sin DB: el diagnóstico solo describe la forma. */
 #[cfg(test)]
 mod pruebas {
-    use super::{cuerpo_borrador_rapido, diagnostico_respuesta_vacia};
-
-    /* [09AA-15] La vía rápida pide esfuerzo bajo con tope chico, sin
-     * cambiar modelo ni entrada. */
-    #[test]
-    fn cuerpo_rapido_pide_esfuerzo_bajo() {
-        let entrada = vec![serde_json::json!({"role": "user", "content": "hola"})];
-        let cuerpo = cuerpo_borrador_rapido("modelo-x", &entrada);
-        assert_eq!(cuerpo["model"], serde_json::json!("modelo-x"));
-        assert_eq!(cuerpo["reasoning"], serde_json::json!({"effort": "low"}));
-        assert_eq!(cuerpo["max_output_tokens"], serde_json::json!(2500));
-        assert_eq!(cuerpo["input"], serde_json::json!(entrada));
-    }
+    use super::diagnostico_respuesta_vacia;
 
     #[test]
     fn diagnostico_describe_respuesta_vacia_sin_pii() {

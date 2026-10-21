@@ -29,8 +29,9 @@ use super::{
  * `ia_proveedores.rs` (split god-object). Re-export `pub(crate)` para
  * `marketplace`/`turno`; el resto para rutas y tests (`super::*`). */
 pub(super) use super::ia_proveedores::completar_glory;
+pub(crate) use super::ia_borrador::completar_opencode_rapido;
 pub(crate) use super::ia_proveedores::{
-    completar_opencode, completar_opencode_rapido, describir_foto, transcribir_audio,
+    completar_opencode, describir_foto, transcribir_audio,
 };
 
 #[derive(Debug, Clone, Deserialize)]
