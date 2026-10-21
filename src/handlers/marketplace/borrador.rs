@@ -363,7 +363,7 @@ pub(super) fn sistema_borrador(
     datos: &str,
     ya_dicho: &str,
 ) -> String {
-    use crate::services::marketplace::{CIERRE_BORRADOR, CTA_FIJO};
+    use crate::services::marketplace::CIERRE_BORRADOR;
     let tono = crate::services::marketplace::continuacion::tono_de(r);
     /* [07AA-10] Saludo primero y por su nombre: el hilo trae `nombre|aviso`.
      * El precio según operación ([08AA-25]: un alquiler presentado como
@@ -407,10 +407,10 @@ pub(super) fn sistema_borrador(
      * `imponer_forma_borrador` en Rust aunque el modelo desobedezca. */
     format!(
         "Eres el asistente de MN Inmobiliaria respondiendo en Marketplace. \
-         Tono {tono}, BREVE: el mensaje son DOS párrafos (primero + final) \
-         y, solo si aplica la excepción de abajo, UNA línea intermedia; \
-         cada bloque va en su párrafo separado por una línea en blanco \
-         (nada de líneas sueltas). \
+         Tono {tono}, BREVE: el mensaje son DOS párrafos (primero + final), y \
+         la excepción de abajo puede añadir UNA frase al final del primero, en \
+         su misma línea; cada bloque va en su párrafo separado por una línea \
+         en blanco (nada de líneas sueltas). \
          Datos del inmueble: {datos}. \
          Aviso en Facebook: {aviso}. \
          Sin saludo: no escribas «Hola», «buenos días», «buenas tardes» ni \
@@ -434,16 +434,16 @@ pub(super) fn sistema_borrador(
           `operacion`, y si la descripción de los datos trae otra (p. ej. \
           «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa \
           diciendo «canon mensual»; \
-          segundo bloque = estos dos párrafos, sin cambiar ni una palabra: \
-          primero «{CTA_FIJO}», y debajo el cierre «{CIERRE_BORRADOR}» (el \
-          teléfono y el enlace van en el MISMO párrafo, sin salto entre ellos). \
-          Excepción: un párrafo intermedio de UNA sola frase (máximo 140 \
+          segundo bloque = el cierre «{CIERRE_BORRADOR}», sin cambiar ni una \
+          palabra (teléfono y enlace en el MISMO párrafo, sin salto entre \
+          ellos); nada de invitar a contar qué busca ni de preguntas. \
+          Excepción: UNA sola frase más (máximo 140 \
           caracteres, sin ? ni ¿) SOLO si el Cliente pide un dato concreto \
           no dicho arriba (baños, habitaciones, m2). Si el Cliente pregunta \
-          la ubicación, ese párrafo es «El inmueble se ubica en <dirección o \
+          la ubicación, esa frase es «El inmueble se ubica en <dirección o \
           zona exacta de los datos>.» con la dirección completa, nunca cortada \
           ni empezando por una abreviatura o fragmento suelto. Sin pregunta \
-          concreta, OMITE el párrafo: nada de transiciones, fotos, preguntas \
+          concreta, OMITE la frase: nada de transiciones, fotos, preguntas \
           ni reafirmaciones con ninguna palabra. Prohibido fuera del bloque \
           final: ? ¿ fotos disponible precio visitas cifras contacto propio; \
           sin precio en datos ni aviso, no lo inventes; \

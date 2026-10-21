@@ -22,12 +22,14 @@ pub const CONTACTO_WA: &str = "https://wa.me/584249208855";
 /// promesa del `203`: `formatear_parrafos` parte por `\n` y no toca esta línea.
 pub const CIERRE_BORRADOR: &str = "Somos inmobiliaria, puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp: https://wa.me/584249208855";
 
-/// [09AA-2] Fin del bucle del párrafo de relleno (08AA-36/37/38 burlados con
-/// sinónimos): el prompt mismo ORDENABA el relleno («avanza la conversación:
-/// ofrece fotos o pregunta qué busca») y esa orden positiva siempre le ganó
-/// al veto. Ahora la invariante la impone Rust, no el wording: el borrador
-/// de IA sale como P1 + [una línea de dato útil] + CTA canónico + wa.
-/// Cualquier párrafo intermedio con pregunta, oferta de fotos o reafirmación
-/// se poda; el final se reconstruye literal (nunca se conserva el de la IA).
-/// No toca texto manual de la dueña ni la rama `reserva`.
+/// [09AA-2] Invitación canónica del final; [21AA-2] ya NO se emite (ella la
+/// quitó el 2026-10-21: el mensaje va apertura + cierre). Se conserva para
+/// reconocer el eco propio y las filas de caché viejas que aún la traen.
 pub const CTA_FIJO: &str = "Cuéntame qué estás buscando y con gusto te ayudo.";
+
+/* [09AA-2] La invariante de forma la impone Rust, no el wording: el prompt
+ * mismo ORDENABA el relleno (±08AA-36/37/38) y esa orden positiva siempre le
+ * ganó al veto. Cualquier párrafo intermedio con pregunta, oferta de fotos o
+ * reafirmación se poda (lo hace `imponer_forma_borrador`). No toca texto
+ * manual de la dueña ni la rama `reserva`. El `CTA_FIJO` de arriba queda solo
+ * como reconocimiento (eco propio y filas de caché viejas). */

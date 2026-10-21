@@ -1,5 +1,5 @@
 use crate::services::marketplace::{
-    CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, CTA_FIJO, FALLBACK_BORRADOR, PromptSeguro,
+    CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, FALLBACK_BORRADOR, PromptSeguro,
 };
 
 /// [07AA-8] Garantía determinista del formato: si el texto generado no trae
@@ -98,15 +98,15 @@ pub fn imponer_forma_borrador(ia: &str, ficha: Option<&PromptSeguro>) -> String 
             break;
         }
     }
-    let mut out = vec![p1];
-    if let Some(m) = medio {
-        out.push(m);
-    }
-    /* [21AA-2] Párrafo final propio: la invitación y, debajo, el teléfono y
-     * el enlace juntos (`CIERRE_BORRADOR`). */
-    out.push(CTA_FIJO.to_string());
-    out.push(CIERRE_BORRADOR.to_string());
-    formatear_parrafos(&out.join("\n\n"))
+    /* [21AA-2] Un solo párrafo de apertura: el dato útil (la ubicación) va
+     * pegado al molde, como en el mensaje que ella aprobó, y el final es
+     * solo `CIERRE_BORRADOR` — sin la invitación «Cuéntame qué estás
+     * buscando», que ella quitó el 2026-10-21. */
+    let apertura = match medio {
+        Some(m) => format!("{p1} {m}"),
+        None => p1,
+    };
+    formatear_parrafos(&format!("{apertura}\n\n{CIERRE_BORRADOR}"))
 }
 
 /// P1 trae disponibilidad o precio (o el fallback): si la IA alucinó otro
