@@ -146,7 +146,11 @@ async fn reordenar_mueve_los_huecos_y_no_borra_nada() {
             .map_or(-1, |(_, _, o)| *o)
     };
     assert_eq!((orden("c.jpg"), orden("a.jpg"), orden("b.jpg")), (0, 1, 2));
-    assert_eq!(orden("b-mejorada.jpg"), 2, "la mejorada sigue a su hermana (b va a 2)");
+    assert_eq!(
+        orden("b-mejorada.jpg"),
+        2,
+        "la mejorada sigue a su hermana (b va a 2)"
+    );
     assert!(
         updated_epoch(&pool, id).await > updated_antes,
         "el reordenado invalida la caché de fotos (?v=)"
@@ -163,7 +167,10 @@ async fn reordenar_mueve_los_huecos_y_no_borra_nada() {
             .find(|(c, _, _)| c == clave)
             .map_or(-1, |(_, _, o)| *o)
     };
-    assert_eq!((orden2("a.jpg"), orden2("c.jpg"), orden2("b.jpg")), (0, 1, 2));
+    assert_eq!(
+        (orden2("a.jpg"), orden2("c.jpg"), orden2("b.jpg")),
+        (0, 1, 2)
+    );
     assert_eq!(orden2("b-mejorada.jpg"), 2, "su hermana viajó con ella");
     assert_eq!(tras_intercambio.len(), 4);
 
