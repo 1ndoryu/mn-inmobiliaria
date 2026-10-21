@@ -181,8 +181,8 @@ fn forma_aprobada_2026_10_21() {
         format!(
             "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable. \
              El inmueble se ubica en Av. Atlántico, Riberas del Caroní.\n\n\
-             Somos inmobiliaria, puede llamarnos al {CONTACTO_TEL} para cualquier \
-             consulta, o escribirnos al whatsapp: {CONTACTO_WA}"
+             Puede llamarnos al {CONTACTO_TEL} para cualquier consulta, o \
+             escribirnos al whatsapp: {CONTACTO_WA}"
         )
     );
 }
