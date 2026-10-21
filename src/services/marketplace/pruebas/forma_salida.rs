@@ -18,16 +18,16 @@ fn forma_poda_sinonimo_vigente() {
     let r = imponer_forma_borrador(&ia_fabio("Sí, la publicación sigue vigente."), None);
     assert!(!r.contains("vigente"), "{r}");
     assert!(!r.contains("publicación"), "{r}");
-    /* P1 + CTA + teléfono + wa (el teléfono va en bloque propio). */
-    assert_eq!(r.split("\n\n").count(), 4, "{r}");
+    /* [21AA-2] P1 + CTA + cierre (teléfono y enlace en el mismo párrafo). */
+    assert_eq!(r.split("\n\n").count(), 3, "{r}");
 }
 
 #[test]
 fn forma_conserva_dato_banos() {
     let r = imponer_forma_borrador(&ia_fabio("Tiene 2 baños y 3 habitaciones."), None);
     assert!(r.contains("Tiene 2 baños y 3 habitaciones."), "{r}");
-    /* P1 + dato + CTA + teléfono + wa. */
-    assert_eq!(r.split("\n\n").count(), 5, "{r}");
+    /* [21AA-2] P1 + dato + CTA + cierre. */
+    assert_eq!(r.split("\n\n").count(), 4, "{r}");
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn forma_p1_invalido_da_minimo() {
 #[test]
 fn forma_final_siempre_canonico() {
     let r = imponer_forma_borrador(&ia_fabio("Tiene 2 baños."), None);
-    assert!(r.contains("Cualquier cosa escríbeme al 04249208855"), "{r}");
+    assert!(r.contains(CIERRE_BORRADOR), "{r}");
     assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
 }
 

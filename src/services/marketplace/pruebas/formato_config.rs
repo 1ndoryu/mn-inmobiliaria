@@ -5,11 +5,14 @@ use super::*;
 
 #[test]
 fn formatear_parrafos_une_saltos_sueltos_y_separa_bloques() {
-    let entrado = "Hola, Andreina, buenas noches.\nTe escribo por la casa.\nSí, sigue disponible.\nCuéntame qué estás buscando y con gusto te ayudo, cualquier cosa escríbeme al 04249208855 https://wa.me/584249208855";
-    let salido = formatear_parrafos(entrado);
+    let entrado = format!("Hola, Andreina, buenas noches.\nTe escribo por la casa.\nSí, sigue disponible. {CIERRE_BORRADOR}");
+    let salido = formatear_parrafos(&entrado);
+    /* [21AA-2] El cierre (teléfono y enlace en el mismo párrafo) abre bloque. */
     assert_eq!(
         salido,
-        "Hola, Andreina, buenas noches. Te escribo por la casa. Sí, sigue disponible. Cuéntame qué estás buscando y con gusto te ayudo, cualquier cosa escríbeme al 04249208855\n\nhttps://wa.me/584249208855"
+        format!(
+            "Hola, Andreina, buenas noches. Te escribo por la casa. Sí, sigue disponible.\n\n{CIERRE_BORRADOR}"
+        )
     );
 }
 
@@ -19,6 +22,9 @@ fn formatear_parrafos_respeta_lista_y_no_duplica() {
     let salido = formatear_parrafos(entrado);
     assert!(salido.contains("Tiene:\n\n1. Piscina\n\n2. Planta eléctrica"));
     assert_eq!(salido.matches(CONTACTO_WA).count(), 1);
+    /* [21AA-2] El cierre entero abre su párrafo, con teléfono y enlace juntos. */
+    let con_cierre = formatear_parrafos(&format!("Sigue disponible. {CIERRE_BORRADOR}"));
+    assert!(con_cierre.ends_with(&format!("\n\n{CIERRE_BORRADOR}")), "{con_cierre}");
 }
 
 #[test]

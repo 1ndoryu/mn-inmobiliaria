@@ -350,9 +350,8 @@ fn asegurar_contacto_agrega_lo_que_falta_y_respeta_lo_presente() {
     let sin_nada = asegurar_contacto("Casa en Riberas.\nSí, aceptamos visita.");
     assert!(sin_nada.contains(CONTACTO_TEL));
     assert!(sin_nada.ends_with(CONTACTO_WA));
-    let completo = asegurar_contacto(&format!(
-        "Casa.\nCualquier cosa escríbeme al {CONTACTO_TEL}\n{CONTACTO_WA}"
-    ));
+    /* [21AA-2] Con el cierre ya presente no se añade otra copia. */
+    let completo = asegurar_contacto(&format!("Casa.\n{CIERRE_BORRADOR}"));
     assert_eq!(completo.matches(CONTACTO_TEL).count(), 1);
     assert_eq!(completo.matches(CONTACTO_WA).count(), 1);
 }
