@@ -11,10 +11,6 @@
 
 ## Pendientes
 
-
-- [ ] `299A-3` — **Notas de voz.**
-  Pendiente de proveedor IA operativo (ver Bloqueos) para reproducir las dos notas de voz (`src/services/turno.rs:511-517`).
-
 - [ ] `16AA-6` — **Tope de borradores del marketplace y la lab (2026-10-16).**
   Las burbujas de la lab agotan el tope de MN (`TOPE_BORRADOR_MINUTO = 30` por sub, `src/handlers/marketplace/borrador.rs:9`) y reciben `429` en ráfagas (≈90 peticiones/min observadas en `C:\tmp\lab-dev.log`); la lab ignora el `Retry-After` y cae a su plantilla local, así que el borrador que ve la usuaria empeora sin avisar (`src/packages/desktop/src/main/marketplace-nucleo.ts:216`). Sin efecto en el latido del panel (`borradores/version` no tiene tope). Decidir al empezar: que la lab respete `Retry-After` y agrupe por ventana, o subir/eximir el sub de la lab (`MP_SIN_LIMITE_SUB`, `src/services/marketplace/chat/tokens.rs:57`) — `MP_SIN_LIMITE_SUB` y `MP_CLI_MINUTOS` ya viajan en el `envRemoto` de la ficha desde el 2026-10-19. Cualquier cambio en la lab pasa por la ventana de promoción (ver Bloqueos).
 
@@ -50,6 +46,8 @@
 - `10AA-21` — **Riesgo aceptado (`rsa` 0.9.10, RUSTSEC-2023-0071).** Decidido 2026-10-12. Se reabre al subir `sqlx` sin `sqlx-mysql`; criterio: `rsa` ausente de `Cargo.lock` y `check:back` verde.
 
 - `09AA-8` — **Webhook del gateway, secreto `WA_WEBHOOK_SECRETO`.** Su condición («tras 12AA-1») se cumplió el 2026-10-21 con el cierre de 12AA-1, pero sigue bloqueada por un hecho material: el gateway no corre en el modo `build` de la 89 (solo hay backend 3110 y cloudflared), así que el fail-closed no se puede probar. Trabajo listo para hacer: fijar el secreto en `.env` y en el gateway, y hacer fail-closed `secreto_valido` (`src/services/mensajeria/transporte.rs:95-103`), que hoy acepta cualquier valor si el esperado está vacío. Se desbloquea cuando la usuaria levante el gateway para volver a usar WhatsApp en el taller.
+
+- `299A-3` — **Notas de voz: falta la prueba con notas reales.** El camino está hecho y probado con mocks (`309A-4`, 2026-09-30): el gateway baja el audio, el backend lo archiva en `uploads/whatsapp/<tel>/` y `transcribir_y_anexar` lo pasa a Groq Whisper (`GROQ_API_KEY`). Falta la prueba viva con dos notas de verdad, que necesita `GROQ_LIVE_TEST=1`, clave de Groq y el gateway corriendo con WhatsApp vinculado. El defecto de tipo MIME que podía perder el audio (`.bin`) quedó corregido el 2026-10-21.
 
 - `15AA-6` — **WhatsApp del taller: prueba viva del número C.** Código en `main` (2026-10-21): C archiva sin responder, `reparto` reconoce C y la foto de la IA puede salir por `MEDIA_BASE_URL`. Falta lo que no depende del código: que el gateway corra y que el número C esté configurado (`agent_config wa_numero_c` o `WA_NUMERO_C`); sin él el webhook sigue respondiendo 400 `numero_destino desconocido`. Mismo desbloqueo que `09AA-8`.
 
