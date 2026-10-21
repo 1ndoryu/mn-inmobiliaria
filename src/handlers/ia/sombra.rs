@@ -119,6 +119,7 @@ pub async fn adapter_config_desde_bd(pool: &sqlx::PgPool) -> AdapterConfig {
 pub async fn huella(
     pool: &sqlx::PgPool,
     numero_a: &str,
+    numero_c: &str,
     numero_destino: &str,
     remitente: &str,
     texto: &str,
@@ -126,7 +127,7 @@ pub async fn huella(
     let remitente_norm = ClienteRepository::normalizar_telefono(remitente);
     /* [07AA-2 F5] Solo A reparte (el B jubilado y lo desconocido dan
      * `None`, igual que antes lo desconocido): sin canal no hay sesión. */
-    let (canal, modo) = match reparto(numero_a, numero_destino) {
+    let (canal, modo) = match reparto(numero_a, numero_c, numero_destino) {
         Some((c, m)) => (Some(c.to_string()), Some(m.to_string())),
         None => (None, None),
     };
@@ -187,11 +188,12 @@ pub(crate) async fn comparar(
     if !sombra_activa() {
         return Err(AppError::NotFound("sombra apagada".to_string()));
     }
-    let (numero_a, _numero_b) = numeros_configurados(&state.pool).await;
+    let (numero_a, _numero_b, numero_c) = numeros_configurados(&state.pool).await;
     Ok(Json(
         huella(
             &state.pool,
             &numero_a,
+            &numero_c,
             &entrada.numero_destino,
             &entrada.remitente,
             &entrada.texto,
@@ -253,6 +255,7 @@ mod pruebas {
         let h = huella(
             &pool,
             "584120825234",
+            "",
             "0412 0825234",
             "+34609123456",
             "hola",
@@ -263,7 +266,7 @@ mod pruebas {
         assert_eq!(h.modo.as_deref(), Some("completo"));
         assert!(h.session_id.is_none());
         assert_eq!(h.tokens_est, 1);
-        let h2 = huella(&pool, "584120825234", "04120000000", "+34609123456", "hola").await;
+        let h2 = huella(&pool, "584120825234", "", "04120000000", "+34609123456", "hola").await;
         assert!(h2.canal.is_none());
         assert!(h2.modo.is_none());
         assert!(h2.session_id.is_none());
@@ -289,6 +292,7 @@ mod pruebas {
         let h = huella(
             &pool,
             "584120825234",
+            "",
             "584120825234",
             tel,
             "hola, busco piso",
@@ -429,7 +433,7 @@ mod pruebas {
         ClienteRepository::vincular_canal(&pool, sid, cliente.id, tel, "wa_a", "completo")
             .await
             .unwrap();
-        let h = huella(&pool, "584120825234", "584120825234", tel, "hola").await;
+        let h = huella(&pool, "584120825234", "", "584120825234", tel, "hola").await;
         assert_eq!(h.responde_ia_adapter, Some(true));
         assert_eq!(h.responde_ia_sesion, Some(true));
         assert_eq!(h.via_permitida, Some(true));

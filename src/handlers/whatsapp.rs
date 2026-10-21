@@ -107,12 +107,16 @@ async fn webhook(
         .pool
         .clone()
         .ok_or_else(|| AgentError::Internal("sin BD".to_string()))?;
-    let (a, b) = numeros_configurados(&pool).await;
-    let (mut rep, medios) = repartir_y_vincular(&pool, &state.hub, &a, &b, &entrada).await?;
+    let (a, b, c) = numeros_configurados(&pool).await;
+    let (mut rep, medios) = repartir_y_vincular(&pool, &state.hub, &a, &b, &c, &entrada).await?;
     /* [07AA-2 F5] Destino jubilado (`ok:false`): el 2xx lleva el motivo ya
      * fijado (`no:canal-jubilado`) sin triage ni turno; solo se resuelven
      * `rol`/`trato` para que el recibo venga completo. Nada persistió. */
-    if !rep.ok {
+    /* [15AA-6] Vía C (`archivar`): el mensaje y su media ya quedaron
+     * guardados en `repartir_y_vincular`; se sale sin triage ni turno, así
+     * que C nunca responde. Mismo recibo sintético que el jubilado, con
+     * `decision=archivado` para distinguirlo en el panel y los logs. */
+    if !rep.ok || rep.modo == "archivar" {
         let remitente_norm = ClienteRepository::normalizar_telefono(entrada.remitente.trim());
         let trato = triage::evaluar_trato(entrada.texto.trim()).trato;
         let regla = politica::resolver(
@@ -122,8 +126,12 @@ async fn webhook(
         );
         rep.rol = regla.rol.codigo().to_string();
         rep.trato = politica::codigo_trato(regla.trato).to_string();
+        if rep.modo == "archivar" {
+            rep.decision = "archivado".to_string();
+        }
         tracing::warn!(
-            "webhook WhatsApp: destino jubilado {} (rol={} trato={})",
+            "webhook WhatsApp: destino {} {} (rol={} trato={})",
+            if rep.ok { "que solo archiva" } else { "jubilado" },
             rep.canal,
             rep.rol,
             rep.trato
@@ -209,19 +217,34 @@ mod pruebas {
     #[test]
     fn reparto_solo_atiende_al_numero_a() {
         assert_eq!(
-            reparto("584120825234", "0412 0825234"),
+            reparto("584120825234", "", "0412 0825234"),
             Some(("wa_a", "completo"))
         );
         assert_eq!(
-            reparto("584120825234", "+584120825234"),
+            reparto("584120825234", "", "+584120825234"),
             Some(("wa_a", "completo"))
         );
-        assert_eq!(reparto("584120825234", "0424 9208855"), None);
-        assert_eq!(reparto("584120825234", "04120000000"), None);
+        assert_eq!(reparto("584120825234", "", "0424 9208855"), None);
+        assert_eq!(reparto("584120825234", "", "04120000000"), None);
         assert!(destino_jubilado("584249208855", "0424 9208855"));
         assert!(destino_jubilado("584249208855", "+584249208855"));
         assert!(!destino_jubilado("584249208855", "0412 0825234"));
         assert!(!destino_jubilado("584249208855", "04120000000"));
+    }
+
+    /* [15AA-6] C solo archiva: reparte `wa_c`/`archivar`, no compite con A y
+     * una C sin configurar no reparte nada (vacío ≠ destino). */
+    #[test]
+    fn reparto_c_solo_archiva() {
+        assert_eq!(
+            reparto("584120825234", "0412 0825234", "+584120825234"),
+            Some(("wa_a", "completo"))
+        );
+        assert_eq!(
+            reparto("584120825234", "584140000000", "+584140000000"),
+            Some(("wa_c", "archivar"))
+        );
+        assert_eq!(reparto("584120825234", "", "04120000000"), None);
     }
 
     /* [279A-2] Secreto del gateway: sin configurar acepta todo (simulado);
@@ -405,12 +428,12 @@ mod pruebas {
             es_sistema: None,
             client_seq: None,
         };
-        let (r1, _) = repartir_y_vincular(&pool, &hub, numero_a, numero_b, &entrada_a)
+        let (r1, _) = repartir_y_vincular(&pool, &hub, numero_a, numero_b, "", &entrada_a)
             .await
             .unwrap();
         assert!(r1.ok);
         assert_eq!((r1.canal.as_str(), r1.modo.as_str()), ("wa_a", "completo"));
-        let (r2, _) = repartir_y_vincular(&pool, &hub, numero_a, numero_b, &entrada_a)
+        let (r2, _) = repartir_y_vincular(&pool, &hub, numero_a, numero_b, "", &entrada_a)
             .await
             .unwrap();
         assert_eq!(r1.session_id, r2.session_id);
@@ -426,7 +449,7 @@ mod pruebas {
             es_sistema: None,
             client_seq: None,
         };
-        let (r3, _) = repartir_y_vincular(&pool, &hub, numero_a, numero_b, &entrada_b)
+        let (r3, _) = repartir_y_vincular(&pool, &hub, numero_a, numero_b, "", &entrada_b)
             .await
             .unwrap();
         assert!(!r3.ok);

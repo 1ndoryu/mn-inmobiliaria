@@ -302,6 +302,7 @@ pub async fn repartir_y_vincular(
     hub: &glory_agent::session::ChatHub,
     numero_a: &str,
     numero_b: &str,
+    numero_c: &str,
     entrada: &EntradaWhatsapp,
 ) -> Result<(RepartoWhatsapp, MediosPendientes), AgentError> {
     let destino_txt = entrada.numero_destino.trim();
@@ -342,7 +343,7 @@ pub async fn repartir_y_vincular(
             return Err(AgentError::BadRequest("nombre <=80".to_string()));
         }
     }
-    let Some((canal, modo)) = reparto(numero_a, destino_txt) else {
+    let Some((canal, modo)) = reparto(numero_a, numero_c, destino_txt) else {
         /* [07AA-2 F5] B jubilado: 2xx con motivo, sin persistir ni turno
          * (el gateway reintentaría ante un 400). Lo desconocido sigue 400. */
         if destino_jubilado(numero_b, destino_txt) {

@@ -65,13 +65,20 @@ pub(super) async fn enviar_fotos(
         .flatten()
         .filter(|v| v == "wa_a" || v == "wa_b")
         .unwrap_or_else(|| "wa_a".to_string());
-    /* Base pública para `media_url`: en local el gateway descarga de este
-     * mismo backend; en producción `PUBLIC_BASE_URL` lleva el dominio
-     * (los servidores de WhatsApp deben alcanzarla). */
-    let base = std::env::var("PUBLIC_BASE_URL")
-        .ok()
-        .map(|b| b.trim().trim_end_matches('/').to_string())
-        .filter(|b| !b.is_empty())
+    /* Base para `media_url`: en local el gateway descarga de este mismo
+     * backend; en producción `PUBLIC_BASE_URL` lleva el dominio.
+     * [15AA-6] `MEDIA_BASE_URL` manda sobre ella: cuando el dominio público
+     * está detrás de Cloudflare Access el gateway no puede bajar la foto, y
+     * basta apuntar aquí a una dirección que sí alcance (p. ej. el túnel
+     * interno). Sin definir, todo sigue como antes. */
+    let base = ["MEDIA_BASE_URL", "PUBLIC_BASE_URL"]
+        .iter()
+        .find_map(|nombre| {
+            std::env::var(nombre)
+                .ok()
+                .map(|b| b.trim().trim_end_matches('/').to_string())
+                .filter(|b| !b.is_empty())
+        })
         .unwrap_or_else(|| "http://127.0.0.1:3000".to_string());
     let total = claves.len();
     /* [309A-1] Dedup de fotos entre turnos (misma causa que las tarjetas:

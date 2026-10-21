@@ -146,8 +146,10 @@ export async function conectarSesion(via, sockets) {
       if (msg.key.remoteJid?.endsWith("@lid") && !msg.key.senderPn) continue;
       /* [289A-1] Vía muda (B manual de la dueña): su inbound nunca va al
        * webhook, así no crea sesiones ni dispara IA. Se descarta antes de
-       * bajar media. El outbound (/send via=wa_b) no se toca. */
-      if (!sesion.respondeIA) {
+       * bajar media. El outbound (/send via=wa_b) no se toca.
+       * [15AA-6] Salvo que la vía solo archive (C): su inbound sí viaja; el
+       * backend lo guarda con sus medios y no responde. */
+      if (!sesion.respondeIA && !sesion.archiva) {
         console.log(`[${sesion.nombre}] vía muda, inbound ignorado`);
         continue;
       }

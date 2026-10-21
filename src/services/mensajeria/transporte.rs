@@ -41,9 +41,16 @@ fn numero_b_defecto() -> String {
     std::env::var("WA_NUMERO_B").unwrap_or_else(|_| "584249208855".to_string())
 }
 
-/// Números configurados: `agent_config` (`wa_numero_a`/`wa_numero_b`, editables
-/// en consola F5) con fallback a env (`WA_NUMERO_A`/`WA_NUMERO_B`).
-pub(crate) async fn numeros_configurados(pool: &sqlx::PgPool) -> (String, String) {
+/// Tercer número (C): solo archiva, nunca responde (`wa_c`/`archivar`). Sin
+/// valor no reparte nada: vacío = C sin configurar.
+fn numero_c_defecto() -> String {
+    std::env::var("WA_NUMERO_C").unwrap_or_default()
+}
+
+/// Números configurados: `agent_config` (`wa_numero_a`/`wa_numero_b`/
+/// `wa_numero_c`, editables en consola F5) con fallback a env
+/// (`WA_NUMERO_A`/`WA_NUMERO_B`/`WA_NUMERO_C`).
+pub(crate) async fn numeros_configurados(pool: &sqlx::PgPool) -> (String, String, String) {
     let a = glory_agent::persistence::get_config(pool, "wa_numero_a")
         .await
         .ok()
@@ -56,23 +63,43 @@ pub(crate) async fn numeros_configurados(pool: &sqlx::PgPool) -> (String, String
         .flatten()
         .filter(|v| !v.trim().is_empty())
         .unwrap_or_else(numero_b_defecto);
+    let c = glory_agent::persistence::get_config(pool, "wa_numero_c")
+        .await
+        .ok()
+        .flatten()
+        .filter(|v| !v.trim().is_empty())
+        .unwrap_or_else(numero_c_defecto);
     (
         ClienteRepository::normalizar_telefono(&a),
         ClienteRepository::normalizar_telefono(&b),
+        ClienteRepository::normalizar_telefono(&c),
     )
 }
 
-/// Reparto puro por destino (testeable sin BD): solo A (`wa_a`/`completo`).
+/// Reparto puro por destino (testeable sin BD): A atiende
+/// (`wa_a`/`completo`) y C solo archiva (`wa_c`/`archivar`: guarda el
+/// mensaje y sus medios, sin triage ni turno).
 /// [07AA-2 F5] El B jubilado y lo desconocido devuelven `None`: el flujo
 /// distingue con `destino_jubilado` (calla con motivo) del 400 clásico.
 /// El `modo` sale de `modo_por_canal` (fuente única, compartida con el resolutor).
 #[must_use]
-pub fn reparto(numero_a: &str, numero_destino: &str) -> Option<(&'static str, &'static str)> {
+pub fn reparto(
+    numero_a: &str,
+    numero_c: &str,
+    numero_destino: &str,
+) -> Option<(&'static str, &'static str)> {
     let destino = ClienteRepository::normalizar_telefono(numero_destino);
-    if destino != ClienteRepository::normalizar_telefono(numero_a) {
-        return None;
-    }
-    let canal = "wa_a";
+    let canal = if destino == ClienteRepository::normalizar_telefono(numero_a) {
+        "wa_a"
+    } else {
+        /* C vacío no reparte nada: compararlo dejaría que un destino vacío
+         * casara con una C sin configurar. */
+        let c = ClienteRepository::normalizar_telefono(numero_c);
+        if c.is_empty() || destino != c {
+            return None;
+        }
+        "wa_c"
+    };
     Some((canal, modo_por_canal(canal)?))
 }
 

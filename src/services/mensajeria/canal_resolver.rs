@@ -24,6 +24,9 @@ pub fn modo_por_canal(canal: &str) -> Option<&'static str> {
     match canal {
         "wa_a" => Some("completo"),
         "wa_b" => Some("inicial"),
+        /* [15AA-6] C archiva y no responde: el webhook persiste el mensaje y
+         * sus medios y vuelve sin triage ni turno. */
+        "wa_c" => Some("archivar"),
         _ => None,
     }
 }

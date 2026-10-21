@@ -30,9 +30,12 @@ export const config = {
      * (SESSION_B_RESPONDE_IA=1 lo reactiva sin tocar código). */
     wa_a: { nombre: "A", numero: (process.env.SESSION_A_NUMBER || "584120825234").replace(/\D/g, ""), respondeIA: flag(process.env.SESSION_A_RESPONDE_IA, 1) },
     wa_b: { nombre: "B", numero: (process.env.SESSION_B_NUMBER || "18149575416").replace(/\D/g, ""), respondeIA: flag(process.env.SESSION_B_RESPONDE_IA, 0) },
-    /* Tercer número: mudo (no responde solo a clientes). El backend no lo
-     * conoce; se controla por /send con via=wa_c. Su número sale al vincular. */
-    wa_c: { nombre: "C", numero: (process.env.SESSION_C_NUMBER || "").replace(/\D/g, ""), respondeIA: flag(process.env.SESSION_C_RESPONDE_IA, 0) },
+    /* Tercer número: mudo (no responde solo a clientes). Se controla por
+     * /send con via=wa_c y su número sale al vincular.
+     * [15AA-6] `archiva`: su inbound sí viaja al backend, que lo guarda con
+     * sus medios y no corre turno (`wa_c`/`archivar`). Antes se descartaba
+     * antes de bajar la media y había que rescatarlo a mano. */
+    wa_c: { nombre: "C", numero: (process.env.SESSION_C_NUMBER || "").replace(/\D/g, ""), respondeIA: flag(process.env.SESSION_C_RESPONDE_IA, 0), archiva: flag(process.env.SESSION_C_ARCHIVA, 1) },
   },
   mediaDir: new URL("../media/", import.meta.url),
   mediaTtlMs: 30 * 60 * 1000,
