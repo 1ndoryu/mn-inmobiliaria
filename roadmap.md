@@ -20,8 +20,8 @@
 - [ ] `19AA-9` — **Sentinel: el contador de líneas efectivas de Rust estaba mal (arreglado, sin propagar).**
   `contarLineasEfectivas` truncaba el archivo en el primer `#[cfg(test)]`; un `#[cfg(test)] use ...` de cabecera dejaba el archivo entero fuera del recuento. `src/handlers/ia/rutas.rs` contaba 12 efectivas en vez de 537, así que `limite-lineas` no disparaba. Arreglado en `glory-sentinel` `4d63473` (`origin/main`), certificado y sin propagar: el pin de los consumidores sigue en `f691510` y subirlo arrastra 14 commits CSS ya commiteados del lote de KAMPLES. Decisión de la usuaria del 2026-10-16: que entre con ese release, no forzarlo ahora. Cuando entre, este proyecto gana un hallazgo (`ia/rutas.rs`) y hay que rehacer la base del gate. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
 
-- [ ] `03AA-5` — **Detector de captación en Marketplace.**
-  Plan en `Agente/planes/plan-detector-captacion-2026-10-03.md`. Bloqueado por el corpus de la usuaria (5+2+1 HTML y dataset; plan:42-51): sin él no hay fase C0 y las fases C1-C4 no arrancan. La captación por chat (`E14`, `registrar_captacion`) ya está cerrada y no depende de esto.
+- [ ] `03AA-5` — **Detector de captación en Marketplace, ahora sobre glory-web.**
+  Plan reescrito el 2026-10-23 en `Agente/planes/plan-detector-captacion-2026-10-03.md`: el capturador vive en `glory-web/webview/captacion/` (WebView2 con la sesión real de Facebook), el extractor en `glory-web/crates/motor-captacion/`, y el clasificador y la cola de revisión en este backend. Se retira el pre-requisito E1 de `03AA-3` y todo lo de `plugins-opencode`. Falta C0.1: la ruta de captura efímera para que la usuaria abra los 5+2+1 y saquemos juntos el corpus. La captación por chat (`E14`, `registrar_captacion`) ya está cerrada y no depende de esto.
 
 ## Bloqueos
 
