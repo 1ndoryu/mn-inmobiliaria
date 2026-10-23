@@ -20,6 +20,9 @@
 - [ ] `19AA-9` — **Sentinel: el contador de líneas efectivas de Rust estaba mal (arreglado, sin propagar).**
   `contarLineasEfectivas` truncaba el archivo en el primer `#[cfg(test)]`; un `#[cfg(test)] use ...` de cabecera dejaba el archivo entero fuera del recuento. `src/handlers/ia/rutas.rs` contaba 12 efectivas en vez de 537, así que `limite-lineas` no disparaba. Arreglado en `glory-sentinel` `4d63473` (`origin/main`), certificado y sin propagar: el pin de los consumidores sigue en `f691510` y subirlo arrastra 14 commits CSS ya commiteados del lote de KAMPLES. Decisión de la usuaria del 2026-10-16: que entre con ese release, no forzarlo ahora. Cuando entre, este proyecto gana un hallazgo (`ia/rutas.rs`) y hay que rehacer la base del gate. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
 
+- [ ] `03AA-5` — **Detector de captación en Marketplace.**
+  Plan en `Agente/planes/plan-detector-captacion-2026-10-03.md`. Bloqueado por el corpus de la usuaria (5+2+1 HTML y dataset; plan:42-51): sin él no hay fase C0 y las fases C1-C4 no arrancan. La captación por chat (`E14`, `registrar_captacion`) ya está cerrada y no depende de esto.
+
 ## Bloqueos
 
 - `13AA-13` — **Clave de chat estable: falta la prueba viva.** Código integrado en `main` el 2026-10-13 (rama y worktree borrados) y decisión tomada el 2026-10-13: el id de perfil del comprador (`/marketplace/profile/<id>`) es el tercer segmento de la clave. Lo que queda no es trabajo de este repo: la prueba viva con dos chats del mismo nombre, que es de la usuaria. La promoción del puente a opencode-propio (`ventana PROMOCION-VENTANA.md`) queda fuera de este barrido por decisión de la usuaria (2026-10-20).
@@ -58,8 +61,6 @@
 - `169A-3..6` — **WhatsApp.** `GLORY_ALERT_GATEWAY_URL` y número admin (`whatsapp_admin`).
 
 - `199A-1`/`199A-2` — **IA central.** `GLORY_API_KEY` real en `.env`; sin ella GloryAPI queda `sin-clave`.
-
-- `03AA-5` — **Detector de captación.** Bloqueado por el corpus de la usuaria (5+2+1 HTML y dataset; `Agente/planes/plan-detector-captacion-2026-10-03.md:42-51`).
 
 - `10AA-17` — **Invalidación por contador (promoción).** Decidido: sin fallo en `main` (`opencode-propio/src/packages/desktop/src/main/marketplace-service.ts:389-404`). Promoción en la ventana de la usuaria; prueba viva cerrada 2026-10-13.
 
