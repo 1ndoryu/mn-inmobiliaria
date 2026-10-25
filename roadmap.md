@@ -14,6 +14,8 @@
 
 ## Bloqueos
 
+- `19AA-9` — **Sentinel: contador de líneas de Rust arreglado, sin propagar.** `contarLineasEfectivas` truncaba el archivo en el primer `#[cfg(test)]`; `src/handlers/ia/rutas.rs` contaba 12 efectivas en vez de 537, así que `limite-lineas` no disparaba. Arreglado en `glory-sentinel` `4d63473` (`origin/main`), certificado. Hecho externo: decisión de la usuaria del 2026-10-16 de que entre con ese release, no forzarlo ahora. Cuando entre (subir el pin de los consumidores desde `f691510`, que arrastra 14 commits CSS del lote de KAMPLES), este proyecto gana un hallazgo (`ia/rutas.rs`) y hay que rehacer la base del gate. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
+
 - `13AA-13` — **Clave de chat estable: falta la prueba viva.** Código integrado en `main` el 2026-10-13 (rama y worktree borrados) y decisión tomada el 2026-10-13: el id de perfil del comprador (`/marketplace/profile/<id>`) es el tercer segmento de la clave. Lo que queda no es trabajo de este repo: la prueba viva con dos chats del mismo nombre, que es de la usuaria. La promoción del puente a opencode-propio (`ventana PROMOCION-VENTANA.md`) queda fuera de este barrido por decisión de la usuaria (2026-10-20).
 
 - `13AA-4` — **Vinculación con Facebook Marketplace bloqueada por la float del lab.** Tabla y endpoints de avisos, modal «Vincular con Facebook» y borradores sin título inseguro hechos (F2–F4); la lectura del perfil pasa a manual (16AA-12, 2026-10-16) y la usuaria vinculó los 13 avisos desde el modal el 2026-10-16. Bloqueo externo: la float debe enviar `avisoId` (F5, tarea F7b, ventana de promoción de la lab).
