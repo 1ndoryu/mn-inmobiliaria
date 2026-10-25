@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node glory-rs/scripts/dev.mjs",
     "check": "npm run check:back && npm run check:front",
+    "quality:check": "npm run check",
     "self-check": "powershell -ExecutionPolicy Bypass -File scripts/calidad/self-check.ps1",
     "check:back": "node --test scripts/calidad/guardia-migraciones.test.mjs scripts/calidad/clave-dev.test.mjs &&node scripts/run-with-db.mjs check && node scripts/run-with-db.mjs clippy",
     "check:front": "npm --prefix frontend run type-check",

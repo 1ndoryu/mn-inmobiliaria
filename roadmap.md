@@ -4,18 +4,10 @@
 
 ## Siguiente bloque
 
-- [ ] `21AA-1` — **Verificar en el navegador «Aplicar cambios» con fotos (F4 de 14AA-2).**
-  Plan (cerrado, queda F4): `Agente/planes/completados/plan-resolver-diferencias-sync-2026-10-14.md`.
-  El resto de 14AA-2 está hecho y probado con tests de integración y en el panel; falta el recorrido final en el navegador contra el remoto de prueba, incluidas las fotos (subir y borrar en los dos sentidos, `remoto::borrar_foto`). Ninguna escritura contra producción sin permiso explícito por operación.
-
-
 ## Pendientes
 
 - [ ] `19AA-6` — **Tareas aparte de `coolify-manager-rs`.**
   Arreglar el backup pre-deploy que aborta cuando la app está en bucle (`fases_inicio.rs:22-55`). Detalle en el plan del piloto, §G.
-
-- [ ] `19AA-7` — **Alta de proyecto: 8/11.**
-  Faltan `quality:check`, `target-dir` en `.cargo/config.toml` y `.runtime/` en `.gitignore` (`Agente/documentacion/alta-proyectos-2026-10-11.md:43`).
 
 - [ ] `19AA-9` — **Sentinel: el contador de líneas efectivas de Rust estaba mal (arreglado, sin propagar).**
   `contarLineasEfectivas` truncaba el archivo en el primer `#[cfg(test)]`; un `#[cfg(test)] use ...` de cabecera dejaba el archivo entero fuera del recuento. `src/handlers/ia/rutas.rs` contaba 12 efectivas en vez de 537, así que `limite-lineas` no disparaba. Arreglado en `glory-sentinel` `4d63473` (`origin/main`), certificado y sin propagar: el pin de los consumidores sigue en `f691510` y subirlo arrastra 14 commits CSS ya commiteados del lote de KAMPLES. Decisión de la usuaria del 2026-10-16: que entre con ese release, no forzarlo ahora. Cuando entre, este proyecto gana un hallazgo (`ia/rutas.rs`) y hay que rehacer la base del gate. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.

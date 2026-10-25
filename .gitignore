@@ -93,3 +93,6 @@ glory-rust-template.code-workspace
 
 # Documentacion local del area (planes, tareas, lecciones): fuera del repo publico.
 Agente/
+
+# Runtime local de los mandos (alta de proyecto, 19AA-7)
+.runtime/
