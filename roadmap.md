@@ -4,18 +4,17 @@
 
 ## Siguiente bloque
 
+- Ninguno.
+
 ## Pendientes
 
-- [ ] `19AA-6` — **Tareas aparte de `coolify-manager-rs`.**
-  Arreglar el backup pre-deploy que aborta cuando la app está en bucle (`fases_inicio.rs:22-55`). Detalle en el plan del piloto, §G.
+- [ ] `19AA-6` — **Backup pre-deploy que no aborta con la app en bucle.** Hecho cuando `coolify-manager-rs` (`fases_inicio.rs:22-55`) deja de abortar el backup si la app está en bucle, y un deploy de prueba en la 89 lo confirma. Detalle en el plan del piloto, §G.
 
-- [ ] `19AA-9` — **Sentinel: el contador de líneas efectivas de Rust estaba mal (arreglado, sin propagar).**
-  `contarLineasEfectivas` truncaba el archivo en el primer `#[cfg(test)]`; un `#[cfg(test)] use ...` de cabecera dejaba el archivo entero fuera del recuento. `src/handlers/ia/rutas.rs` contaba 12 efectivas en vez de 537, así que `limite-lineas` no disparaba. Arreglado en `glory-sentinel` `4d63473` (`origin/main`), certificado y sin propagar: el pin de los consumidores sigue en `f691510` y subirlo arrastra 14 commits CSS ya commiteados del lote de KAMPLES. Decisión de la usuaria del 2026-10-16: que entre con ese release, no forzarlo ahora. Cuando entre, este proyecto gana un hallazgo (`ia/rutas.rs`) y hay que rehacer la base del gate. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
-
-- [ ] `03AA-5` — **Detector de captación en Marketplace, ahora sobre glory-web.**
-  Plan reescrito el 2026-10-23 en `Agente/planes/plan-detector-captacion-2026-10-03.md`: el capturador vive en `glory-web/webview/captacion/` (WebView2 con la sesión real de Facebook), el extractor en este backend (`src/`), y el clasificador y la cola de revisión también aquí. Se retira el pre-requisito E1 de `03AA-3` y todo lo de `plugins-opencode`. **C0.1 entregada el 2026-10-24** (captura efímera por partes en glory-web: Ctrl+Shift+L, `GET /captura` + `/captura/<id>`, `scripts/captura.mjs`); lo que falta es el bucle con la usuaria: abrir los 5+2+1 y sacar juntos el corpus. La captación por chat (`E14`, `registrar_captacion`) ya está cerrada y no depende de esto.
+- [ ] `03AA-5` — **Detector de captación en Marketplace sobre glory-web.** Decidido «Hacer» por la usuaria (2026-10-25). Plan reescrito el 2026-10-23 en `Agente/planes/plan-detector-captacion-2026-10-03.md`: capturador en `glory-web/webview/captacion/`, extractor, clasificador y cola de revisión en este backend. C0.1 entregada el 2026-10-24 (Ctrl+Shift+L en glory-web, `GET /captura` + `/captura/<id>`, `scripts/captura.mjs`). Hecho cuando el corpus de 5 avisos + 2 perfiles + 1 búsqueda, sacado con la usuaria, alimenta el clasificador. Depende de la usuaria: sin su corpus no avanza. La captación por chat (`E14`, `registrar_captacion`) ya está cerrada y no depende de esto.
 
 ## Bloqueos
+
+- `19AA-9` — **Sentinel: contador de líneas de Rust arreglado, sin propagar.** `contarLineasEfectivas` truncaba el archivo en el primer `#[cfg(test)]`; `src/handlers/ia/rutas.rs` contaba 12 efectivas en vez de 537, así que `limite-lineas` no disparaba. Arreglado en `glory-sentinel` `4d63473` (`origin/main`), certificado. Hecho externo: decisión de la usuaria del 2026-10-16 de que entre con ese release, no forzarlo ahora. Cuando entre (subir el pin de los consumidores desde `f691510`, que arrastra 14 commits CSS del lote de KAMPLES), este proyecto gana un hallazgo (`ia/rutas.rs`) y hay que rehacer la base del gate. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
 
 - `13AA-13` — **Clave de chat estable: falta la prueba viva.** Código integrado en `main` el 2026-10-13 (rama y worktree borrados) y decisión tomada el 2026-10-13: el id de perfil del comprador (`/marketplace/profile/<id>`) es el tercer segmento de la clave. Lo que queda no es trabajo de este repo: la prueba viva con dos chats del mismo nombre, que es de la usuaria. La promoción del puente a opencode-propio (`ventana PROMOCION-VENTANA.md`) queda fuera de este barrido por decisión de la usuaria (2026-10-20).
 
