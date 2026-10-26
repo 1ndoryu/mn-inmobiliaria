@@ -93,7 +93,7 @@ export function ModalInmueble(props: Props) {
 
   return (
     <>
-    /* Mientras guarda no se cierra (Esc, clic fuera o X): el cierre llega solo al terminar bien. */
+    {/* Mientras guarda no se cierra (Esc, clic fuera o X): el cierre llega solo al terminar bien. */}
     <Dialog open={abierto} onOpenChange={(a) => (guardando && !a ? undefined : alCambiarAbierto(a))}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
