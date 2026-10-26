@@ -45,25 +45,28 @@ function normalizarJpg(bytes) {
   }
 }
 
-async function saludMejora(mejoraBase) {
+/* Sonda real de la sesión (POST /api/probar): una petición de texto que no
+ * gasta foto. `listo` de /api/salud no basta: las cookies pueden estar
+ * caducadas aunque GEMINI_PSID esté puesto. */
+async function probarSesion(mejoraBase) {
   try {
-    const r = await fetch(`${mejoraBase}/api/salud`, { signal: AbortSignal.timeout(10000) });
-    if (!r.ok) return null;
+    const r = await fetch(`${mejoraBase}/api/probar`, { method: 'POST', signal: AbortSignal.timeout(120000) });
     return await r.json();
-  } catch {
-    return null;
+  } catch (e) {
+    return { ok: false, error: `sin respuesta del servidor de mejora (${e.message})` };
   }
 }
 
-/* Token autónomo: salud → (sin puerto debug? abro el Chrome yo) → renovar →
- * rechequeo. Solo molesta a ella si falta login/cuenta (códigos 3/4). */
+/* Token autónomo: sonda → (sin puerto debug? abro el Chrome yo) → renovar →
+ * espera a que el servidor recicle el worker → sonda. Solo molesta a ella si
+ * falta login/cuenta (códigos 3/4). Antes de encolar ninguna foto. */
 async function asegurarToken(o, mejoraBase) {
-  let s = await saludMejora(mejoraBase);
-  if (s?.listo) {
-    console.log('Mejora lista (token válido).');
+  let p = await probarSesion(mejoraBase);
+  if (p.ok) {
+    console.log('Sesión de Gemini viva (sonda OK).');
     return;
   }
-  console.log(`Token no listo (${s?.detalle ?? 'sin servidor de mejora'}); renuevo solo…`);
+  console.log(`Sesión no válida (${p.error}); renuevo solo…`);
   const renovar = join(AQUI, '..', '..', 'frontend', 'scripts', 'renovar-cookies.mjs');
   const correr = () => spawnSync('node', [renovar], { encoding: 'utf8' });
   let r = correr();
@@ -82,14 +85,17 @@ async function asegurarToken(o, mejoraBase) {
     }
   }
   if (r.status === 0) {
-    s = await saludMejora(mejoraBase);
-    if (s?.listo) {
-      console.log('Token renovado solo, sigo sin molestar.');
+    // El servidor vigila .env.local y recicla el worker; dar un margen evita
+    // sondear con el worker viejo (cookies caducadas) y dar un falso fallo.
+    await dormir(3000);
+    p = await probarSesion(mejoraBase);
+    if (p.ok) {
+      console.log('Sesión renovada solo, sigo sin molestar.');
       return;
     }
   }
   console.error(
-    'FALLO token: necesito tu ayuda una vez — abre el acceso directo "Chrome-Horacio-debug" del escritorio' +
+    `FALLO sesión (${p.error}): necesito tu ayuda una vez — abre el acceso directo "Chrome-Horacio-debug" del escritorio` +
     (r.status === 3 ? ' e inicia sesión en Google (cuenta Horacio Cruz)' : '') +
     ', y reejecuta. Las originales ya están publicadas; la mejora espera.',
   );
