@@ -30,6 +30,7 @@ use crate::models::{validar_extras, CopyInmueble, Inmueble, UpdateInmuebleReques
 use crate::repositories::InmuebleRepository;
 use crate::services::inmueble::InmuebleService;
 use crate::services::sync::comparacion::detalle;
+use crate::services::sync::comparacion::huella::FotoHuella;
 use crate::services::sync::comparacion::resolver::{Accion, Eleccion, FilaPlan};
 use crate::services::sync::operacion::{conflicto, paso, Turno};
 use crate::services::sync::plan;
@@ -37,6 +38,7 @@ use crate::services::sync::remoto::{self, Credenciales, FichaRemota, InmuebleRem
 use crate::services::sync::traer::MAX_FOTOS;
 
 mod fotos;
+mod reorden;
 
 use fotos::{fila_foto, MoverFotos};
 
@@ -76,12 +78,16 @@ pub async fn aplicar(
         en_local,
         en_servidor,
         filas_foto,
+        huella_local,
+        huella_servidor,
     } = preparar(pool, cred, slug, plan_id_pedido, conservar_viejo).await?;
 
     let fotos = MoverFotos {
         plan: filas_foto,
         local: &local.fotos,
         servidor: &servidor.fotos,
+        huella_local: &huella_local,
+        huella_servidor: &huella_servidor,
     };
     comprobar_tope(&fotos)?;
 
@@ -154,6 +160,8 @@ struct Preparado {
     en_local: Cambios,
     en_servidor: Cambios,
     filas_foto: Vec<fotos::FilaFoto>,
+    huella_local: Vec<FotoHuella>,
+    huella_servidor: Vec<FotoHuella>,
 }
 
 async fn preparar(
@@ -207,6 +215,8 @@ async fn preparar(
             servidor.copy.as_ref(),
         ),
         filas_foto: plan.filas.iter().filter_map(fila_foto).collect(),
+        huella_local: local_det.huella.fotos,
+        huella_servidor: remoto_det.huella.fotos,
         plan_id: plan.plan_id,
         servidor_id,
         local,

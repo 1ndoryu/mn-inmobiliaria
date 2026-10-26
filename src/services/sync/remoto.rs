@@ -419,6 +419,24 @@ pub async fn borrar_foto(cred: &Credenciales, foto_id: Uuid) -> Result<(), Error
 }
 
 #[derive(Serialize)]
+struct OrdenEnvio<'a> {
+    ids: &'a [Uuid],
+}
+
+/// Reordena las fotos del servidor sin borrar ni subir nada [25AA-3]: `ids` son
+/// las `original` en el orden nuevo (su `mejorada` viaja con ellas). El servidor
+/// exige una permutación exacta de las que tiene y, si no lo es, no toca nada.
+pub async fn reordenar_fotos(
+    cred: &Credenciales,
+    inmueble_id: Uuid,
+    ids: &[Uuid],
+) -> Result<(), ErrorRemoto> {
+    let ruta = format!("/api/admin/inmuebles/{inmueble_id}/fotos/orden");
+    let envio = Envio::json(reqwest::Method::PATCH, ruta, &OrdenEnvio { ids })?;
+    escribir_sin_cuerpo(enviar(cred, &SESION, &envio).await?).await
+}
+
+#[derive(Serialize)]
 struct PublicacionEnvio {
     publicado: bool,
 }

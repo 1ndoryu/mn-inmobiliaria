@@ -23,6 +23,8 @@ use uuid::Uuid;
 use crate::errors::AppError;
 use crate::models::{FotoPublica, MAX_FOTO_BYTES};
 use crate::services::inmueble::InmuebleService;
+use super::reorden;
+use crate::services::sync::comparacion::huella::FotoHuella;
 use crate::services::sync::comparacion::resolver::{Accion, Eleccion, FilaPlan};
 use crate::services::sync::operacion::paso;
 use crate::services::sync::remoto::{self, Credenciales, FotoRemota};
@@ -47,6 +49,9 @@ pub(super) struct MoverFotos<'a> {
     pub(super) plan: Vec<FilaFoto>,
     pub(super) local: &'a [FotoPublica],
     pub(super) servidor: &'a [FotoRemota],
+    /// Huellas (sha256 por posición) de cada lado: para ver si solo cambió el orden.
+    pub(super) huella_local: &'a [FotoHuella],
+    pub(super) huella_servidor: &'a [FotoHuella],
 }
 
 /// `None` si la clave no es de foto (o no tiene la forma esperada).
@@ -156,18 +161,20 @@ pub(super) async fn al_servidor(
     hecho: &mut Vec<String>,
     pendientes: &mut Vec<String>,
 ) -> Result<(), String> {
-    let destino: Vec<(String, i32)> = mover
-        .servidor
+    // Mismas fotos en otro orden (p. ej. otra principal): una llamada, sin borrar nada [25AA-3].
+    let reordenado = reorden::intentar(cred, id, mover, hecho).await;
+    let servidor = reordenado.as_ref().map_or(mover.servidor, |r| &r.servidor[..]);
+    let destino: Vec<(String, i32)> = servidor
         .iter()
         .map(|f| (f.origen.clone(), f.orden))
         .collect();
     let mut total = 0usize;
-    for fila in mover
-        .plan
-        .iter()
-        .filter(|f| f.ganador == Eleccion::Local && f.accion == Accion::Escribir)
-    {
-        if hay_remota(mover.servidor, fila).is_some() {
+    for fila in mover.plan.iter().filter(|f| {
+        f.ganador == Eleccion::Local
+            && f.accion == Accion::Escribir
+            && !reordenado.as_ref().is_some_and(|r| r.resueltas.contains(&f.clave))
+    }) {
+        if hay_remota(servidor, fila).is_some() {
             // Su API solo sabe borrar (y renumera) o añadir: reemplazar los bytes
             // de una foto que ya está necesita un endpoint nuevo, o sea desplegar.
             pendientes.push(format!(
@@ -209,7 +216,7 @@ pub(super) async fn al_servidor(
         hecho.push(format!("Foto {} copiada al servidor", fila.clave));
     }
     for fila in de_mayor_a_menor(&mover.plan, Eleccion::Local) {
-        let Some(remota) = hay_remota(mover.servidor, fila) else {
+        let Some(remota) = hay_remota(servidor, fila) else {
             continue;
         };
         if arrastra_mejorada(&destino, &mover.plan, fila, Eleccion::Local) {
