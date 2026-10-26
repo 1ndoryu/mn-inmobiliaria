@@ -8,7 +8,7 @@
     "quality:check": "npm run check",
     "self-check": "powershell -ExecutionPolicy Bypass -File scripts/calidad/self-check.ps1",
     "check:back": "node --test scripts/calidad/guardia-migraciones.test.mjs scripts/calidad/clave-dev.test.mjs &&node scripts/run-with-db.mjs check && node scripts/run-with-db.mjs clippy",
-    "check:front": "npm --prefix frontend run type-check",
+    "check:front": "npm --prefix frontend run type-check && node --test scripts/calidad/resumen-fotos.test.mjs",
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt --check",
     "dev:back": "node scripts/run-with-db.mjs run",

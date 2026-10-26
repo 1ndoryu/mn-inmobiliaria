@@ -5,9 +5,10 @@
  * y después muestra lo escrito, lo pendiente y lo que sigue distinto. El padre
  * lo monta con `key` por inmueble (estado limpio al abrir). */
 import type { Inmueble } from '@/domain/inmueble';
-import { nombreClave } from '@/domain/sync/sync-inmueble';
+import { esFilaFoto } from '@/domain/sync/resumen-fotos';
 import { useModalDiferenciasSync } from '@/hooks/sync/use-modal-diferencias-sync';
-import { ColumnaLado, Lista, describirDecision, describirOrigen, etiquetaColumna } from './piezas-diferencias-sync';
+import { FilaDiferencia, GrupoFotos } from './fila-diferencia-sync';
+import { Lista } from './piezas-diferencias-sync';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -45,8 +46,9 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
 
   /* Fotos que el plan borra en el lado que pierde: es lo único que la
    * confirmación tiene que decir en voz alta, porque no se deshace. */
-  const conBorrados =
-    plan?.filas.some((f) => f.clave.startsWith('foto:') && f.accion === 'quitar') ?? false;
+  const filasFoto = plan?.filas.filter((f) => esFilaFoto(f.clave)) ?? [];
+  const otras = plan?.filas.filter((f) => !esFilaFoto(f.clave)) ?? [];
+  const conBorrados = filasFoto.some((f) => f.accion === 'quitar');
 
   return (
     <Dialog open={slug !== null} onOpenChange={(abierto) => !abierto && alCerrar()}>
@@ -88,67 +90,19 @@ export function ModalDiferenciasSync({ slug, titulo, revision, inmueble, alCerra
               <p className="text-sm text-muted-foreground">Sin diferencias de contenido.</p>
             ) : (
               <ul className={`space-y-2 transition-opacity ${actualizando ? 'opacity-60' : ''}`} aria-busy={actualizando}>
-                {plan.filas.map((fila) => {
-                  const viejo = conservarViejo.includes(fila.clave);
-                  const nombre = nombreClave(fila.clave);
-                  return (
-                    <li key={fila.clave} className="space-y-2 rounded-lg border p-3">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium">{nombre}</p>
-                          <p className="text-xs text-muted-foreground">{describirOrigen(fila.lado)}</p>
-                        </div>
-                        <div role="group" aria-label={`Valor que queda en ${nombre}`} className="flex gap-1.5">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={viejo ? 'outline' : 'default'}
-                            aria-pressed={!viejo}
-                            onClick={() => alElegir(fila.clave, false)}
-                          >
-                            Lo último
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={viejo ? 'default' : 'outline'}
-                            aria-pressed={viejo}
-                            onClick={() => alElegir(fila.clave, true)}
-                          >
-                            Conservar lo viejo
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="text-sm">{describirDecision(fila, viejo)}</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <ColumnaLado
-                          nombre="Local"
-                          clave={fila.clave}
-                          valor={fila.local}
-                          miniatura={fila.miniatura_local}
-                          inmueble={inmueble}
-                          etiqueta={etiquetaColumna(fila, 'local')}
-                          queda={fila.elegido === 'local'}
-                        />
-                        <ColumnaLado
-                          nombre="Servidor"
-                          clave={fila.clave}
-                          valor={fila.servidor}
-                          miniatura={fila.miniatura_servidor}
-                          inmueble={inmueble}
-                          etiqueta={etiquetaColumna(fila, 'servidor')}
-                          queda={fila.elegido === 'servidor'}
-                        />
-                      </div>
-                      {fila.clave === 'receta' && plan.filas.some((f) => f.clave.startsWith('foto:')) && (
-                        <p className="text-xs text-muted-foreground">
-                          Las dos vistas se dibujan con las fotos de Local. Como las fotos también difieren, el servidor puede
-                          estar numerando otras.
-                        </p>
-                      )}
-                    </li>
-                  );
-                })}
+                {filasFoto.length > 0 && (
+                  <GrupoFotos filas={filasFoto} conservarViejo={conservarViejo} inmueble={inmueble} alElegir={alElegir} />
+                )}
+                {otras.map((fila) => (
+                  <FilaDiferencia
+                    key={fila.clave}
+                    fila={fila}
+                    viejo={conservarViejo.includes(fila.clave)}
+                    inmueble={inmueble}
+                    conFotos={conFotos}
+                    alElegir={alElegir}
+                  />
+                ))}
               </ul>
             )}
             {actualizando && <p className="text-xs text-muted-foreground">Actualizando el plan…</p>}

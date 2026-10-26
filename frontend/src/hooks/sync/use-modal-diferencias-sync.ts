@@ -77,10 +77,12 @@ export function useModalDiferenciasSync(slug: string | null, revision: number) {
   const operaciones = plan ? plan.en_local + plan.en_servidor : 0;
   const puedeAplicar = plan !== null && !actualizando && operaciones > 0 && destino !== null && informe === null;
 
-  function alElegir(clave: string, conservar: boolean) {
+  /* Una clave, o varias de golpe (el grupo de fotos se decide como un solo cambio). */
+  function alElegir(claves: string | string[], conservar: boolean) {
+    const lote = Array.isArray(claves) ? claves : [claves];
     setConservarViejo((previo) => {
-      const sin = previo.filter((c) => c !== clave);
-      return conservar ? [...sin, clave] : sin;
+      const sin = previo.filter((c) => !lote.includes(c));
+      return conservar ? [...sin, ...lote] : sin;
     });
   }
 
