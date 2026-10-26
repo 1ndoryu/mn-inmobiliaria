@@ -62,9 +62,19 @@ export async function cmdPush(o) {
   if (!pr) {
     plan.push('crear inmueble en prod');
     if (!seco) {
-      const creado = await api(PROD, '/api/admin/inmuebles', { metodo: 'POST', token: tP, json: {} });
+      // El POST responde 201 sin cuerpo: el id se localiza por diferencia de listados.
+      // El título va ya en el alta porque el slug se genera de él; con `{}` queda «inmueble».
+      const antes = new Set((await listar(PROD, tP)).map((i) => i.id));
+      await api(PROD, '/api/admin/inmuebles', { metodo: 'POST', token: tP, json: { titulo: loc.titulo } });
+      const creado = (await listar(PROD, tP)).find((i) => !antes.has(i.id));
+      if (!creado) {
+        console.error('FALLO: no localizo en prod el inmueble recién creado.');
+        process.exit(1);
+      }
       await api(PROD, `/api/admin/inmuebles/${creado.id}`, { metodo: 'PUT', token: tP, json: nucleo(loc) });
-      pr = (await listar(PROD, tP)).find((i) => i.slug === o.slug);
+      // El alta nace sin publicar: si en local está publicado, se publica aquí también.
+      if (loc.publicado) await api(PROD, `/api/admin/inmuebles/${creado.id}/publicacion`, { metodo: 'PATCH', token: tP, json: { publicado: true } });
+      pr = (await listar(PROD, tP)).find((i) => i.id === creado.id);
     }
   } else {
     const dif = diffNucleo(pr, loc);
@@ -78,7 +88,14 @@ export async function cmdPush(o) {
     }
     if (sobrescribir && pr.fotos.length) {
       plan.push(`borrar ${pr.fotos.length} fotos de prod`);
-      if (!seco) for (const f of pr.fotos) await api(PROD, `/api/admin/fotos/${f.id}`, { metodo: 'DELETE', token: tP });
+      // Borrar una original arrastra a su mejorada: si ya no existe (404), se da por borrada.
+      if (!seco) {
+        for (const f of pr.fotos) {
+          await api(PROD, `/api/admin/fotos/${f.id}`, { metodo: 'DELETE', token: tP }).catch((e) => {
+            if (!/→ 404/.test(e.message)) throw e;
+          });
+        }
+      }
       pr = { ...pr, fotos: [] };
     }
   }
