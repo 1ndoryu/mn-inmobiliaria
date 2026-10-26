@@ -79,21 +79,35 @@ export function useModalInmueble(opciones: Opciones) {
     setForm({ ...form, fotos: [form.fotos[idx], ...form.fotos.filter((_, j) => j !== idx)] });
   };
 
+  /* Un guardado a la vez: subir las fotos tarda y, sin esta puerta, cada clic
+   * extra lanzaba otro guardado sobre la misma lista y el servidor lo rechazaba.
+   * El ref cierra la puerta al instante (el estado llega un render tarde). */
+  const guardandoRef = useRef(false);
+  const [guardando, setGuardando] = useState(false);
+
   const guardar = async () => {
+    if (guardandoRef.current) return;
     const e = validarDraft(form);
     setAvisos((a) => ({ ...a, errores: e }));
     if (Object.keys(e).length > 0) return;
-    if (esEdicion && editando) {
-      // Si falla (p. ej. almacén no disponible), el banner de error lo explica
-      // y el modal sigue abierto con el formulario intacto.
-      const ok = await opciones.onGuardarEdicion(draftAInmueble(form, editando));
-      if (ok) opciones.alCambiarAbierto(false);
-    } else {
-      const ok = await opciones.onGuardarNuevo(draftAInmueble(form));
-      if (ok) {
-        await opciones.limpiarTrasGuardar();
-        opciones.alCambiarAbierto(false);
+    guardandoRef.current = true;
+    setGuardando(true);
+    try {
+      if (esEdicion && editando) {
+        // Si falla (p. ej. almacén no disponible), el error se muestra dentro del
+        // modal, que sigue abierto con el formulario intacto.
+        const ok = await opciones.onGuardarEdicion(draftAInmueble(form, editando));
+        if (ok) opciones.alCambiarAbierto(false);
+      } else {
+        const ok = await opciones.onGuardarNuevo(draftAInmueble(form));
+        if (ok) {
+          await opciones.limpiarTrasGuardar();
+          opciones.alCambiarAbierto(false);
+        }
       }
+    } finally {
+      guardandoRef.current = false;
+      setGuardando(false);
     }
   };
 
@@ -117,6 +131,7 @@ export function useModalInmueble(opciones: Opciones) {
     quitarFoto,
     hacerPrincipal,
     guardar,
+    guardando,
     aplicarFichaIA,
   };
 }

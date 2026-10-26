@@ -1,4 +1,4 @@
-import { Trash2, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import {
   ESTADOS,
   ETIQUETAS_TIPO,
@@ -13,13 +13,13 @@ import { CampoMarketplaceId } from './campos/marketplace-id';
 import { FichaFormulario } from './formulario/ficha-formulario';
 import { useFichaInmueble } from '@/hooks/inmuebles/use-ficha-inmueble';
 import { FotosFormulario } from './formulario/fotos-formulario';
+import { PieModalInmueble } from './formulario/pie-modal-inmueble';
 import { ModalIA } from './modal-ia';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -48,6 +48,8 @@ interface Props {
   borrador: BorradorExterno;
   alGuardarNuevo: (inmueble: Inmueble) => Promise<boolean>;
   alGuardarEdicion: (inmueble: Inmueble) => Promise<boolean>;
+  /* Motivo del último guardado fallido: se ve aquí porque el banner de la app queda tapado por el modal. */
+  errorGuardado?: string | null;
 }
 
 export function ModalInmueble(props: Props) {
@@ -67,6 +69,7 @@ export function ModalInmueble(props: Props) {
     quitarFoto,
     hacerPrincipal,
     guardar,
+    guardando,
     aplicarFichaIA,
   } = useModalInmueble({
     abierto,
@@ -90,7 +93,8 @@ export function ModalInmueble(props: Props) {
 
   return (
     <>
-    <Dialog open={abierto} onOpenChange={alCambiarAbierto}>
+    /* Mientras guarda no se cierra (Esc, clic fuera o X): el cierre llega solo al terminar bien. */
+    <Dialog open={abierto} onOpenChange={(a) => (guardando && !a ? undefined : alCambiarAbierto(a))}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{esEdicion ? 'Editar inmueble' : 'Añadir inmueble'}</DialogTitle>
@@ -283,19 +287,15 @@ export function ModalInmueble(props: Props) {
           </div>
         </div>
 
-        <DialogFooter>
-          {!esEdicion && draftTieneContenido(form) && (
-            <Button type="button" variant="ghost" onClick={descartar} className="sm:mr-auto">
-              <Trash2 /> Descartar borrador
-            </Button>
-          )}
-          <Button type="button" variant="outline" onClick={() => alCambiarAbierto(false)}>
-            {esEdicion ? 'Cancelar' : 'Cerrar (conserva borrador)'}
-          </Button>
-          <Button type="button" onClick={guardar}>
-            {esEdicion ? 'Guardar cambios' : 'Guardar inmueble'}
-          </Button>
-        </DialogFooter>
+        <PieModalInmueble
+          esEdicion={esEdicion}
+          guardando={guardando}
+          puedeDescartar={!esEdicion && draftTieneContenido(form)}
+          errorGuardado={props.errorGuardado}
+          alDescartar={descartar}
+          alCerrar={() => alCambiarAbierto(false)}
+          alGuardar={() => void guardar()}
+        />
       </DialogContent>
     </Dialog>
     <ModalIA

@@ -44,6 +44,7 @@ interface GrupoEdicion {
   borrador: ReturnType<typeof useBorrador>;
   alCrear: (inmueble: Inmueble) => Promise<boolean>;
   alActualizar: (inmueble: Inmueble) => Promise<boolean>;
+  errorGuardado: string | null;
 }
 
 interface GrupoVincular {
@@ -122,6 +123,7 @@ export function ModalesApp({ nuevos, inmuebles, fotos, vista, ajustes, copia, ed
         }}
         alGuardarNuevo={edicion.alCrear}
         alGuardarEdicion={edicion.alActualizar}
+        errorGuardado={edicion.errorGuardado}
       />
 
       <ModalInmueble
@@ -140,6 +142,7 @@ export function ModalesApp({ nuevos, inmuebles, fotos, vista, ajustes, copia, ed
         }}
         alGuardarNuevo={edicion.alCrear}
         alGuardarEdicion={edicion.alActualizar}
+        errorGuardado={edicion.errorGuardado}
       />
 
       <ModalVincularFacebook

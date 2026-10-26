@@ -302,6 +302,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
           borrador,
           alCrear: crearConCopy,
           alActualizar: actualizar,
+          errorGuardado: error,
         }}
         vinculacion={{
           abierto: vinculandoFb,
