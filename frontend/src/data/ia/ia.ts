@@ -67,6 +67,8 @@ const SISTEMA = [
   'operacion en minúsculas ("venta","alquiler","ambas") o "" si dudas; estado SIEMPRE el literal "disponible".',
   /* [25AA-7] «ambas» = se vende y se alquila: "precio" es la venta y "precio_alquiler" el canon mensual. */
   'Reglas: si el inmueble se vende y se alquila a la vez, operacion "ambas", precio = venta y precio_alquiler = canon mensual; si no, precio_alquiler null.',
+  /* El texto pegado suele traer la firma de otra inmobiliaria: nunca debe llegar a la ficha. */
+  'Reglas: quita cualquier especificación de inmobiliaria o agencia: su nombre, razón social ("C.A.", "S.A."), frases de oferta ("ofrece en venta", "ofrecemos"), contactos (teléfonos, WhatsApp, "contáctanos") y firmas o logos. Describe solo el inmueble.',
 ].join('\n');
 
 function aNumero(v: unknown): number | null {
