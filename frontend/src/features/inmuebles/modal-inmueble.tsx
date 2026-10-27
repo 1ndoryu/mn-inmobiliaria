@@ -9,6 +9,7 @@ import {
 } from '@/domain/inmueble';
 import { BannerBorrador, Etiqueta } from './formulario/campos-formulario';
 import { CampoAliasTitulos } from './campos/alias-titulos';
+import { CampoOperacion } from './campos/campo-operacion';
 import { CampoMarketplaceId } from './campos/marketplace-id';
 import { FichaFormulario } from './formulario/ficha-formulario';
 import { useFichaInmueble } from '@/hooks/inmuebles/use-ficha-inmueble';
@@ -195,31 +196,13 @@ export function ModalInmueble(props: Props) {
               </Select>
               {errores.tipo && <p className="text-xs text-destructive">{errores.tipo}</p>}
             </div>
-            <div className="space-y-1">
-              <Etiqueta error={errores.operacion}>Operación</Etiqueta>
-              <Select
-                value={form.operacion}
-                onChange={(e) => cambiar('operacion', e.target.value as InmuebleDraft['operacion'])}
-                className={errores.operacion ? 'border-destructive' : undefined}
-              >
-                <option value="">Seleccionar…</option>
-                <option value="venta">venta</option>
-                <option value="alquiler">alquiler</option>
-                <option value="ambas">ambas (venta y alquiler)</option>
-              </Select>
-              {errores.operacion && <p className="text-xs text-destructive">{errores.operacion}</p>}
-            </div>
-            {form.operacion === 'ambas' && (
-              <div className="space-y-1">
-                <Etiqueta>Canon de alquiler ($/mes)</Etiqueta>
-                <Input
-                  value={form.precio_alquiler}
-                  onChange={(e) => cambiar('precio_alquiler', e.target.value)}
-                  placeholder="2800"
-                  inputMode="numeric"
-                />
-              </div>
-            )}
+            <CampoOperacion
+              operacion={form.operacion}
+              precioAlquiler={form.precio_alquiler}
+              error={errores.operacion}
+              alCambiarOperacion={(valor) => cambiar('operacion', valor)}
+              alCambiarCanon={(valor) => cambiar('precio_alquiler', valor)}
+            />
             <div className="space-y-1">
               <Etiqueta error={errores.habitaciones}>Habitaciones</Etiqueta>
                 <Input
