@@ -7,7 +7,7 @@
 //! reciente (empate → local). «Conservar lo viejo» invierte la elección de ese
 //! campo. Un elemento que no existe en el lado elegido se quita del otro.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -16,6 +16,7 @@ use utoipa::ToSchema;
 use super::comparar::{Estado, Lado};
 use super::detalle::DiferenciasSync;
 use super::huella::InmuebleHuella;
+use super::orden;
 
 /// De qué lado queda el valor de un elemento.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -127,11 +128,13 @@ pub fn planificar(
             }
         })
         .collect();
+    let reordenadas = por_reorden(&filas, local, remoto);
     // Cada fila es una operación en el lado contrario a su elección. Las de foto
     // solo cuentan si `aplicar` va a poder hacerlas. Al **local** se le cambia el
     // archivo en su sitio, así que también vale cuando ya tiene otra foto en ese
     // `orden`; al **servidor** no: su API solo sabe borrar (y renumera) o añadir,
-    // así que una clave que ya tiene con otro contenido queda pendiente. [F3]
+    // así que una clave que ya tiene con otro contenido queda pendiente, salvo
+    // que sean las mismas fotos en otro orden: eso se arregla reordenando [25AA-4].
     let aplicable = |f: &&FilaPlan, ganador: Eleccion| -> bool {
         if f.elegido != ganador {
             return false;
@@ -144,7 +147,7 @@ pub fn planificar(
         // que hay que escribir.
         match ganador {
             Eleccion::Servidor => f.local != f.servidor,
-            Eleccion::Local => f.servidor.is_none(),
+            Eleccion::Local => f.servidor.is_none() || reordenadas.contains(f.clave.as_str()),
         }
     };
     let en_local = filas
@@ -165,6 +168,31 @@ pub fn planificar(
         en_servidor,
         filas,
     })
+}
+
+/// Claves de foto que quedan iguales en el servidor con solo reordenarlo. Como
+/// en `aplicar`, el reorden solo vale si todas las filas de foto son del local.
+fn por_reorden<'a>(
+    filas: &'a [FilaPlan],
+    local: &InmuebleHuella,
+    remoto: &InmuebleHuella,
+) -> HashSet<&'a str> {
+    let de_foto = || filas.iter().filter(|f| f.clave.starts_with("foto:"));
+    if de_foto().any(|f| f.elegido != Eleccion::Local) {
+        return HashSet::new();
+    }
+    let Some(r) = orden::reordenar(&local.fotos, &remoto.fotos) else {
+        return HashSet::new();
+    };
+    de_foto()
+        .filter(|f| {
+            let Some((origen, o)) = f.clave.strip_prefix("foto:").and_then(|c| c.split_once(':')) else {
+                return false;
+            };
+            o.parse().is_ok_and(|o| orden::queda_igual(&local.fotos, &r.huellas_despues, origen, o))
+        })
+        .map(|f| f.clave.as_str())
+        .collect()
 }
 
 /// Huella del plan: operaciones + huella completa de cada lado.
@@ -352,5 +380,35 @@ mod pruebas {
             Some("/uploads/a.jpg")
         );
         assert_eq!(p.filas[0].miniatura_servidor, None);
+    }
+
+    fn con_fotos(seg: i64, shas: &[&str]) -> InmuebleHuella {
+        let mut h = huella(seg);
+        h.fotos = shas
+            .iter()
+            .enumerate()
+            .map(|(i, s)| crate::services::sync::comparacion::huella::FotoHuella {
+                origen: "original".into(),
+                orden: i32::try_from(i).unwrap(),
+                sha256: Some((*s).to_string()),
+                bytes: None,
+            })
+            .collect();
+        h
+    }
+
+    #[test]
+    fn cambiar_la_portada_cuenta_como_operacion_en_el_servidor() {
+        // Local: C, A, B. Servidor: A, B, C. Las tres posiciones difieren, pero basta reordenar [25AA-4].
+        let d = dif(vec![
+            fila("foto:original:0", Lado::Local, Some("c"), Some("a")),
+            fila("foto:original:1", Lado::Local, Some("a"), Some("b")),
+            fila("foto:original:2", Lado::Local, Some("b"), Some("c")),
+        ]);
+        let p = plan(&d, &con_fotos(10, &["c", "a", "b"]), &con_fotos(0, &["a", "b", "c"]), &[]);
+        assert_eq!((p.en_local, p.en_servidor), (0, 3));
+        // Con fotos distintas no hay reorden posible: sigue sin contar.
+        let q = plan(&d, &con_fotos(10, &["c", "a", "b"]), &con_fotos(0, &["a", "b", "z"]), &[]);
+        assert_eq!((q.en_local, q.en_servidor), (0, 0));
     }
 }

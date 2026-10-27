@@ -6,12 +6,13 @@
 //! `original` de los dos lados son las mismas (mismo sha256) y solo cambia el
 //! orden, basta una llamada: no se borra ni se sube nada.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use uuid::Uuid;
 
 use super::fotos::MoverFotos;
 use crate::services::sync::comparacion::huella::FotoHuella;
+use crate::services::sync::comparacion::orden;
 use crate::services::sync::comparacion::resolver::Eleccion;
 use crate::services::sync::remoto::{self, Credenciales, FotoRemota};
 
@@ -53,63 +54,33 @@ pub(super) async fn intentar(
     let resueltas = mover
         .plan
         .iter()
-        .filter(|f| {
-            let sha = |hs: &[FotoHuella]| {
-                hs.iter()
-                    .find(|h| h.origen == f.origen && h.orden == f.orden)
-                    .and_then(|h| h.sha256.clone())
-            };
-            sha(mover.huella_local).is_some() && sha(mover.huella_local) == sha(&r.huellas_despues)
-        })
+        .filter(|f| orden::queda_igual(mover.huella_local, &r.huellas_despues, &f.origen, f.orden))
         .map(|f| f.clave.clone())
         .collect();
     Some(Resultado { servidor: r.despues, resueltas })
 }
 
-/// `Some` si las `original` del servidor son exactamente las del local en otro
-/// orden. `None` si no hay nada que reordenar o no se puede asegurar (un sha sin
-/// calcular, fotos distintas, o ya en orden).
+/// Lo que hay que mandar al servidor para dejar sus `original` como las del
+/// local, con los ids de allí. `None` si `orden::reordenar` no ve reorden o falta alguna foto.
 pub(super) fn calcular(
     local: &[FotoHuella],
     huella_servidor: &[FotoHuella],
     servidor: &[FotoRemota],
 ) -> Option<Reorden> {
-    let mut originales: Vec<&FotoHuella> = local.iter().filter(|f| f.origen == "original").collect();
-    originales.sort_by_key(|f| f.orden);
-    // sha256 → ids del servidor con esa foto (puede haber duplicadas: se gastan una a una).
-    let mut libres: HashMap<&str, Vec<&FotoRemota>> = HashMap::new();
-    let mut del_servidor = 0usize;
-    for h in huella_servidor.iter().filter(|f| f.origen == "original") {
+    let r = orden::reordenar(local, huella_servidor)?;
+    let mut ids = Vec::with_capacity(r.viejos.len());
+    for viejo in &r.viejos {
         let remota = servidor
             .iter()
-            .find(|r| r.origen == "original" && r.orden == h.orden)?;
-        libres.entry(h.sha256.as_deref()?).or_default().push(remota);
-        del_servidor += 1;
-    }
-    if del_servidor != originales.len() {
-        return None;
-    }
-    // Para cada posición del local, la `original` del servidor con esa misma foto.
-    let mut ids = Vec::with_capacity(originales.len());
-    let mut nuevo_orden: HashMap<i32, i32> = HashMap::new(); // orden viejo → orden nuevo
-    for (nuevo, h) in originales.iter().enumerate() {
-        let remota = libres.get_mut(h.sha256.as_deref()?)?.pop()?;
+            .find(|f| f.origen == "original" && f.orden == *viejo)?;
         ids.push(remota.id);
-        nuevo_orden.insert(remota.orden, i32::try_from(nuevo).ok()?);
     }
-    if nuevo_orden.iter().all(|(viejo, nuevo)| viejo == nuevo) {
-        return None;
-    }
-    let mover = |orden: i32| nuevo_orden.get(&orden).copied().unwrap_or(orden);
+    let nuevo = |o: i32| r.nuevo_orden.get(&o).copied().unwrap_or(o);
     let despues = servidor
         .iter()
-        .map(|r| FotoRemota { orden: mover(r.orden), ..r.clone() })
+        .map(|f| FotoRemota { orden: nuevo(f.orden), ..f.clone() })
         .collect();
-    let huellas_despues = huella_servidor
-        .iter()
-        .map(|h| FotoHuella { orden: mover(h.orden), ..h.clone() })
-        .collect();
-    Some(Reorden { ids, despues, huellas_despues })
+    Some(Reorden { ids, despues, huellas_despues: r.huellas_despues })
 }
 
 #[cfg(test)]

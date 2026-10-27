@@ -7,4 +7,5 @@ pub mod comparar;
 pub mod detalle;
 pub mod huella;
 pub mod manifiesto;
+pub mod orden;
 pub mod resolver;

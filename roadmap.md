@@ -8,6 +8,12 @@
 
 ## Pendientes
 
+- [ ] `25AA-5` — **Operación «ambas» (venta y alquiler) — datos y búsqueda.** Decidido «dos precios»: `precio` = venta, `precio_alquiler` = canon mensual; lo existente no cambia. Hecho cuando la migración `20261027000045_inmueble_ambas` (escrita y aditiva), `OPERACIONES` con `ambas` (las solicitudes siguen con venta|alquiler), el DTO/repositorio con `precio_alquiler`, los filtros (`venta` y `alquiler` incluyen `ambas`) y el chat/SEO la entienden, con tests en la 89.
+- [ ] `25AA-6` — **«Ambas» en el sync sin romper nada.** Hecho cuando la huella y el PUT llevan `precio_alquiler`, y empujar un «ambas» a una API de producción sin la migración falla solo esa fila con un aviso claro (el deploy es de la usuaria, antes de empujar).
+- [ ] `25AA-7` — **«Ambas» en la IA y el panel.** Hecho cuando los prompts (`config/ia.rs`, borrador de Marketplace, `ia.ts`) y el modal de edición entienden «ambas» y los dos precios.
+- [ ] `25AA-8` — **Imagen de publicidad: elegir venta o alquiler al descargar un «ambas».** Hecho cuando cada imagen usa su precio y su rótulo, y el panel deja elegir cuál descargar.
+- [ ] `25AA-9` — **Revisar descripciones de inmuebles de alquiler marcados como venta.** Hecho cuando se listan en local, se ajustan operación y descripción (sin tocar prod: empujar es de la usuaria) y queda anotado cuáles cambiaron.
+
 - [ ] `19AA-6` — **Backup pre-deploy que no aborta con la app en bucle.** Hecho cuando `coolify-manager-rs` (`fases_inicio.rs:22-55`) deja de abortar el backup si la app está en bucle, y un deploy de prueba en la 89 lo confirma. Detalle en el plan del piloto, §G.
 - [ ] `08AA-10` — **Texto final con precio.** Pendiente; el proveedor IA devuelve vacío (`/ia/probar` cuelga).
 - [ ] `08AA-11` — y `08AA-15` — **Verificación visual y viva del borrador.** Mismo proveedor IA.
