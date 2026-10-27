@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Bath, BedDouble, Building2, CarFront, LandPlot, MapPin, Ruler } from 'lucide-react';
-import { ETIQUETAS_TIPO, portadaDe, type Inmueble } from '@/domain/inmueble';
+import { ETIQUETAS_OPERACION, ETIQUETAS_TIPO, portadaDe, type Inmueble } from '@/domain/inmueble';
 import { recetaVigenteDe, resolverReceta } from '@/domain/plantilla-publicidad';
 import { exportarPublicidad } from '@/platform/canvas-publicidad';
 import { usePublicidades } from '@/hooks/publicidad/use-publicidades';
@@ -223,7 +223,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
               {i.descripcion && <p className="line-clamp-2 text-sm">{i.descripcion}</p>}
               <p className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                 <span className="capitalize">
-                  {ETIQUETAS_TIPO[i.tipo]} · {i.operacion}
+                  {ETIQUETAS_TIPO[i.tipo]} · {ETIQUETAS_OPERACION[i.operacion]}
                 </span>
                 {i.habitaciones > 0 && (
                   <span className="flex items-center gap-1">

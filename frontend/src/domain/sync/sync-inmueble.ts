@@ -55,6 +55,8 @@ const NOMBRES_CAMPO: Record<string, string> = {
   // [18AA-6] Nombre corto: campo sincronizable más.
   nombre_corto: 'Nombre corto',
   precio: 'Precio',
+  // [25AA-6] Solo viaja en la huella de «ambas»; sin etiqueta el aviso saldría en crudo.
+  precio_alquiler: 'Canon de alquiler',
   tipo: 'Tipo',
   operacion: 'Operación',
   habitaciones: 'Habitaciones',

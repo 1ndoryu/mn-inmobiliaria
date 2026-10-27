@@ -293,6 +293,13 @@ export const ETIQUETAS_TIPO: Record<TipoInmueble, string> = {
   terreno: 'Terreno',
   townhouse: 'Town House',
 };
+
+/* [25AA-7] «ambas» se lee como las dos operaciones, no como el valor interno. */
+export const ETIQUETAS_OPERACION: Record<Operacion, string> = {
+  venta: 'venta',
+  alquiler: 'alquiler',
+  ambas: 'venta y alquiler',
+};
 export const ESTADOS: EstadoInmueble[] = ['disponible', 'reservado', 'vendido', 'alquilado'];
 
 export type ErroresDraft = Partial<Record<'titulo' | 'ubicacion' | 'residencia' | 'precio' | 'tipo' | 'operacion' | 'habitaciones' | 'banos' | 'metros' | 'metrosTerreno' | 'puestos' | 'marketplaceId' | 'aliasTitulos', string>>;

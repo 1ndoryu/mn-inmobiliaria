@@ -1,5 +1,6 @@
 import { BedDouble, Bath, Building2, CalendarPlus, CalendarClock, CarFront, Download, EyeOff, Globe, LandPlot, Loader2, MapPin, Pencil, Ruler, Sparkles } from 'lucide-react';
 import {
+  ETIQUETAS_OPERACION,
   ETIQUETAS_TIPO,
   formatearFecha,
   formatearPrecio,
@@ -150,7 +151,7 @@ export function ModalVerInmueble({ inmueble, fotosMejora, alCambiarAbierto, onEd
               <div className="rounded-md border p-3">
                 <dt className="text-muted-foreground">Tipo / Operación</dt>
                 <dd className="font-medium capitalize">
-                  {ETIQUETAS_TIPO[inmueble.tipo]} · {inmueble.operacion}
+                  {ETIQUETAS_TIPO[inmueble.tipo]} · {ETIQUETAS_OPERACION[inmueble.operacion]}
                 </dd>
               </div>
               <div className="flex items-center gap-4 rounded-md border p-3 sm:col-span-2">
