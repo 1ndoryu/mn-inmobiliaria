@@ -8,7 +8,7 @@ use std::collections::HashSet;
 
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -21,8 +21,8 @@ use super::MpAuth;
 use crate::errors::AppError;
 use crate::middleware::AuthStaff;
 use crate::repositories::marketplace::{
-    avisos_perfil_sin_vincular, inmuebles_sin_vincular, reemplazar_avisos_perfil,
-    ultima_lectura_perfil, AvisoPerfilNuevo, InmuebleSinVincular,
+    avisos_perfil_sin_vincular, ids_analizados, inmuebles_sin_vincular,
+    reemplazar_avisos_perfil, ultima_lectura_perfil, AvisoPerfilNuevo, InmuebleSinVincular,
 };
 use crate::services::marketplace::{
     lectura_pedida, marcar_atendida, mejor_puntaje_con_alias, pedir_lectura,
@@ -174,6 +174,33 @@ pub async fn listar(State(state): State<AppState>, _auth: AuthStaff) -> Result<R
             avisos,
             inmuebles_sin_aviso,
         }),
+    )
+        .into_response())
+}
+
+/// [GW-2 M1] Tope de ids por respuesta: si algún día se supera, el endpoint pagina.
+const MAX_ANALIZADOS: i64 = 5000;
+
+/// [GW-2 M1] Ids de avisos ya analizados, para el marcador del listado de
+/// glory-web (`AnalizadosPort`). Lectura de staff; sin caché aquí: el host la
+/// pide cada 5 min y `no-store` evita que el navegador la guarde.
+#[utoipa::path(
+    get,
+    path = "/api/admin/marketplace/analizados",
+    responses(
+        (status = 200, description = "Ids de aviso ya analizados"),
+        (status = 401, description = "Sin sesión de staff", body = crate::errors::ErrorResponse)
+    )
+)]
+pub async fn analizados(
+    State(state): State<AppState>,
+    _auth: AuthStaff,
+) -> Result<Response, AppError> {
+    let avisos = ids_analizados(&state.pool, MAX_ANALIZADOS).await?;
+    Ok((
+        StatusCode::OK,
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(serde_json::json!({ "avisos": avisos })),
     )
         .into_response())
 }
@@ -436,6 +463,7 @@ mod tests {
     #[tokio::test]
     async fn lectura_reemplaza_y_marca_ausentes() {
         let Some(pool) = pool_si_hay() else { return };
+        let _bloqueo = crate::handlers::marketplace::pruebas::BD_PERFIL.lock().await;
         let (a, b) = ("913013000000001", "913013000000002");
         let ids = vec![a.to_string(), b.to_string()];
         let limpiar = "DELETE FROM marketplace_avisos_perfil WHERE aviso_id = ANY($1)";

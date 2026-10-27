@@ -63,6 +63,17 @@ pub(crate) struct InmuebleSinVincular {
     pub precio: f64,
 }
 
+/// Solo pruebas: borra avisos del perfil por id (fixtures). Los de producción nunca se borran.
+#[cfg(test)]
+pub(crate) async fn borrar_avisos_perfil(pool: &PgPool, ids: &[String]) -> Result<u64, sqlx::Error> {
+    // sentinel-disable-next-line sqlx-query-as-sin-macro -- limpieza de fixtures de prueba: SQL fijo sin macro para no regenerar la caché `.sqlx/`
+    let filas = sqlx::query("DELETE FROM marketplace_avisos_perfil WHERE aviso_id = ANY($1)")
+        .bind(ids)
+        .execute(pool)
+        .await?;
+    Ok(filas.rows_affected())
+}
+
 /// [13AA-4] Reemplaza el estado del perfil con una lectura, en una transacción:
 /// los avisos que no vienen pasan a `presente = FALSE` (no se borran) y los que
 /// vienen se insertan o actualizan. Devuelve cuántos dejaron de aparecer.
@@ -125,6 +136,22 @@ pub(crate) async fn inmuebles_sin_vincular(
         "SELECT id, titulo, alias_titulos AS alias, precio FROM inmuebles \
          WHERE marketplace_id IS NULL ORDER BY titulo",
     )
+    .fetch_all(pool)
+    .await
+}
+
+/// [GW-2 M1] Ids de aviso que ya pasaron por el análisis: los presentes en el
+/// perfil y los que ya vincula un inmueble. Unión sin duplicados, ordenada y
+/// acotada por `tope` (el perfil real tiene decenas; el tope es de seguridad).
+pub(crate) async fn ids_analizados(pool: &PgPool, tope: i64) -> Result<Vec<String>, sqlx::Error> {
+    // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL fijo sin macro: no se regenera la caché `.sqlx/` para una consulta de lectura nueva
+    sqlx::query_scalar(
+        "SELECT aviso_id FROM marketplace_avisos_perfil WHERE presente \
+         UNION \
+         SELECT marketplace_id FROM inmuebles WHERE marketplace_id IS NOT NULL \
+         ORDER BY 1 LIMIT $1",
+    )
+    .bind(tope)
     .fetch_all(pool)
     .await
 }

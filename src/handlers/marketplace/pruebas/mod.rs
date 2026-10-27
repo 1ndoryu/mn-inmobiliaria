@@ -6,3 +6,10 @@
 mod claves_cache_mp_id;
 /* [10AA-17] Regenerar (`force`): filtro de hit y persistencia con/sin pisar. */
 mod regenerar_force;
+/* [GW-2 M1] Ids analizados para el marcador: presentes del perfil + vinculados, sin ausentes. */
+mod ids_analizados;
+
+/* Serializa los tests que tocan `presente` de `marketplace_avisos_perfil`: una
+ * lectura (`reemplazar_avisos_perfil`) marca ausente todo lo que no trae, así
+ * que en paralelo borraría el aviso que otro test acaba de insertar. */
+pub(crate) static BD_PERFIL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());

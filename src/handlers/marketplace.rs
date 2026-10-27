@@ -145,6 +145,8 @@ pub fn routes() -> Router<AppState> {
         )
         /* [16AA-12] El modal pide la lectura (staff); la lab la ve en su latido. */
         .route("/marketplace/perfil/leer", post(perfil::pedir))
+        /* [GW-2 M1] Ids ya analizados: el marcador de glory-web (staff). */
+        .route("/marketplace/analizados", get(perfil::analizados))
         .route("/marketplace/uso", get(uso))
         .route(
             "/marketplace/chats",
