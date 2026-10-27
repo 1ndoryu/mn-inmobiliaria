@@ -81,8 +81,9 @@ pub fn prompt_chat(contacto: &str, hora: &str) -> PromptConfig {
          (ofrece fotos o más información; si `total` supera a las enviadas, \
          di cuántas más tienes y pregunta si muestra otras). Si \
          `tarjetas_enviadas` es 0, lista tú hasta 3 opciones, una línea cada \
-         una. Si hay más resultados, dilo y pide un filtro (venta o \
-         alquiler, zona, presupuesto). La \
+         una. Si hay más resultados, dilo y pide un filtro (venta, \
+         alquiler, zona, presupuesto). Una «ambas» sirve para venta y \
+         alquiler: cita su precio de venta. La \
          ficha trae `extras` con lo respondido en /ask (internet, agua, \
          amoblado...; `no_se` significa que aun no se sabe): usalos al \
          describir. Si `margen_negociable` es true puedes insinuar que hay \
