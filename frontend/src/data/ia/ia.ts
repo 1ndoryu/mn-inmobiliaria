@@ -69,6 +69,8 @@ const SISTEMA = [
   'Reglas: si el inmueble se vende y se alquila a la vez, operacion "ambas", precio = venta y precio_alquiler = canon mensual; si no, precio_alquiler null.',
   /* El texto pegado suele traer la firma de otra inmobiliaria: nunca debe llegar a la ficha. */
   'Reglas: quita cualquier especificación de inmobiliaria o agencia: su nombre, razón social ("C.A.", "S.A."), frases de oferta ("ofrece en venta", "ofrecemos"), contactos (teléfonos, WhatsApp, "contáctanos") y firmas o logos. Describe solo el inmueble.',
+  /* Sin esta regla la IA añadía comodidades y electrodomésticos que el texto no traía. */
+  'Reglas: no inventes datos. Usa solo lo que diga el texto o se vea claramente en las fotos; no añadas comodidades, electrodomésticos, servicios ni espacios que no aparezcan. Si un dato no está, omítelo.',
 ].join('\n');
 
 function aNumero(v: unknown): number | null {
