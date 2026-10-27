@@ -15,6 +15,8 @@ export function aplicarFichaAlDraft(form: InmuebleDraft, ficha: FichaIA, fotosIA
   if (ficha.precio !== null) next.precio = String(ficha.precio);
   if (ficha.tipo) next.tipo = ficha.tipo;
   if (ficha.operacion) next.operacion = ficha.operacion;
+  /* [25AA-7] El canon solo se rellena cuando la IA ve «ambas». */
+  if (ficha.operacion === 'ambas' && ficha.precio_alquiler !== null) next.precio_alquiler = String(ficha.precio_alquiler);
   if (ficha.habitaciones !== null) next.habitaciones = String(ficha.habitaciones);
   if (ficha.banos !== null) next.banos = String(ficha.banos);
   if (ficha.metros !== null) next.metros = String(ficha.metros);

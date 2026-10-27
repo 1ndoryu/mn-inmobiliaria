@@ -29,11 +29,14 @@ export interface FichaMedidas {
 /* Clasificación de la ficha. */
 export interface FichaClase {
   tipo: '' | TipoInmueble;
-  operacion: '' | 'venta' | 'alquiler';
+  operacion: '' | 'venta' | 'alquiler' | 'ambas';
   estado: EstadoInmueble;
 }
 
-export interface FichaIA extends FichaTexto, FichaMedidas, FichaClase {}
+/* [25AA-7] Canon mensual cuando la operación es «ambas» (null si no se indica). */
+export interface FichaIA extends FichaTexto, FichaMedidas, FichaClase {
+  precio_alquiler: number | null;
+}
 
 export type ResultadoIA =
   | { ok: true; ficha: FichaIA; modelo: string }
@@ -45,7 +48,8 @@ const SISTEMA = [
   'Devuelve SOLO un objeto JSON, sin markdown ni explicaciones, con estas claves exactas:',
   '{"titulo": string, "descripcion": string, "ubicacion": string, "residencia": string,',
   ' "nombre_corto": string, "precio": number|null,',
-  ' "tipo": "apartamento"|"casa"|"local"|"terreno"|"townhouse"|"", "operacion": "venta"|"alquiler"|"",',
+  ' "tipo": "apartamento"|"casa"|"local"|"terreno"|"townhouse"|"", "operacion": "venta"|"alquiler"|"ambas"|"",',
+  ' "precio_alquiler": number|null,',
   ' "habitaciones": number|null, "banos": number|null, "metros": number|null, "metrosTerreno": number|null,',
   ' "puestos": number|null, "estado": "disponible"}',
   'Reglas: "metros" son m² de propiedad (construidos); "metrosTerreno" son m² de parcela/terreno (null si no se indican).',
@@ -60,7 +64,9 @@ const SISTEMA = [
   'basada en el texto y lo visible en las fotos; precio como número sin símbolos (null si no se indica);',
   'no inventes la dirección exacta, usa solo lo que diga el texto ("" si no hay);',
   'tipo en minúsculas de la lista exacta ("apartamento","casa","local","terreno","townhouse") o "" si dudas;',
-  'operacion en minúsculas ("venta","alquiler") o "" si dudas; estado SIEMPRE el literal "disponible".',
+  'operacion en minúsculas ("venta","alquiler","ambas") o "" si dudas; estado SIEMPRE el literal "disponible".',
+  /* [25AA-7] «ambas» = se vende y se alquila: "precio" es la venta y "precio_alquiler" el canon mensual. */
+  'Reglas: si el inmueble se vende y se alquila a la vez, operacion "ambas", precio = venta y precio_alquiler = canon mensual; si no, precio_alquiler null.',
 ].join('\n');
 
 function aNumero(v: unknown): number | null {
@@ -84,8 +90,10 @@ function normalizarFicha(datos: Record<string, unknown>): FichaIA {
     /* [18AA-7] El backend topa el campo a 120; se recorta aquí para no perder el PUT. */
     nombre_corto: aTexto(datos.nombre_corto).slice(0, 120),
     precio: aNumero(datos.precio),
+    precio_alquiler: aNumero(datos.precio_alquiler),
     tipo: (TIPOS as readonly string[]).includes(tipo) ? (tipo as TipoInmueble) : '',
-    operacion: operacion === 'venta' || operacion === 'alquiler' ? operacion : '',
+    operacion: operacion === 'venta' || operacion === 'alquiler' || operacion === 'ambas' ? operacion : '',
+    precio_alquiler: aNumero(datos.precio_alquiler),
     habitaciones: aNumero(datos.habitaciones),
     banos: aNumero(datos.banos),
     metros: aNumero(datos.metros),

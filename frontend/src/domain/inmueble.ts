@@ -4,7 +4,8 @@
 import type { RecetaPublicidad } from './plantilla-publicidad';
 
 export type TipoInmueble = 'apartamento' | 'casa' | 'local' | 'terreno' | 'townhouse';
-export type Operacion = 'venta' | 'alquiler';
+/* [25AA-7] «ambas»: venta (`precio`) + alquiler (`precioAlquiler`, canon mensual). */
+export type Operacion = 'venta' | 'alquiler' | 'ambas';
 export type EstadoInmueble = 'disponible' | 'reservado' | 'vendido' | 'alquilado';
 
 /* Copy para redes sociales: se genera UNA vez con IA (al crear el inmueble
@@ -87,6 +88,8 @@ export interface Inmueble
     AuditoriaInmueble,
     VinculoMarketplace {
   precio: number;
+  /* [25AA-7] Canon mensual; solo cuenta si `operacion` es «ambas» (0 en el resto). */
+  precioAlquiler: number;
   /* [13AA-12] Slug del servidor: identifica el inmueble en el panel Sync.
    * Ausente en borradores sin guardar (aún no existen en el servidor). */
   slug?: string;
@@ -230,6 +233,8 @@ export interface TextoDraft {
 /* Números del borrador (texto de formulario, se validan al guardar). */
 export interface NumerosDraft {
   precio: string;
+  /* [25AA-7] Canon mensual (solo en «ambas»). */
+  precio_alquiler: string;
   habitaciones: string;
   banos: string;
   metros: string;
@@ -264,6 +269,7 @@ export const DRAFT_VACIO: InmuebleDraft = {
   /* [18AA-6] Vacío por defecto: el nombre corto es opcional. */
   nombre_corto: '',
   precio: '',
+  precio_alquiler: '',
   tipo: '',
   operacion: '',
   habitaciones: '',
@@ -316,6 +322,7 @@ export function draftTieneContenido(d: InmuebleDraft): boolean {
       d.ubicacion.trim() ||
       d.residencia.trim() ||
       d.precio.trim() ||
+      d.precio_alquiler.trim() ||
       d.tipo ||
       d.operacion ||
       d.habitaciones.trim() ||
@@ -345,6 +352,8 @@ export function draftAInmueble(d: InmuebleDraft, base?: Inmueble): Inmueble {
     /* [18AA-6] Como el resto de los textos del borrador: recortado al guardar. */
     nombreCorto: d.nombre_corto.trim(),
     precio: num(d.precio),
+    /* [25AA-7] El segundo precio solo existe en «ambas»; en el resto queda en 0. */
+    precioAlquiler: d.operacion === 'ambas' ? num(d.precio_alquiler) : 0,
     tipo: (d.tipo || 'apartamento') as TipoInmueble,
     operacion: (d.operacion || 'venta') as Operacion,
     habitaciones: num(d.habitaciones),
@@ -384,6 +393,7 @@ export function inmuebleADraft(i: Inmueble): InmuebleDraft {
     /* [18AA-6] Registros guardados antes de existir el campo no lo traen. */
     nombre_corto: i.nombreCorto ?? '',
     precio: String(i.precio),
+    precio_alquiler: String(i.precioAlquiler ?? 0),
     tipo: i.tipo,
     operacion: i.operacion,
     habitaciones: String(i.habitaciones),

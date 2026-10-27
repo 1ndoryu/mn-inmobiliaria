@@ -181,6 +181,8 @@ export interface RemotoClase {
 /* Medidas remotas. */
 export interface RemotoMedidas {
   precio: number;
+  /* [25AA-7] Ausente en servidores anteriores a la migración de «ambas». */
+  precio_alquiler?: number | null;
   habitaciones: number;
   banos: number;
   metros: number;
@@ -288,6 +290,7 @@ export function remotoADominio(r: InmuebleRemoto): Inmueble {
     /* [18AA-6] Ausente/null en registros viejos = cadena vacía. */
     nombreCorto: r.nombre_corto ?? '',
     precio: r.precio,
+    precioAlquiler: r.precio_alquiler ?? 0,
     tipo: r.tipo as Inmueble['tipo'],
     operacion: r.operacion as Inmueble['operacion'],
     habitaciones: r.habitaciones,
@@ -327,6 +330,7 @@ function dominioACuerpo(i: Inmueble): Record<string, unknown> {
     /* [18AA-6] El backend ya acepta y devuelve `nombre_corto`. */
     nombre_corto: i.nombreCorto,
     precio: i.precio,
+    precio_alquiler: i.precioAlquiler,
     tipo: i.tipo,
     operacion: i.operacion,
     habitaciones: i.habitaciones,

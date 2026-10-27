@@ -29,7 +29,8 @@ export function datosSeoInmueble(i: InmueblePublico, origen: string): EtiquetasP
 }
 
 function textoDescripcion(i: InmueblePublico): string {
-  const generado = `${ETIQUETAS_TIPO[i.tipo]} en ${i.operacion === 'venta' ? 'venta' : 'alquiler'} en ${i.ubicacion.trim() || 'Puerto Ordaz'}. Contacto directo por WhatsApp.`;
+  const operacion = i.operacion === 'ambas' ? 'venta y alquiler' : i.operacion === 'venta' ? 'venta' : 'alquiler';
+  const generado = `${ETIQUETAS_TIPO[i.tipo]} en ${operacion} en ${i.ubicacion.trim() || 'Puerto Ordaz'}. Contacto directo por WhatsApp.`;
   const texto = i.descripcion.trim() || generado;
   return texto.length > LARGO_DESCRIPCION ? `${texto.slice(0, LARGO_DESCRIPCION - 1).trimEnd()}…` : texto;
 }

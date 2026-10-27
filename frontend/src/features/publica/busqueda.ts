@@ -70,6 +70,17 @@ export function hayFiltrosAvanzados(f: FiltrosAvanzados): boolean {
 
 /* Cada término debe aparecer en algún campo (título, ubicación,
  * descripción, tipo u operación); el filtro de tipo combina con AND. */
+/* [25AA-7] Un «ambas» aparece tanto en venta como en alquiler; el filtro
+ * «ambas» solo muestra los que son de las dos cosas. */
+function coincideOperacion(i: InmueblePublico, operacion: Operacion): boolean {
+  return i.operacion === operacion || (i.operacion === 'ambas' && operacion !== 'ambas');
+}
+
+/* [25AA-7] Con filtro de alquiler, un «ambas» se mide por su canon, no por la venta. */
+function precioDeFiltro(i: InmueblePublico, operacion: Operacion | 'todas'): number {
+  return i.operacion === 'ambas' && operacion === 'alquiler' ? i.precioAlquiler : i.precio;
+}
+
 export function filtrarIndice(
   indice: RegistroBusqueda[],
   filtro: TipoInmueble | null,
@@ -77,6 +88,7 @@ export function filtrarIndice(
   avanzados: FiltrosAvanzados = FILTROS_AVANZADOS_VACIOS,
 ): InmueblePublico[] {
   const min = Number(avanzados.precioMin);
+
   const max = Number(avanzados.precioMax);
   const mMin = Number(avanzados.metrosMin);
   const mMax = Number(avanzados.metrosMax);
@@ -87,9 +99,9 @@ export function filtrarIndice(
       (r) =>
         (filtro === null || r.i.tipo === filtro) &&
         terminos.every((t) => r.texto.includes(t)) &&
-        (avanzados.operacion === 'todas' || r.i.operacion === avanzados.operacion) &&
-        (!Number.isFinite(min) || min <= 0 || r.i.precio >= min) &&
-        (!Number.isFinite(max) || max <= 0 || r.i.precio <= max) &&
+        (avanzados.operacion === 'todas' || coincideOperacion(r.i, avanzados.operacion)) &&
+        (!Number.isFinite(min) || min <= 0 || precioDeFiltro(r.i, avanzados.operacion) >= min) &&
+        (!Number.isFinite(max) || max <= 0 || precioDeFiltro(r.i, avanzados.operacion) <= max) &&
         (!Number.isFinite(mMin) || mMin <= 0 || r.i.metros >= mMin) &&
         (!Number.isFinite(mMax) || mMax <= 0 || r.i.metros <= mMax) &&
         (ubi === '' || normalizar(r.i.ubicacion).includes(ubi)) &&

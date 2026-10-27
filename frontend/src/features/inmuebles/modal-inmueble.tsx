@@ -155,7 +155,7 @@ export function ModalInmueble(props: Props) {
               <p className="text-xs text-muted-foreground">Cómo se cita el inmueble en el chat del Marketplace.</p>
             </div>
             <div className="space-y-1">
-              <Etiqueta error={errores.precio}>Precio ($)</Etiqueta>
+              <Etiqueta error={errores.precio}>{form.operacion === 'ambas' ? 'Precio de venta ($)' : 'Precio ($)'}</Etiqueta>
               <Input
                 value={form.precio}
                 onChange={(e) => cambiar('precio', e.target.value)}
@@ -205,9 +205,21 @@ export function ModalInmueble(props: Props) {
                 <option value="">Seleccionar…</option>
                 <option value="venta">venta</option>
                 <option value="alquiler">alquiler</option>
+                <option value="ambas">ambas (venta y alquiler)</option>
               </Select>
               {errores.operacion && <p className="text-xs text-destructive">{errores.operacion}</p>}
             </div>
+            {form.operacion === 'ambas' && (
+              <div className="space-y-1">
+                <Etiqueta>Canon de alquiler ($/mes)</Etiqueta>
+                <Input
+                  value={form.precio_alquiler}
+                  onChange={(e) => cambiar('precio_alquiler', e.target.value)}
+                  placeholder="2800"
+                  inputMode="numeric"
+                />
+              </div>
+            )}
             <div className="space-y-1">
               <Etiqueta error={errores.habitaciones}>Habitaciones</Etiqueta>
                 <Input
