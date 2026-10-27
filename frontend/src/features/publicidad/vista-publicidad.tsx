@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Loader2, Pencil } from 'lucide-react';
 import {
+  imagenDeOperacion,
   lineaTitulo1De,
   recetaVigenteDe,
   resolverReceta,
@@ -108,29 +109,48 @@ function TarjetaPublicidad({
   inmueble: Inmueble;
   comp: ComposicionPublicidad;
   alEditar: () => void;
-  alAmpliar: () => void;
+  alAmpliar: (imagen: Inmueble) => void;
 }) {
+  // Un «ambas» tiene una imagen por operación: la tarjeta muestra y descarga la elegida.
+  const [operacion, setOperacion] = useState<'venta' | 'alquiler'>('venta');
+  const imagen = useMemo(() => imagenDeOperacion(inmueble, operacion), [inmueble, operacion]);
   return (
     <article className="overflow-hidden rounded-lg border bg-card">
       <ButtonPlano
         type="button"
-        onClick={alAmpliar}
+        onClick={() => alAmpliar(imagen)}
         title="Ver completa"
         className="block w-full cursor-zoom-in"
       >
-        <VistaPrevia inmueble={inmueble} comp={comp} />
+        <VistaPrevia inmueble={imagen} comp={comp} />
       </ButtonPlano>
       <div className="space-y-2 p-3">
         <div>
-          <p className="truncate text-sm font-medium">{lineaTitulo1De(inmueble)}</p>
-          <p className="truncate text-xs text-muted-foreground">en {tituloZonaDe(inmueble)}</p>
+          <p className="truncate text-sm font-medium">{lineaTitulo1De(imagen)}</p>
+          <p className="truncate text-xs text-muted-foreground">en {tituloZonaDe(imagen)}</p>
         </div>
+        {inmueble.operacion === 'ambas' && (
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Operación de la imagen">
+            {(['venta', 'alquiler'] as const).map((op) => (
+              <Button
+                key={op}
+                variant={operacion === op ? 'default' : 'outline'}
+                size="sm"
+                className="h-7 text-xs"
+                aria-pressed={operacion === op}
+                onClick={() => setOperacion(op)}
+              >
+                {op === 'venta' ? 'Venta' : 'Alquiler'}
+              </Button>
+            ))}
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="h-7 text-xs" onClick={alEditar}>
             <Pencil className="h-3.5 w-3.5" /> Editar
           </Button>
         </div>
-        <BotonesExportar inmueble={inmueble} comp={comp} />
+        <BotonesExportar inmueble={imagen} comp={comp} />
       </div>
     </article>
   );
@@ -191,7 +211,7 @@ export function VistaPublicidad({
                 inmueble={inmueble}
                 comp={comp}
                 alEditar={() => setEditando(inmueble)}
-                alAmpliar={() => setAmpliando({ inmueble, comp })}
+                alAmpliar={(imagen) => setAmpliando({ inmueble: imagen, comp })}
               />
             );
           })}
