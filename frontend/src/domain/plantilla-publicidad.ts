@@ -70,6 +70,14 @@ export function tituloZonaDe(inmueble: Inmueble): string {
   return inmueble.residencia.trim() || zonaCortaDe(inmueble.ubicacion);
 }
 
+/* [25AA-8] Un «ambas» sale como imagen de venta o de alquiler: esta devuelve el
+ * inmueble con la operación y el precio de la elegida, así el canvas no cambia.
+ * Fuera de «ambas» devuelve el mismo objeto. */
+export function imagenDeOperacion(inmueble: Inmueble, operacion: 'venta' | 'alquiler'): Inmueble {
+  if (inmueble.operacion !== 'ambas') return inmueble;
+  return { ...inmueble, operacion, precio: operacion === 'alquiler' ? inmueble.precioAlquiler : inmueble.precio };
+}
+
 /** "Town House en venta" (línea 1 del título). */
 export function lineaTitulo1De(inmueble: Inmueble): string {
   const tipo = ETIQUETAS_TIPO[inmueble.tipo] ?? inmueble.tipo;
