@@ -335,7 +335,8 @@ export async function exportarPublicidad(
   await renderizarPublicidad(canvas, inmueble, comp, preset.anchoPx);
   const blob = await blobDe(canvas, tipo);
   const url = URL.createObjectURL(blob);
-  const nombre = `publicidad-${inmueble.id.slice(0, 8)}-${comp.formato}.${tipo === 'png' ? 'png' : 'jpg'}`;
+  // La operación en el nombre separa la de venta y la de alquiler de un «ambas».
+  const nombre = `publicidad-${inmueble.id.slice(0, 8)}-${comp.formato}-${inmueble.operacion}.${tipo === 'png' ? 'png' : 'jpg'}`;
   const enlace = document.createElement('a');
   enlace.href = url;
   enlace.download = nombre;
