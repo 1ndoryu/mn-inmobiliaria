@@ -27,6 +27,7 @@ fn ficha() -> InmuebleRow {
          * propio caso. */
         nombre_corto: String::new(),
         precio: 43000.0,
+        precio_alquiler: 0.0,
         tipo: "casa".to_string(),
         operacion: "venta".to_string(),
         habitaciones: 3,
@@ -90,6 +91,7 @@ fn fila_prueba(precio: f64) -> InmuebleRow {
         residencia: "Edif. Los Pinos".to_string(),
         nombre_corto: String::new(),
         precio,
+        precio_alquiler: 0.0,
         tipo: "apartamento".to_string(),
         operacion: "venta".to_string(),
         habitaciones: 2,

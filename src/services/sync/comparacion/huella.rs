@@ -22,6 +22,10 @@ use crate::repositories::sync::SyncRepository;
 /// [18AA-3] 2: la huella incorpora `marketplace_id`. Un servidor con la 1 no lo
 /// manda, y sin el campo el vínculo se leería como diferencia permanente; con la
 /// versión distinta se informa «sin soporte», que es lo que de verdad pasa.
+/// [25AA-6] Sigue en 2: `precio_alquiler` solo entra en la huella de las filas
+/// «ambas». Así un servidor antiguo coincide en todas las demás y solo difiere en
+/// esas (su PUT falla por el CHECK de `operacion`, fila a fila), en vez de
+/// quedar «sin soporte» entero.
 pub const VERSION: u32 = 2;
 
 /// Marca persistida en `fotos.sha256` cuando el archivo ya no existe en el
@@ -47,6 +51,7 @@ pub const CAMPOS: &[&str] = &[
      * y lo cita el borrador del Marketplace): viaja como un campo más. */
     "nombre_corto",
     "precio",
+    "precio_alquiler",
     "tipo",
     "operacion",
     "habitaciones",
@@ -163,6 +168,11 @@ pub fn valores_canonicos(f: &InmuebleRow) -> BTreeMap<&'static str, String> {
     m.insert("residencia", canon_texto(&f.residencia));
     m.insert("nombre_corto", canon_texto(&f.nombre_corto));
     m.insert("precio", canon_num(f.precio));
+    /* [25AA-6] El segundo precio solo existe en «ambas»: fuera de ella no entra en
+     * la huella, para que un servidor sin la columna no difiera en las demás filas. */
+    if f.operacion == "ambas" {
+        m.insert("precio_alquiler", canon_num(f.precio_alquiler));
+    }
     m.insert("tipo", canon_texto(&f.tipo));
     m.insert("operacion", canon_texto(&f.operacion));
     m.insert("habitaciones", f.habitaciones.to_string());
@@ -234,6 +244,7 @@ mod pruebas {
             residencia: String::new(),
             nombre_corto: "Apart. en Centro".into(),
             precio: 45000.0,
+            precio_alquiler: 0.0,
             tipo: "apartamento".into(),
             operacion: "venta".into(),
             habitaciones: 2,
@@ -283,8 +294,9 @@ mod pruebas {
         let a = huella_de(&fila(), vec![]);
         let b = huella_de(&fila(), vec![]);
         assert_eq!(a.campos, b.campos);
-        assert_eq!(a.campos.len(), CAMPOS.len());
-        for campo in CAMPOS {
+        // La fila es «venta»: `precio_alquiler` no entra en su huella.
+        assert_eq!(a.campos.len(), CAMPOS.len() - 1);
+        for campo in CAMPOS.iter().filter(|c| **c != "precio_alquiler") {
             assert!(a.campos.contains_key(*campo), "falta {campo}");
         }
         let mut otra = fila();
@@ -297,6 +309,24 @@ mod pruebas {
             .map(|(k, _)| k.as_str())
             .collect();
         assert_eq!(distintos, vec!["descripcion"]);
+    }
+
+    #[test]
+    fn precio_alquiler_solo_entra_en_la_huella_de_ambas() {
+        let venta = huella_de(&fila(), vec![]);
+        let mut venta_con_segundo_precio = fila();
+        venta_con_segundo_precio.precio_alquiler = 900.0;
+        assert_eq!(huella_de(&venta_con_segundo_precio, vec![]).campos, venta.campos);
+
+        let mut ambas = fila();
+        ambas.operacion = "ambas".into();
+        let h = huella_de(&ambas, vec![]);
+        assert_eq!(h.campos.len(), CAMPOS.len());
+        ambas.precio_alquiler = 900.0;
+        assert_ne!(
+            huella_de(&ambas, vec![]).campos["precio_alquiler"],
+            h.campos["precio_alquiler"]
+        );
     }
 
     #[test]

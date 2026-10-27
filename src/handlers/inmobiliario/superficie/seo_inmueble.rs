@@ -165,10 +165,10 @@ fn quitar_titulo(html: &str) -> String {
 }
 
 fn texto_descripcion(i: &Inmueble) -> String {
-    let operacion = if i.operacion == "venta" {
-        "venta"
-    } else {
-        "alquiler"
+    let operacion = match i.operacion.as_str() {
+        "venta" => "venta",
+        "ambas" => "venta y alquiler",
+        _ => "alquiler",
     };
     let ubicacion = match i.ubicacion.trim() {
         "" => "Puerto Ordaz",

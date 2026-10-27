@@ -231,6 +231,9 @@ pub struct InmuebleRemoto {
     #[serde(default)]
     pub nombre_corto: String,
     pub precio: f64,
+    /* [25AA-6] Un servidor anterior a «ambas» no lo manda: 0 (sin canon de alquiler). */
+    #[serde(default)]
+    pub precio_alquiler: f64,
     pub tipo: String,
     pub operacion: String,
     pub habitaciones: i32,

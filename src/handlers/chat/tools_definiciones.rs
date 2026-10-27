@@ -39,7 +39,7 @@ fn def_buscar() -> ToolDefinition {
             "properties": {
                 "texto": {"type": "string", "description": "Palabra en titulo o ubicacion"},
                 "tipo": {"type": "string", "enum": ["apartamento", "casa", "local", "terreno", "townhouse"]},
-                "operacion": {"type": "string", "enum": ["venta", "alquiler"]},
+                "operacion": {"type": "string", "enum": ["venta", "alquiler", "ambas"]},
                 "precio_max": {"type": "number"},
                 "habitaciones": {"type": "integer", "description": "Numero exacto de habitaciones"},
                 "zona": {"type": "string", "description": "Zona o sector (filtra por ubicacion)"},

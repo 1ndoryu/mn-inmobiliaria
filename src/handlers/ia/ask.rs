@@ -131,6 +131,7 @@ mod pruebas {
                 residencia: String::new(),
                 nombre_corto: String::new(),
                 precio: 0.0,
+                precio_alquiler: 0.0,
                 tipo: "apartamento".to_string(),
                 operacion: "venta".to_string(),
                 habitaciones: 0,

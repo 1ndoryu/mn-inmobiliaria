@@ -17,7 +17,9 @@ pub use dto::*;
 /// Valores permitidos para `tipo`
 pub const TIPOS: &[&str] = &["apartamento", "casa", "local", "terreno", "townhouse"];
 /// Valores permitidos para `operacion`
-pub const OPERACIONES: &[&str] = &["venta", "alquiler"];
+pub const OPERACIONES: &[&str] = &["venta", "alquiler", "ambas"];
+/// Operaciones que acepta una solicitud de la dueña (`ambas` solo existe en el catálogo)
+pub const OPERACIONES_SOLICITUD: &[&str] = &["venta", "alquiler"];
 /// Valores permitidos para `estado`
 pub const ESTADOS: &[&str] = &["disponible", "reservado", "vendido", "alquilado"];
 /// Valores permitidos para `origen` de foto
@@ -86,6 +88,8 @@ pub struct InmuebleRow {
      * sin rellenar: quien lo lea cae a la sugerencia calculada. */
     pub nombre_corto: String,
     pub precio: f64,
+    /* [25AA-5] Canon mensual cuando `operacion` es `ambas` (0 = sin canon); `precio` sigue siendo la venta. */
+    pub precio_alquiler: f64,
     pub tipo: String,
     pub operacion: String,
     pub habitaciones: i32,
@@ -134,6 +138,7 @@ pub struct Inmueble {
      * Resd. Kama Merú»): dato del inmueble, no algo que el borrador deduzca. */
     pub nombre_corto: String,
     pub precio: f64,
+    pub precio_alquiler: f64,
     pub tipo: String,
     pub operacion: String,
     pub habitaciones: i32,
@@ -247,6 +252,7 @@ impl Inmueble {
             residencia: row.residencia,
             nombre_corto: row.nombre_corto,
             precio: row.precio,
+            precio_alquiler: row.precio_alquiler,
             tipo: row.tipo,
             operacion: row.operacion,
             habitaciones: row.habitaciones,

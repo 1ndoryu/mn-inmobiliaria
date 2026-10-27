@@ -147,7 +147,7 @@ fn validar_telefono(telefono: &str) -> Result<(), ValidationError> {
 }
 
 fn validar_operacion(operacion: &str) -> Result<(), ValidationError> {
-    if super::inmueble::OPERACIONES.contains(&operacion) {
+    if super::inmueble::OPERACIONES_SOLICITUD.contains(&operacion) {
         Ok(())
     } else {
         let mut error = ValidationError::new("operacion");

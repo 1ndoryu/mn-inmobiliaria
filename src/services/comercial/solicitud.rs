@@ -7,7 +7,7 @@ use validator::Validate;
 use crate::errors::AppError;
 use crate::models::{
     CreateSolicitudRequest, FotoSolicitudSubida, PaginatedSolicitudes, Solicitud,
-    SolicitudesAdminParams, UpdateEstadoSolicitud, ESTADOS_SOLICITUD, OPERACIONES,
+    SolicitudesAdminParams, UpdateEstadoSolicitud, ESTADOS_SOLICITUD, OPERACIONES_SOLICITUD,
     ORIGENES_CONTACTO,
 };
 use crate::repositories::{NuevaSolicitud, SolicitudRepository};
@@ -40,7 +40,7 @@ impl SolicitudService {
             .map_err(|e| AppError::Validation(e.to_string()))?;
 
         let operacion = req.operacion.trim().to_lowercase();
-        if !OPERACIONES.contains(&operacion.as_str()) {
+        if !OPERACIONES_SOLICITUD.contains(&operacion.as_str()) {
             return Err(AppError::Validation(
                 "La operación debe ser venta o alquiler".into(),
             ));

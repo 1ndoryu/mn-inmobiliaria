@@ -16,7 +16,7 @@ use crate::models::{ActualizacionInmueble, FiltrosPublicos, Foto, InmuebleRow};
 mod fotos;
 
 pub(crate) const COLUMNAS: &str =
-    "id, titulo, descripcion, ubicacion, puestos, residencia, precio, \
+    "id, titulo, descripcion, ubicacion, puestos, residencia, precio, precio_alquiler, \
     tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, publicado, \
     slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, receta, extras, \
     precio_minimo, marketplace_id, created_at, updated_at, alias_titulos, nombre_corto";
@@ -26,7 +26,7 @@ pub(crate) const COLUMNAS: &str =
  * para reutilizar `InmuebleRow` sin exponer nada sensible.
  * [09AA-21] `marketplace_id` sí viaja en público: es el ID del aviso de FB,
  * ya público, y el front lo necesita para el vínculo exacto. */
-const COLUMNAS_PUBLICAS: &str = "id, titulo, descripcion, ubicacion, puestos, residencia, precio, \
+const COLUMNAS_PUBLICAS: &str = "id, titulo, descripcion, ubicacion, puestos, residencia, precio, precio_alquiler, \
     tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, publicado, \
     slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, receta, \
     '{}'::JSONB AS extras, NULL::FLOAT8 AS precio_minimo, marketplace_id, created_at, updated_at, \
@@ -40,6 +40,7 @@ pub struct NuevoInmueble<'a> {
     pub puestos: i32,
     pub residencia: &'a str,
     pub precio: f64,
+    pub precio_alquiler: f64,
     pub tipo: &'a str,
     pub operacion: &'a str,
     pub habitaciones: i32,
@@ -74,9 +75,9 @@ impl InmuebleRepository {
             "INSERT INTO inmuebles (id, titulo, descripcion, ubicacion, puestos, residencia, \
               precio, tipo, operacion, habitaciones, banos, metros, metros_terreno, estado, \
               slug, copy_corta, copy_larga, copy_modelo, copy_actualizada_en, marketplace_id, \
-              alias_titulos, nombre_corto) \
+              alias_titulos, nombre_corto, precio_alquiler) \
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, \
-               $16, $17, $18, $19, $20, $21, $22) \
+               $16, $17, $18, $19, $20, $21, $22, $23) \
               RETURNING {COLUMNAS}",
         ))
         .bind(id)
@@ -101,6 +102,7 @@ impl InmuebleRepository {
         .bind(nuevo.marketplace_id)
         .bind(&nuevo.alias_titulos)
         .bind(nuevo.nombre_corto)
+        .bind(nuevo.precio_alquiler)
         .fetch_one(pool)
         .await
     }
@@ -273,16 +275,28 @@ impl InmuebleRepository {
             qb.push(" AND tipo = ");
             qb.push_bind(tipo.clone());
         }
+        /* [25AA-5] Un «ambas» sale en venta y en alquiler. Al filtrar alquiler, su
+         * precio es el canon (`precio_alquiler`), no el de venta. */
+        let precio = if f.operacion.as_deref() == Some("alquiler") {
+            "CASE WHEN operacion = 'ambas' THEN precio_alquiler ELSE precio END"
+        } else {
+            "precio"
+        };
         if let Some(operacion) = &f.operacion {
-            qb.push(" AND operacion = ");
-            qb.push_bind(operacion.clone());
+            if operacion == "ambas" {
+                qb.push(" AND operacion = 'ambas'");
+            } else {
+                qb.push(" AND operacion IN ('ambas', ");
+                qb.push_bind(operacion.clone());
+                qb.push(")");
+            }
         }
         if let Some(min) = f.precio_min {
-            qb.push(" AND precio >= ");
+            qb.push(format!(" AND {precio} >= "));
             qb.push_bind(min);
         }
         if let Some(max) = f.precio_max {
-            qb.push(" AND precio <= ");
+            qb.push(format!(" AND {precio} <= "));
             qb.push_bind(max);
         }
     }
@@ -355,6 +369,7 @@ impl InmuebleRepository {
                    * edita en la ficha, nunca se deja en blanco por un PUT.
                    * `btrim` para que unos espacios no cuenten como valor. */
                   nombre_corto = COALESCE(NULLIF(btrim($23), ''), nombre_corto), \
+                  precio_alquiler = COALESCE($24, precio_alquiler), \
                   /* [279A-7] Al llegar el dato real se borra su marca «no sé»
                    * de `extras` (el front la borra en local al mismo tiempo).
                    * Quitar una clave ausente es no-op, por eso el ELSE ''. */
@@ -391,6 +406,7 @@ impl InmuebleRepository {
         .bind(id)
         .bind(cambios.alias_titulos.clone())
         .bind(cambios.nombre_corto)
+        .bind(cambios.precio_alquiler)
         .fetch_optional(pool)
         .await
     }

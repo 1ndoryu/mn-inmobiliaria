@@ -167,6 +167,7 @@ fn alta_desde(local: &Inmueble) -> CreateInmuebleRequest {
          * servidor lo sugiere al insertarlo. */
         nombre_corto: local.nombre_corto.clone(),
         precio: local.precio,
+        precio_alquiler: local.precio_alquiler,
         tipo: local.tipo.clone(),
         operacion: local.operacion.clone(),
         habitaciones: local.habitaciones,

@@ -82,7 +82,7 @@ pub(crate) async fn tarjetas_inmuebles(
              WHERE publicado AND estado = 'disponible' \
              AND ($1::TEXT IS NULL OR sencilla(titulo) LIKE '%' || sencilla($1) || '%' OR sencilla(ubicacion) LIKE '%' || sencilla($1) || '%') \
              AND ($2::TEXT IS NULL OR tipo = $2) \
-             AND ($3::TEXT IS NULL OR operacion = $3) \
+             AND ($3::TEXT IS NULL OR (operacion = $3 OR operacion = 'ambas')) \
              AND ($4::FLOAT8 IS NULL OR precio <= $4) \
              AND ($6::BIGINT IS NULL OR habitaciones = $6) \
              AND ($7::TEXT IS NULL OR sencilla(ubicacion) LIKE '%' || sencilla($7) || '%') \

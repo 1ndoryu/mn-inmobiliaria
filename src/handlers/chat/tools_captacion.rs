@@ -13,7 +13,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::errors::AppError;
-use crate::models::{CreateSolicitudRequest, OPERACIONES};
+use crate::models::{CreateSolicitudRequest, OPERACIONES_SOLICITUD};
 use crate::repositories::chat::tools::titulo_inmueble_publicado;
 use crate::repositories::{ClienteRepository, NuevaVisita, VisitaRepository};
 use crate::services::SolicitudService;
@@ -261,7 +261,7 @@ pub(super) fn pedido_captacion(
     } else {
         operacion
     };
-    if !OPERACIONES.contains(&operacion.as_str()) {
+    if !OPERACIONES_SOLICITUD.contains(&operacion.as_str()) {
         return Err(json!({"error": "operacion invalida (venta|alquiler)"}));
     }
     let req = CreateSolicitudRequest {

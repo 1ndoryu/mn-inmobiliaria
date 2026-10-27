@@ -171,6 +171,7 @@ fn alta_desde(servidor: &InmuebleRemoto) -> CreateInmuebleRequest {
          * lo sugiere. */
         nombre_corto: servidor.nombre_corto.clone(),
         precio: servidor.precio,
+        precio_alquiler: servidor.precio_alquiler,
         tipo: servidor.tipo.clone(),
         operacion: servidor.operacion.clone(),
         habitaciones: servidor.habitaciones,

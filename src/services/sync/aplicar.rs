@@ -446,9 +446,19 @@ async fn escribir_servidor(
 ) -> Result<(), String> {
     if !cambios.cuerpo.is_empty() {
         let claves = claves_de(&cambios.cuerpo);
+        // [25AA-6] Un servidor sin la migración de «ambas» rechaza la fila por el
+        // CHECK de `operacion`; el aviso dice la causa y solo afecta a esa fila.
+        let ambas = cambios.cuerpo.get("operacion").and_then(Value::as_str) == Some("ambas");
         remoto::actualizar_inmueble(destino.cred, destino.id, &Value::Object(cambios.cuerpo))
             .await
-            .map_err(|e| paso("campos", e))?;
+            .map_err(|e| {
+                let causa = if ambas {
+                    format!("{e} (el servidor aún no admite «ambas»: falta la migración 20261027000045)")
+                } else {
+                    e.to_string()
+                };
+                paso("campos", causa)
+            })?;
         hecho.push(format!("Campos en el servidor: {claves}"));
     }
     if let Some(extras) = cambios.extras {
@@ -514,6 +524,7 @@ fn campos_local(
     /* [18AA-6] Contenido de la ficha, como el título: viaja tal cual. */
     m.insert("nombre_corto".into(), json!(inmueble.nombre_corto));
     m.insert("precio".into(), json!(inmueble.precio));
+    m.insert("precio_alquiler".into(), json!(inmueble.precio_alquiler));
     m.insert("tipo".into(), json!(inmueble.tipo));
     m.insert("operacion".into(), json!(inmueble.operacion));
     m.insert("habitaciones".into(), json!(inmueble.habitaciones));
@@ -560,6 +571,7 @@ fn campos_servidor(
      * vuelta nunca lo vacía (`NULLIF` en el repositorio). */
     m.insert("nombre_corto".into(), json!(inmueble.nombre_corto));
     m.insert("precio".into(), json!(inmueble.precio));
+    m.insert("precio_alquiler".into(), json!(inmueble.precio_alquiler));
     m.insert("tipo".into(), json!(inmueble.tipo));
     m.insert("operacion".into(), json!(inmueble.operacion));
     m.insert("habitaciones".into(), json!(inmueble.habitaciones));

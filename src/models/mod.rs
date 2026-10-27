@@ -14,7 +14,7 @@ pub use inmueble::{
     AddFotoRequest, CopyInmueble, CreateInmuebleRequest, CreateUserRequest, EstadoRequest,
     FichaAskRequest, FichaAskResponse, Foto, FotoPublica, Inmueble, InmuebleRow,
     PublicacionRequest, RecetaPublicidad, ReordenarFotosRequest, UpdateInmuebleRequest, ESTADOS,
-    EXTENSIONES_FOTO, FORMATOS_RECETA, MAX_FOTO_BYTES, OPERACIONES, ORIGENES_FOTO, TIPOS,
+    EXTENSIONES_FOTO, FORMATOS_RECETA, MAX_FOTO_BYTES, OPERACIONES, OPERACIONES_SOLICITUD, ORIGENES_FOTO, TIPOS,
 };
 pub use inmueble_alias::{normalizar_alias_titulos, MAX_ALIAS, MAX_ALIAS_LEN};
 pub use inmueble_paginacion::{FiltrosPublicos, PaginatedInmuebles};

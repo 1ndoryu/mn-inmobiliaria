@@ -56,6 +56,10 @@ pub struct CreateInmuebleRequest {
     #[serde(default)]
     #[validate(range(min = 0.0, message = "El precio no puede ser negativo"))]
     pub precio: f64,
+    /* [25AA-5] Canon mensual para `ambas`; en venta o alquiler queda en 0. */
+    #[serde(default)]
+    #[validate(range(min = 0.0, message = "El precio de alquiler no puede ser negativo"))]
+    pub precio_alquiler: f64,
     #[serde(default = "default_tipo")]
     pub tipo: String,
     #[serde(default = "default_operacion")]
@@ -109,6 +113,8 @@ pub struct UpdateInmuebleRequest {
     pub nombre_corto: Option<String>,
     #[validate(range(min = 0.0))]
     pub precio: Option<f64>,
+    #[validate(range(min = 0.0))]
+    pub precio_alquiler: Option<f64>,
     pub tipo: Option<String>,
     pub operacion: Option<String>,
     #[validate(range(min = 0))]
@@ -153,6 +159,7 @@ pub struct ActualizacionInmueble<'a> {
     /* [18AA-6] `None` = no tocar (el vacío no borra). */
     pub nombre_corto: Option<&'a str>,
     pub precio: Option<f64>,
+    pub precio_alquiler: Option<f64>,
     pub tipo: Option<&'a str>,
     pub operacion: Option<&'a str>,
     pub habitaciones: Option<i32>,
