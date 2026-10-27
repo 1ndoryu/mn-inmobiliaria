@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug, puestos, residencia, habitaciones FROM inmuebles WHERE publicado AND estado = 'disponible' AND ($1::TEXT IS NULL OR sencilla(titulo) LIKE '%' || sencilla($1) || '%' OR sencilla(ubicacion) LIKE '%' || sencilla($1) || '%') AND ($2::TEXT IS NULL OR tipo = $2) AND ($3::TEXT IS NULL OR operacion = $3) AND ($4::FLOAT8 IS NULL OR precio <= $4) AND ($6::BIGINT IS NULL OR habitaciones = $6) AND ($7::TEXT IS NULL OR sencilla(ubicacion) LIKE '%' || sencilla($7) || '%') ORDER BY updated_at DESC LIMIT $5",
+  "query": "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug, puestos, residencia, habitaciones FROM inmuebles WHERE publicado AND estado = 'disponible' AND ($1::TEXT IS NULL OR sencilla(titulo) LIKE '%' || sencilla($1) || '%' OR sencilla(ubicacion) LIKE '%' || sencilla($1) || '%') AND ($2::TEXT IS NULL OR tipo = $2) AND ($3::TEXT IS NULL OR (operacion = $3 OR operacion = 'ambas')) AND ($4::FLOAT8 IS NULL OR precio <= $4) AND ($6::BIGINT IS NULL OR habitaciones = $6) AND ($7::TEXT IS NULL OR sencilla(ubicacion) LIKE '%' || sencilla($7) || '%') ORDER BY updated_at DESC LIMIT $5",
   "describe": {
     "columns": [
       {
@@ -78,5 +78,5 @@
       false
     ]
   },
-  "hash": "38b3ec87a3c93408cb340e9795530f18157a65bfab1e8510cfdfe4541bdd7055"
+  "hash": "6201be32580f9fc3b593d39e606b26e3e1ecaaf1fb0cd7809b0d492d1a99100e"
 }

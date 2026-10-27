@@ -75,6 +75,7 @@ pub(crate) async fn tarjetas_inmuebles(
         habitaciones,
         zona,
     } = filtros;
+    // Macro comprobada contra `.sqlx/`: si cambia este SQL, regenerar la caché.
     sqlx::query_as!(
         Tarjeta,
         "SELECT id, titulo, tipo, operacion, precio, ubicacion, slug, puestos, residencia, habitaciones \
