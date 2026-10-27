@@ -451,14 +451,7 @@ async fn escribir_servidor(
         let ambas = cambios.cuerpo.get("operacion").and_then(Value::as_str) == Some("ambas");
         remoto::actualizar_inmueble(destino.cred, destino.id, &Value::Object(cambios.cuerpo))
             .await
-            .map_err(|e| {
-                let causa = if ambas {
-                    format!("{e} (el servidor aún no admite «ambas»: falta la migración 20261027000045)")
-                } else {
-                    e.to_string()
-                };
-                paso("campos", causa)
-            })?;
+            .map_err(|e| paso("campos", if ambas { format!("{e} (sin migración «ambas»: falta 20261027000045)") } else { e.to_string() }))?;
         hecho.push(format!("Campos en el servidor: {claves}"));
     }
     if let Some(extras) = cambios.extras {
