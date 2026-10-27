@@ -21,10 +21,10 @@ import { ButtonPlano } from '@/components/ui/button';
  * bajar y la foto la cubre por detrás arriba de la vista. La hoja con la
  * lista se ancla 200px debajo al subir.
  * En móvil (<md) muestra solo el logo sin letras y un botón de
- * hamburguesa que abre el mismo menú (Mensaje, Publicar, Entrar); en
+ * hamburguesa que abre el mismo menú (Mensaje, Vender, Entrar); en
  * escritorio (md+) van el nombre y los tres botones directos.
  * El boton Mensaje abre el chat del visitante (lo manda la pagina);
- * Publicar abre el modal de solicitud (también lo manda la pagina).
+ * «Quiero vender mi inmueble» abre el modal de solicitud (también lo manda la pagina).
  * El icono de entrar abre el login del panel, sin texto. */
 export function CabeceraPublica({
   alPedirChat,
@@ -65,12 +65,12 @@ export function CabeceraPublica({
         </ButtonPlano>
         <ButtonPlano
           type="button"
-          aria-label="Publicar mi inmueble"
+          aria-label="Quiero vender mi inmueble"
           onClick={alPedirPublicar}
           className={`flex cursor-pointer items-center gap-2 rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO}`}
         >
           <Plus className="h-4 w-4" />
-          Publicar mi inmueble
+          Quiero vender mi inmueble
         </ButtonPlano>
         <ButtonPlano
           type="button"
@@ -108,7 +108,7 @@ export function CabeceraPublica({
             className={`${OPCION_MENU_MOVIL} ${CLASE_TEXTO}`}
           >
             <Plus className="h-4 w-4" />
-            Publicar mi inmueble
+            Quiero vender mi inmueble
           </ButtonPlano>
           <ButtonPlano
             type="button"

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { avisarAlCerrar, temporizar } from '../../../platform/ventana';
+import { avisarAlCerrar, fijarRuta, rutaActual, suscribirEvento, temporizar } from '../../../platform/ventana';
 import { LocalStorageAdapter } from '../../../data/sesion/storage';
 import { crearSolicitud, subirFotoSolicitud } from '../../../data/publicar/api';
 import {
@@ -14,12 +14,16 @@ import {
 // de fotos ya subidas) se autosalva en localStorage y sobrevive al cierre.
 // Las fotos se suben al elegirlas; el alta solo viaja con claves del servidor.
 const CLAVE_BORRADOR_SOLICITUD = 'solicitud:borrador';
+/* [25AA-10] Ruta compartible: abrir `/publicar` arranca con el modal abierto. */
+const RUTA_PUBLICAR = '/publicar';
 const adapter = new LocalStorageAdapter();
 
 type FaseEnvio = 'reposo' | 'subiendo' | 'enviando' | 'enviada';
 
 export function useModalPublicar() {
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(() => rutaActual() === RUTA_PUBLICAR);
+  // [25AA-10] Cerrar con borrador pide confirmación; el borrador queda en localStorage.
+  const [confirmandoCierre, setConfirmandoCierre] = useState(false);
   const [borrador, setBorrador] = useState<BorradorSolicitud>(BORRADOR_SOLICITUD_VACIO);
   const [envio, setEnvio] = useState<{ fase: FaseEnvio; error: string | null }>({
     fase: 'reposo',
@@ -47,12 +51,43 @@ export function useModalPublicar() {
 
   useEffect(() => avisarAlCerrar(() => abierto && borradorSolicitudTieneContenido(borrador)), [abierto, borrador]);
 
+  // [25AA-10] La URL sigue al modal: `/publicar` mientras está abierto, `/` al cerrar.
+  useEffect(() => {
+    const enRuta = rutaActual() === RUTA_PUBLICAR;
+    if (abierto && !enRuta) fijarRuta(RUTA_PUBLICAR);
+    // Al cerrar se reemplaza (sin entrada nueva): Atrás no reabre el modal.
+    if (!abierto && enRuta) history.replaceState(null, '', '/');
+  }, [abierto]);
+
+  // Atrás del navegador fuera de `/publicar` cierra el modal sin preguntar (ya salió de la ruta).
+  useEffect(() => {
+    const alVolver = () => {
+      if (rutaActual() !== RUTA_PUBLICAR) {
+        setConfirmandoCierre(false);
+        setAbierto(false);
+      }
+    };
+    return suscribirEvento('popstate', alVolver);
+  }, []);
+
   const abrir = useCallback(() => {
     setEnvio({ fase: 'reposo', error: null });
+    setConfirmandoCierre(false);
     setAbierto(true);
   }, []);
 
-  const cerrar = useCallback(() => setAbierto(false), []);
+  const cerrar = useCallback(() => {
+    setConfirmandoCierre(false);
+    setAbierto(false);
+  }, []);
+
+  // Clic fuera o Escape: si hay algo escrito, pide confirmación antes de cerrar.
+  const pedirCierre = useCallback(() => {
+    if (envio.fase !== 'enviada' && borradorSolicitudTieneContenido(borrador)) setConfirmandoCierre(true);
+    else cerrar();
+  }, [borrador, envio.fase, cerrar]);
+
+  const seguirEditando = useCallback(() => setConfirmandoCierre(false), []);
 
   const actualizar = useCallback((campo: keyof BorradorSolicitud, valor: string) => {
     setBorrador((b) => ({ ...b, [campo]: valor }));
@@ -99,5 +134,18 @@ export function useModalPublicar() {
     }
   }, [borrador]);
 
-  return { abierto, abrir, cerrar, borrador, actualizar, agregarFotos, quitarFoto, enviar, envio };
+  return {
+    abierto,
+    abrir,
+    cerrar,
+    pedirCierre,
+    confirmandoCierre,
+    seguirEditando,
+    borrador,
+    actualizar,
+    agregarFotos,
+    quitarFoto,
+    enviar,
+    envio,
+  };
 }

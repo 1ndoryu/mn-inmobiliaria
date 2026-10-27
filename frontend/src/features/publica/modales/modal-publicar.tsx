@@ -7,6 +7,7 @@ import {
   CLASE_ACTIVO,
   CLASE_BORDE,
   CLASE_FONDO,
+  CLASE_REPOSO,
   CLASE_RELLENO_SUAVE,
   CLASE_TEXTO,
   CLASE_TINTA,
@@ -14,16 +15,19 @@ import {
 import { TextareaPlano } from '@/components/ui/textarea';
 import { ButtonPlano } from '@/components/ui/button';
 import { InputPlano } from '@/components/ui/input';
+import { abrirExterna } from '../../../platform/ventana';
+import { enlaceWhatsApp, mensajeGeneral } from '../../../platform/whatsapp';
 
 /* [169A-2] Formulario "Publicar mi inmueble": cuadrado, tinta, sin sombras,
  * Söhne 400 sin negritas. Cierra con overlay o Escape (sin X); el borrador
- * no se pierde al cerrar. Las fotos se suben al elegirlas. */
+ * no se pierde al cerrar. Las fotos se suben al elegirlas.
+ * [25AA-10] Si hay algo escrito, cerrar pide confirmación; «Contacto» abre WhatsApp. */
 export function ModalPublicar({ modal }: { modal: ReturnType<typeof useModalPublicar> }) {
-  const { abierto, cerrar, borrador, actualizar, agregarFotos, quitarFoto, enviar, envio } = modal;
+  const { abierto, cerrar, pedirCierre, confirmandoCierre, seguirEditando, borrador, actualizar, agregarFotos, quitarFoto, enviar, envio } = modal;
   const ocupada = envio.fase === 'subiendo' || envio.fase === 'enviando';
 
   return (
-    <Dialog open={abierto} onOpenChange={(a) => !a && cerrar()}>
+    <Dialog open={abierto} onOpenChange={(a) => !a && pedirCierre()}>
       <DialogContent
         showCloseButton={false}
         className={`max-h-[92dvh] overflow-y-auto rounded-none border ${CLASE_BORDE} ${CLASE_FONDO} ${CLASE_TINTA} p-6 font-soehne font-normal sm:max-w-2xl`}
@@ -31,7 +35,9 @@ export function ModalPublicar({ modal }: { modal: ReturnType<typeof useModalPubl
         <DialogTitle className="font-soehne text-xl leading-tight font-normal">
           Publicar mi inmueble
         </DialogTitle>
-        {envio.fase === 'enviada' ? (
+        {confirmandoCierre ? (
+          <Confirmacion alSeguir={seguirEditando} alCerrar={cerrar} />
+        ) : envio.fase === 'enviada' ? (
           <Exito alCerrar={cerrar} />
         ) : (
           <form
@@ -115,21 +121,57 @@ export function ModalPublicar({ modal }: { modal: ReturnType<typeof useModalPubl
                 {envio.error}
               </p>
             )}
-            <ButtonPlano
-              type="submit"
-              disabled={ocupada}
-              className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO} disabled:cursor-wait disabled:opacity-60`}
-            >
-              {envio.fase === 'enviando'
-                ? 'Enviando…'
-                : envio.fase === 'subiendo'
-                  ? 'Subiendo fotos…'
-                  : 'Enviar solicitud'}
-            </ButtonPlano>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <ButtonPlano
+                type="submit"
+                disabled={ocupada}
+                className={`flex-1 cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO} disabled:cursor-wait disabled:opacity-60`}
+              >
+                {envio.fase === 'enviando'
+                  ? 'Enviando…'
+                  : envio.fase === 'subiendo'
+                    ? 'Subiendo fotos…'
+                    : 'Enviar solicitud'}
+              </ButtonPlano>
+              <ButtonPlano
+                type="button"
+                onClick={() => abrirExterna(enlaceWhatsApp(mensajeGeneral()))}
+                className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_REPOSO} px-4 py-2 ${CLASE_TEXTO}`}
+              >
+                Contacto
+              </ButtonPlano>
+            </div>
           </form>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* [25AA-10] Aviso al cerrar con borrador: no se pierde, queda guardado en este navegador. */
+function Confirmacion({ alSeguir, alCerrar }: { alSeguir: () => void; alCerrar: () => void }) {
+  return (
+    <div className="mt-4 flex flex-col gap-4 font-normal">
+      <p className={`text-sm leading-relaxed font-normal ${CLASE_TINTA}`}>
+        ¿Cerrar sin enviar? Tu borrador se guarda en este navegador y lo encontrarás al volver.
+      </p>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <ButtonPlano
+          type="button"
+          onClick={alSeguir}
+          className={`flex-1 cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_ACTIVO} px-4 py-2 ${CLASE_TEXTO}`}
+        >
+          Seguir editando
+        </ButtonPlano>
+        <ButtonPlano
+          type="button"
+          onClick={alCerrar}
+          className={`cursor-pointer rounded-none border ${CLASE_BORDE} ${CLASE_REPOSO} px-4 py-2 ${CLASE_TEXTO}`}
+        >
+          Cerrar
+        </ButtonPlano>
+      </div>
+    </div>
   );
 }
 
