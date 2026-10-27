@@ -93,7 +93,6 @@ function normalizarFicha(datos: Record<string, unknown>): FichaIA {
     precio_alquiler: aNumero(datos.precio_alquiler),
     tipo: (TIPOS as readonly string[]).includes(tipo) ? (tipo as TipoInmueble) : '',
     operacion: operacion === 'venta' || operacion === 'alquiler' || operacion === 'ambas' ? operacion : '',
-    precio_alquiler: aNumero(datos.precio_alquiler),
     habitaciones: aNumero(datos.habitaciones),
     banos: aNumero(datos.banos),
     metros: aNumero(datos.metros),
