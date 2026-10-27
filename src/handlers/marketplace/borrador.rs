@@ -430,7 +430,7 @@ pub(super) fn sistema_borrador(
           sigue» ni «te escribo»; sin visitas, coordinación ni confirmar nada con \
           la dueña. La cifra exacta de los datos o del aviso, con el $ al final \
           (35.000$). El mismo inmueble puede \
-          estar en venta y en alquiler a la vez: `precio_publico` es la cifra de \
+          estar en venta y en alquiler a la vez: `precio_publico` es la cifra de venta; si viene `precio_alquiler_publico`, es el canon mensual y se cita aparte (con «canon mensual»). Para `operacion` \
           `operacion`, y si la descripción de los datos trae otra (p. ej. \
           «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa \
           diciendo «canon mensual»; \

@@ -52,17 +52,25 @@ pub fn sha_hex(canon: &str) -> String {
 #[must_use]
 pub fn hash_ficha(ficha: &InmuebleRow) -> String {
     let canon = match strip_ficha_para_prompt(ficha, STRIP_VERSION) {
-        Ok(s) => serde_json::json!({
-            "titulo": s.titulo,
-            "precio": s.precio_publico,
-            "operacion": s.operacion,
-            "zona": s.zona,
-            "m2": s.m2,
-            "hab": s.habitaciones,
-            "desc": s.descripcion_corta,
-            "nombre": s.nombre_corto,
-            "estado": ficha.estado,
-        }),
+        Ok(s) => {
+            let mut canon = serde_json::json!({
+                "titulo": s.titulo,
+                "precio": s.precio_publico,
+                "operacion": s.operacion,
+                "zona": s.zona,
+                "m2": s.m2,
+                "hab": s.habitaciones,
+                "desc": s.descripcion_corta,
+                "nombre": s.nombre_corto,
+                "estado": ficha.estado,
+            });
+            /* [25AA-7] El canon entra solo en «ambas»: las demás fichas conservan
+             * su hash y no pierden la caché al desplegar. */
+            if let Some(alquiler) = s.precio_alquiler_publico {
+                canon["alquiler"] = alquiler.into();
+            }
+            canon
+        }
         /* Inalcanzable con v2 (el handler lo rechazaría antes); clave
          * estable para no romper el flujo si el strip evoluciona. */
         Err(_) => serde_json::json!({"strip": "error"}),
@@ -73,7 +81,11 @@ pub fn hash_ficha(ficha: &InmuebleRow) -> String {
 /// Hash del precio citado: el `precio_publico` ya formateado que ve la IA.
 #[must_use]
 pub fn precio_hash_seguro(seguro: &PromptSeguro) -> String {
-    sha_hex(&seguro.precio_publico)
+    match &seguro.precio_alquiler_publico {
+        // [25AA-7] En «ambas» la respuesta cita los dos precios: el hash los lleva.
+        Some(alquiler) => sha_hex(&format!("{}|{alquiler}", seguro.precio_publico)),
+        None => sha_hex(&seguro.precio_publico),
+    }
 }
 
 /// Hit de caché: el texto listo + si es corrección de la dueña. El `UPDATE`

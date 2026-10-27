@@ -15,6 +15,10 @@ use crate::services::marketplace::{mejor_puntaje_con_alias, precio_publico, STRI
 pub struct PromptSeguro {
     pub titulo: String,
     pub precio_publico: String,
+    /// [25AA-7] Solo en «ambas»: el canon mensual ya formateado. `precio_publico`
+    /// queda como la cifra de venta. Ausente en el resto: el prompt no cambia.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub precio_alquiler_publico: Option<String>,
     pub operacion: String,
     pub zona: String,
     pub m2: f64,
@@ -42,6 +46,8 @@ pub fn strip_ficha_para_prompt(ficha: &InmuebleRow, strip: &str) -> Result<Promp
     Ok(PromptSeguro {
         titulo: ficha.titulo.clone(),
         precio_publico: precio_publico(ficha.precio),
+        precio_alquiler_publico: (ficha.operacion == "ambas" && ficha.precio_alquiler > 0.0)
+            .then(|| precio_publico(ficha.precio_alquiler)),
         operacion: ficha.operacion.clone(),
         zona,
         m2: ficha.metros,

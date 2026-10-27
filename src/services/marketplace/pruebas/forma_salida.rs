@@ -101,6 +101,7 @@ fn seguro_kama_meru() -> PromptSeguro {
     PromptSeguro {
         titulo: "Planta baja con patio en Residencias Kama Merú".to_string(),
         precio_publico: "$86.000".to_string(),
+        precio_alquiler_publico: None,
         operacion: "venta".to_string(),
         zona: "Puerto Ordaz, Residencias Kama Merú".to_string(),
         m2: 120.0,
@@ -202,4 +203,20 @@ fn forma_aprobada_2026_10_21() {
              escribirnos al whatsapp: {CONTACTO_WA}"
         )
     );
+}
+
+/// [25AA-7] «Ambas» cita la venta y el canon; sin canon, el molde de venta.
+#[test]
+fn apertura_de_ambas_cita_venta_y_canon() {
+    let mut s = seguro_kama_meru();
+    s.operacion = "ambas".to_string();
+    s.precio_alquiler_publico = Some("2.800".to_string());
+    let (cifras, molde) = apertura_de_ficha(&s).expect("hay apertura");
+    assert_eq!(cifras, vec!["86.000", "2.800"]);
+    assert!(molde.contains("86.000$") && molde.contains("alquiler por 2.800$ al mes"), "{molde}");
+
+    s.precio_alquiler_publico = None;
+    let (cifras, molde) = apertura_de_ficha(&s).expect("hay apertura");
+    assert_eq!(cifras, vec!["86.000"]);
+    assert!(molde.contains("sigue disponible en 86.000$"), "{molde}");
 }

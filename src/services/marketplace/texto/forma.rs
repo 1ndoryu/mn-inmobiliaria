@@ -24,13 +24,8 @@ pub fn asegurar_contacto(texto: &str) -> String {
 /// decide la IA y el fallback sigue valiendo.
 pub(in crate::services::marketplace) fn apertura_de_ficha(
     ficha: &PromptSeguro,
-) -> Option<(String, String)> {
-    let cifra = ficha
-        .precio_publico
-        .trim()
-        .trim_start_matches('$')
-        .trim()
-        .to_string();
+) -> Option<(Vec<String>, String)> {
+    let cifra = cifra_sin_simbolo(&ficha.precio_publico);
     if !cifra.chars().any(|c| c.is_ascii_digit() && c != '0') {
         return None;
     }
@@ -38,12 +33,29 @@ pub(in crate::services::marketplace) fn apertura_de_ficha(
     if nombre.is_empty() {
         return None;
     }
-    let molde = if ficha.operacion.trim().eq_ignore_ascii_case("alquiler") {
-        format!("El canon mensual es de {cifra}$ para {nombre}.")
-    } else {
-        format!("{nombre} sigue disponible en {cifra}$ negociable.")
+    let operacion = ficha.operacion.trim();
+    // [25AA-7] «Ambas» cita las dos cifras: la venta y el canon mensual.
+    let alquiler = ficha.precio_alquiler_publico.as_deref().map(cifra_sin_simbolo);
+    let (cifras, molde) = match (operacion, alquiler) {
+        ("ambas", Some(canon)) => (
+            vec![cifra.clone(), canon.clone()],
+            format!("{nombre} sigue disponible en {cifra}$ negociable, o en alquiler por {canon}$ al mes."),
+        ),
+        _ if operacion.eq_ignore_ascii_case("alquiler") => (
+            vec![cifra.clone()],
+            format!("El canon mensual es de {cifra}$ para {nombre}."),
+        ),
+        _ => (
+            vec![cifra.clone()],
+            format!("{nombre} sigue disponible en {cifra}$ negociable."),
+        ),
     };
-    Some((cifra, molde))
+    Some((cifras, molde))
+}
+
+/// Cifra publicada sin el `$` ni espacios (`"$86.000"` → `"86.000"`).
+fn cifra_sin_simbolo(precio: &str) -> String {
+    precio.trim().trim_start_matches('$').trim().to_string()
 }
 
 /// Garantía determinista de forma sobre el texto crudo de la IA. `ficha` es la
@@ -76,7 +88,7 @@ pub fn imponer_forma_borrador(ia: &str, ficha: Option<&PromptSeguro>) -> String 
      * su primer párrafo no trae el precio publicado (fallback, cifra de otro
      * inmueble o frase sin cifra), lo pone Rust. */
     let p1 = match &apertura {
-        Some((cifra, molde)) if !p1.contains(cifra.as_str()) => molde.clone(),
+        Some((cifras, molde)) if !cifras.iter().all(|c| p1.contains(c.as_str())) => molde.clone(),
         _ => p1,
     };
     if !p1_valido(&p1, apertura.is_some()) {
