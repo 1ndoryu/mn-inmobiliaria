@@ -354,9 +354,21 @@ function dominioACuerpo(i: Inmueble): Record<string, unknown> {
 
 /* ---------- CRUD admin ---------- */
 
+/* Trae el catálogo entero, página a página: la API admin devuelve 20 por
+ * defecto y topa en 100, así que una sola petición escondía el resto (la
+ * búsqueda y la paginación de la vista solo ven lo que se cargó aquí). */
+const TAMANO_PAGINA_API = 100;
+
 export async function listarRemoto(): Promise<Inmueble[]> {
-  const r = await apiFetch<{ items: InmuebleRemoto[] }>('/api/admin/inmuebles?page=1&per_page=100');
-  return r.items.map(remotoADominio);
+  const todos: Inmueble[] = [];
+  for (let page = 1; ; page++) {
+    const r = await apiFetch<{ items: InmuebleRemoto[]; total: number }>(
+      `/api/admin/inmuebles?page=${page}&per_page=${TAMANO_PAGINA_API}`,
+    );
+    todos.push(...r.items.map(remotoADominio));
+    // Sin más filas (o ya están todas): fin. Evita bucle si el total cambia a mitad.
+    if (r.items.length === 0 || todos.length >= r.total) return todos;
+  }
 }
 
 async function obtenerRemoto(id: string): Promise<InmuebleRemoto> {

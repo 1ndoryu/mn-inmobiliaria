@@ -45,6 +45,9 @@ export function AppAdmin() {
   return <ContenidoApp key={email} email={email} alSalir={salir} />;
 }
 
+/* Inmuebles por página en la lista de administración. */
+const TAMANO_PAGINA = 20;
+
 /* Contenido tras el login: se monta de nuevo al cambiar de usuario para
  * recargar la vista con su sesión. */
 function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }) {
@@ -56,6 +59,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
   const [viendo, setViendo] = useState<Inmueble | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | EstadoInmueble>('todos');
+  const [pagina, setPagina] = useState(1);
   /* La pestaña sobrevive a recargas (ver vista-admin.ts). */
   const [vista, setVista] = useState<VistaApp>(leerVistaGuardada);
   useEffect(() => guardarVista(vista), [vista]);
@@ -77,6 +81,8 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
     useFotosMejora(inmuebles);
   const cola = useColaMejora(fotos, config, marcar, registrar);
 
+  /* La búsqueda y el filtro actúan sobre la lista entera; la paginación
+   * solo recorta el resultado, así que encuentra cualquier inmueble. */
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return inmuebles.filter((i) => {
@@ -89,6 +95,12 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
       );
     });
   }, [inmuebles, busqueda, filtroEstado]);
+
+  /* Página actual acotada: si se borra el último de la última página, no se
+   * queda en una vacía. */
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / TAMANO_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const visibles = filtrados.slice((paginaActual - 1) * TAMANO_PAGINA, paginaActual * TAMANO_PAGINA);
 
   async function eliminarConFotos(id: string) {
     await eliminar(id);
@@ -213,14 +225,20 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
               <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
+                onChange={(e) => {
+                  setBusqueda(e.target.value);
+                  setPagina(1);
+                }}
                 placeholder="Buscar por título, ubicación o descripción…"
                 className="pl-9"
               />
             </div>
             <Select sinBase
               value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value as 'todos' | EstadoInmueble)}
+              onChange={(e) => {
+                setFiltroEstado(e.target.value as 'todos' | EstadoInmueble);
+                setPagina(1);
+              }}
               className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               <option value="todos">Todos los estados</option>
@@ -236,16 +254,47 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
               Cargando inmuebles…
             </p>
           ) : (
-            <TablaInmuebles
-              inmuebles={filtrados}
-              onVer={setViendo}
-              onEditar={setEditando}
-              onEliminar={(id) => void eliminarConFotos(id)}
-              onAnadirFotos={(id) => fotosNuevas.setAnadiendoId(id)}
-              onCopy={abrirCopy}
-              onPublicar={(id, publicado) => void publicarDesdeVista(id, publicado)}
-              onActualizarInmueble={reponer}
-            />
+            <>
+              <TablaInmuebles
+                inmuebles={visibles}
+                onVer={setViendo}
+                onEditar={setEditando}
+                onEliminar={(id) => void eliminarConFotos(id)}
+                onAnadirFotos={(id) => fotosNuevas.setAnadiendoId(id)}
+                onCopy={abrirCopy}
+                onPublicar={(id, publicado) => void publicarDesdeVista(id, publicado)}
+                onActualizarInmueble={reponer}
+              />
+              {filtrados.length > TAMANO_PAGINA && (
+                <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">
+                    {(paginaActual - 1) * TAMANO_PAGINA + 1}–
+                    {Math.min(paginaActual * TAMANO_PAGINA, filtrados.length)} de {filtrados.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={paginaActual <= 1}
+                      onClick={() => setPagina(paginaActual - 1)}
+                    >
+                      Anterior
+                    </Button>
+                    <span className="tabular-nums">
+                      {paginaActual} / {totalPaginas}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={paginaActual >= totalPaginas}
+                      onClick={() => setPagina(paginaActual + 1)}
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </>
       ) : vista === 'publicidad' ? (
