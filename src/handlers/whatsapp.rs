@@ -251,13 +251,14 @@ mod pruebas {
         assert_eq!(reparto("584120825234", "", "04120000000"), None);
     }
 
-    /* [279A-2] Secreto del gateway: sin configurar acepta todo (simulado);
-     * configurado exige coincidencia exacta (falla cerrado). */
+    /* [09AA-8] Secreto del gateway: falla cerrado; sin secreto configurado
+     * rechaza todo, y con él exige coincidencia exacta. */
     #[test]
-    fn secreto_solo_exige_si_esta_configurado() {
-        assert!(secreto_valido(None, None));
-        assert!(secreto_valido(None, Some("x")));
-        assert!(secreto_valido(Some(""), None));
+    fn secreto_falla_cerrado() {
+        assert!(!secreto_valido(None, None));
+        assert!(!secreto_valido(None, Some("x")));
+        assert!(!secreto_valido(Some(""), None));
+        assert!(!secreto_valido(Some(""), Some("")));
         assert!(secreto_valido(Some("s3cr3to"), Some("s3cr3to")));
         assert!(!secreto_valido(Some("s3cr3to"), None));
         assert!(!secreto_valido(Some("s3cr3to"), Some("otro")));

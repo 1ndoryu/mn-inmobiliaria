@@ -9,7 +9,6 @@
 ## Pendientes
 
 - [ ] `19AA-6` — **Backup pre-deploy que no aborta con la app en bucle.** Hecho cuando `coolify-manager-rs` (`fases_inicio.rs:22-55`) deja de abortar el backup si la app está en bucle, y un deploy de prueba en la 89 lo confirma. Detalle en el plan del piloto, §G.
-- [ ] `09AA-8` — **Webhook del gateway, secreto `WA_WEBHOOK_SECRETO`.** Trabajo listo para hacer: hacer fail-closed `secreto_valido` (`src/services/mensajeria/transporte.rs:95-103`), que hoy acepta cualquier valor si el esperado está vacío. Su prueba viva espera a que el gateway corra en la 89 (ver `15AA-6`); fijar el secreto en `.env` lo hace la usuaria.
 - [ ] `08AA-10` — **Texto final con precio.** Pendiente; el proveedor IA devuelve vacío (`/ia/probar` cuelga).
 - [ ] `08AA-11` — y `08AA-15` — **Verificación visual y viva del borrador.** Mismo proveedor IA.
 
@@ -19,7 +18,7 @@
 - Bloqueo `19AA-9` — Sentinel: contador de líneas de Rust arreglado en `glory-sentinel` `4d63473`, sin propagar. Decisión de la usuaria (2026-10-16): entra con ese release cuando ella lo decida. Entonces se sube el pin y este proyecto gana un hallazgo (`ia/rutas.rs`) que hay que corregir. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
 - Bloqueo `13AA-13` — clave de chat estable: código en `main` desde el 2026-10-13; falta la prueba viva con dos chats del mismo nombre, que es de la usuaria.
 - Bloqueo `299A-3` — notas de voz: falta la prueba viva con notas reales (`GROQ_LIVE_TEST=1`, clave de Groq y gateway con WhatsApp vinculado).
-- Bloqueo `15AA-6` — WhatsApp del taller, número C: falta que el gateway corra y que el número C esté configurado (`agent_config wa_numero_c` o `WA_NUMERO_C`). Mismo desbloqueo que `09AA-8`.
+- Bloqueo `15AA-6` — WhatsApp del taller, número C: falta que el gateway corra y que el número C esté configurado (`agent_config wa_numero_c` o `WA_NUMERO_C`). Prueba viva del webhook fail-closed (`09AA-8`, hecho en código): sin secreto el webhook responde 401; con él, 200. Antes del próximo deploy, `WA_WEBHOOK_SECRETO` debe estar en producción (VPS 66) o el canal de WhatsApp deja de recibir mensajes.
 - Bloqueo `03AA-3` — asistente Marketplace: falta la firma de la usuaria para M1, el remoto y la fecha.
 - Bloqueo `239A-1` — deploy, fase 5.4: confirmar la password admin rotada (o pedir otra).
 - Bloqueo `169A-1` — `AGENTE_CONTACTO`: confirmar el valor real que va en `MN-Inmobiliaria/.env` (no se muestra aquí).

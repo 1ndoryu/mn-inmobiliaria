@@ -112,16 +112,15 @@ pub fn destino_jubilado(numero_b: &str, numero_destino: &str) -> bool {
         == ClienteRepository::normalizar_telefono(numero_b)
 }
 
-/// Secreto compartido con el gateway Baileys (llega con F2 real): si
-/// `WA_WEBHOOK_SECRETO` está definido, el webhook exige la cabecera
-/// `X-Gateway-Secret` idéntica (401 si falta o difiere). Sin definir
-/// (simulado/dev local) acepta todo: ni el simulado ni los tests mandan
-/// cabecera. Comparación exacta, sin normalizar (un secreto con espacios
-/// es válido y se respeta tal cual).
+/// Secreto compartido con el gateway Baileys: el webhook exige la cabecera
+/// `X-Gateway-Secret` idéntica a `WA_WEBHOOK_SECRETO` (401 si falta o
+/// difiere). Sin secreto configurado rechaza todo (falla cerrado): antes
+/// acepta cualquier llamada y cualquiera podía inyectar mensajes. Comparación
+/// exacta, sin normalizar (un secreto con espacios se respeta tal cual).
 #[must_use]
 pub fn secreto_valido(esperado: Option<&str>, recibido: Option<&str>) -> bool {
     let Some(sec) = esperado.filter(|s| !s.is_empty()) else {
-        return true;
+        return false;
     };
     recibido.is_some_and(|r| r == sec)
 }
