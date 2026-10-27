@@ -182,20 +182,18 @@ pub async fn listar(State(state): State<AppState>, _auth: AuthStaff) -> Result<R
 const MAX_ANALIZADOS: i64 = 5000;
 
 /// [GW-2 M1] Ids de avisos ya analizados, para el marcador del listado de
-/// glory-web (`AnalizadosPort`). Lectura de staff; sin caché aquí: el host la
+/// glory-web (`AnalizadosPort`). Va con el token CLI mp (`MpAuth`) porque es el
+/// que tiene glory-web; un JWT de staff no llega ahí. Sin caché aquí: el host la
 /// pide cada 5 min y `no-store` evita que el navegador la guarde.
 #[utoipa::path(
     get,
     path = "/api/admin/marketplace/analizados",
     responses(
         (status = 200, description = "Ids de aviso ya analizados"),
-        (status = 401, description = "Sin sesión de staff", body = crate::errors::ErrorResponse)
+        (status = 401, description = "Sin token mp válido", body = crate::errors::ErrorResponse)
     )
 )]
-pub async fn analizados(
-    State(state): State<AppState>,
-    _auth: AuthStaff,
-) -> Result<Response, AppError> {
+pub async fn analizados(State(state): State<AppState>, _auth: MpAuth) -> Result<Response, AppError> {
     let avisos = ids_analizados(&state.pool, MAX_ANALIZADOS).await?;
     Ok((
         StatusCode::OK,
