@@ -1,5 +1,5 @@
 // Subcomando `mejorar`: pide a la mejora local (3122) una versión de cada foto original.
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -102,11 +102,36 @@ async function asegurarToken(o, mejoraBase) {
   process.exit(2);
 }
 
+/* Un solo `mejorar` por inmueble a la vez: dos corridas calculan los mismos
+ * pendientes y suben cada foto dos veces (duplicados de Florida Country, 27/10).
+ * Si el proceso anterior murió sin liberar el candado, su PID ya no existe y
+ * el candado se recupera solo. */
+function adquirirBloqueo(slug) {
+  const ruta = join(tmpdir(), `mejorar-${slug}.lock`);
+  for (let intento = 0; intento < 2; intento++) {
+    try {
+      writeFileSync(ruta, String(process.pid), { flag: 'wx' });
+      const liberar = () => { try { unlinkSync(ruta); } catch {} };
+      process.on('exit', liberar);
+      return;
+    } catch {
+      const pid = Number(readFileSync(ruta, 'utf8'));
+      let vivo = false;
+      try { process.kill(pid, 0); vivo = true; } catch {}
+      if (vivo) break;
+      try { unlinkSync(ruta); } catch {}
+    }
+  }
+  console.error(`FALLO: ya hay un mejorar en curso para ${slug} (candado ${ruta}). Espera a que termine.`);
+  process.exit(2);
+}
+
 export async function cmdMejorar(o) {
   if (!o.slug) {
     console.error('FALLO preflight: falta --slug.');
     process.exit(2);
   }
+  adquirirBloqueo(o.slug);
   const mejoraBase = (o.mejora ?? 'http://127.0.0.1:3122').replace(/\/$/, '');
   await asegurarToken(o, mejoraBase);
   const limite = Math.max(1, Number(o.limite ?? 40) || 40);
@@ -142,14 +167,23 @@ export async function cmdMejorar(o) {
     .slice(0, limite);
   console.log(`${o.slug}: ${originales.length} originales, ${mejoradas.size} mejoradas, pendientes ${pendientes.length}`);
   let hechas = 0;
+  // Estado real de las mejoradas, releído de la BD: el snapshot de arriba puede
+  // quedar viejo mientras una foto tarda minutos en Gemini.
+  const mejoradasActuales = async () => {
+    const fresco = (await listar(LOCAL, tL)).find((i) => i.id === it.id);
+    return fresco.fotos.filter((x) => x.origen === 'mejorada');
+  };
   for (const f of pendientes) {
     if (repetir || pedidas.size > 0) {
-      // Re-mejora: borra la mejorada vieja del mismo orden para no duplicar el pareo.
-      const vieja = it.fotos.find((x) => x.origen === 'mejorada' && x.orden === f.orden);
-      if (vieja) {
+      // Re-mejora: borra TODAS las mejoradas viejas del mismo orden (también duplicados previos).
+      const viejas = (await mejoradasActuales()).filter((x) => x.orden === f.orden);
+      for (const vieja of viejas) {
         await api(LOCAL, `/api/admin/fotos/${vieja.id}`, { metodo: 'DELETE', token: tL });
-        console.log(`orden ${f.orden}: mejorada anterior borrada`);
       }
+      if (viejas.length) console.log(`orden ${f.orden}: ${viejas.length} mejorada(s) anterior(es) borrada(s)`);
+    } else if ((await mejoradasActuales()).some((x) => x.orden === f.orden)) {
+      console.log(`orden ${f.orden}: ya tiene mejorada, se omite`);
+      continue;
     }
     const bytes = await api(LOCAL, f.url, { token: tL, bytes: true });
     const ext = magia(bytes) ?? 'jpg';
@@ -182,6 +216,11 @@ export async function cmdMejorar(o) {
           const testigo = join(tmpdir(), `mejorada-fallo-${f.orden}.bin`);
           try { writeFileSync(testigo, dec.bytes); } catch {}
           console.error(`orden ${f.orden}: bytes no abribles (${e.message.split('\n')[0]}); testigo en ${testigo}, sigo con la siguiente`);
+          break;
+        }
+        // Si mientras tanto apareció una mejorada de este orden, no subas otra: duplicaría el pareo.
+        if ((await mejoradasActuales()).some((x) => x.orden === f.orden)) {
+          console.log(`orden ${f.orden}: ya tiene mejorada al terminar, descarto este resultado`);
           break;
         }
         await api(LOCAL, `/api/admin/fotos/upload?inmueble_id=${it.id}&filename=${encodeURIComponent(`mejorada-${f.orden + 1}.${upExt}`)}&origen=mejorada&orden=${f.orden}`, {
