@@ -19,9 +19,9 @@ pub fn asegurar_contacto(texto: &str) -> String {
 
 /// [20AA-1] Apertura que impone la ficha: la cifra publicada sin el `$`
 /// (`"86.000"`) y el primer párrafo de los dos moldes del prompt, construido
-/// aquí. `None` cuando no hay precio que decir (un `0` no es un precio) o no
-/// hay `nombre_corto` con el que citar el inmueble: sin dato, la forma la
-/// decide la IA y el fallback sigue valiendo.
+/// aquí. `None` solo cuando no hay precio que decir (un `0` no es un precio).
+/// Sin `nombre_corto` se cita «Este inmueble»: antes devolvía `None` y la IA
+/// podía dejar la cifra fuera sin que nadie la pusiera (caso Emperatriz).
 pub(in crate::services::marketplace) fn apertura_de_ficha(
     ficha: &PromptSeguro,
 ) -> Option<(Vec<String>, String)> {
@@ -29,10 +29,10 @@ pub(in crate::services::marketplace) fn apertura_de_ficha(
     if !cifra.chars().any(|c| c.is_ascii_digit() && c != '0') {
         return None;
     }
-    let nombre = ficha.nombre_corto.trim();
-    if nombre.is_empty() {
-        return None;
-    }
+    let nombre = match ficha.nombre_corto.trim() {
+        "" => "Este inmueble",
+        n => n,
+    };
     let operacion = ficha.operacion.trim();
     // [25AA-7] «Ambas» cita las dos cifras: la venta y el canon mensual.
     let alquiler = ficha.precio_alquiler_publico.as_deref().map(cifra_sin_simbolo);
@@ -51,6 +51,16 @@ pub(in crate::services::marketplace) fn apertura_de_ficha(
         ),
     };
     Some((cifras, molde))
+}
+
+/// [28AA-cache] true si la ficha tiene precio y el texto no trae todas sus
+/// cifras: ese borrador no sirve (fallback o cifra ajena) y no debe servirse
+/// desde la caché ni como reserva. Sin precio en la ficha nunca es falta.
+#[must_use]
+pub fn falta_precio(texto: &str, ficha: &PromptSeguro) -> bool {
+    apertura_de_ficha(ficha).is_some_and(|(cifras, _)| {
+        !cifras.iter().all(|c| texto.contains(c.as_str()))
+    })
 }
 
 /// Cifra publicada sin el `$` ni espacios (`"$86.000"` → `"86.000"`).
