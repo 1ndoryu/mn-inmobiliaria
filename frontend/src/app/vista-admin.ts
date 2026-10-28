@@ -3,7 +3,7 @@
 import type { VistaApp } from './layout';
 
 const CLAVE = 'admin:vista';
-const VISTAS: VistaApp[] = ['inmuebles', 'imagenes', 'mensajes', 'publicidad', 'solicitudes'];
+const VISTAS: VistaApp[] = ['inmuebles', 'imagenes', 'mensajes', 'publicidad', 'solicitudes', 'calendario'];
 
 /* La pestaña sobrevive a recargas; sin almacenamiento se arranca en inmuebles. */
 export function leerVistaGuardada(): VistaApp {
@@ -29,6 +29,7 @@ const TITULOS: Partial<Record<VistaApp, string>> = {
   mensajes: 'Mensajes',
   publicidad: 'Publicidad',
   solicitudes: 'Solicitudes',
+  calendario: 'Calendario',
 };
 
 export function tituloVista(vista: VistaApp): string {
@@ -41,6 +42,7 @@ export function descripcionVista(vista: VistaApp, fotos: number, total: number):
   if (vista === 'mensajes') return 'Conversaciones del chat con IA';
   if (vista === 'publicidad') return 'Imágenes listas para redes';
   if (vista === 'solicitudes') return 'Propuestas de «Publicar mi inmueble» para revisar';
+  if (vista === 'calendario') return 'Publicaciones en redes por día y por mes';
   if (total === 0) return 'Registra tu primer inmueble';
   return `${total} inmueble${total === 1 ? '' : 's'} en el servidor`;
 }

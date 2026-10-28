@@ -8,6 +8,7 @@ import { VistaImagenes } from '../features/imagenes/vista-imagenes';
 import { VistaMensajes } from '../features/chat/vista-mensajes';
 import { VistaPublicidad } from '../features/publicidad/vista-publicidad';
 import { VistaSolicitudes } from '../features/solicitudes/vista-solicitudes';
+import { VistaCalendario } from '../features/calendario/vista-calendario';
 import { useAnadirFotos } from '../hooks/inmuebles/use-anadir-fotos';
 import { useBorrador } from '../hooks/inmuebles/use-borrador';
 import { useConfigCopy } from '../hooks/copy/use-config-copy';
@@ -177,7 +178,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
           <Button variant="ghost" size="icon" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={alSalir}>
             <LogOut className="h-4 w-4" />
           </Button>
-          {vista === 'mensajes' || vista === 'publicidad' || vista === 'solicitudes' ? null : vista === 'imagenes' ? (
+          {vista === 'mensajes' || vista === 'publicidad' || vista === 'solicitudes' || vista === 'calendario' ? null : vista === 'imagenes' ? (
             <Button variant="outline" onClick={() => setConfigAbierta(true)}>
               <Settings2 /> Configurar mejora
             </Button>
@@ -218,6 +219,8 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
         <VistaMensajes />
       ) : vista === 'solicitudes' ? (
         <VistaSolicitudes />
+      ) : vista === 'calendario' ? (
+        <VistaCalendario inmuebles={inmuebles} />
       ) : vista === 'inmuebles' ? (
         <>
           <div className="mb-4 flex flex-col gap-2 sm:flex-row">
