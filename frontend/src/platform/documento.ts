@@ -20,6 +20,21 @@ export async function copiarTexto(texto: string): Promise<boolean> {
   }
 }
 
+/* Pide a los buscadores que no indexen la página (p. ej. piezas sueltas de
+ * publicidad). Devuelve la función que restaura el `robots` previo. */
+export function fijarNoIndexar(): () => void {
+  const existente = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
+  const previo = existente?.getAttribute('content') ?? null;
+  const meta = existente ?? document.createElement('meta');
+  meta.name = 'robots';
+  meta.content = 'noindex, nofollow';
+  if (!existente) document.head.appendChild(meta);
+  return () => {
+    if (previo === null) meta.remove();
+    else meta.content = previo;
+  };
+}
+
 /* Cabecera propia de una página (título, meta, canónica, Open Graph,
  * Twitter y JSON-LD). Los `meta` y la canónica ya existen en `index.html`:
  * se reescriben y se restauran al desmontar. El JSON-LD se crea y se quita. */

@@ -9,7 +9,8 @@ function publicoADominio(r: InmuebleRemoto): InmueblePublico {
   return { ...remotoADominio(r), slug: r.slug };
 }
 
-async function publicaFetch<T>(ruta: string): Promise<T> {
+/* Exportado para reusar la misma lectura pública (sin JWT) en otras páginas. */
+export async function publicaFetch<T>(ruta: string): Promise<T> {
   let respuesta: Response;
   try {
     respuesta = await fetch(`${API_URL}${ruta}`);

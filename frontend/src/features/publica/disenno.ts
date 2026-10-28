@@ -124,3 +124,11 @@ export const RELLENO_VACIO = 'px-4 py-12';
 export const RELLENO_PIE = 'py-6';
 /* Separación del pie respecto al contenido: 20px por encima. */
 export const SEPARACION_PIE = 'mt-[20px]';
+
+/* Página /publicidad: botones de contorno, etiquetas y cuadrículas. */
+export const BOTON_CONTORNO =
+  'border border-[#050200] bg-transparent px-3 py-2 text-[#050200] hover:bg-[#F59820] disabled:opacity-50';
+export const ETIQUETA_TAG = 'border border-[#050200] px-2 py-1 text-sm';
+export const CUADRICULA_FOTOS = 'grid grid-cols-2 gap-[10px] md:grid-cols-3 lg:grid-cols-4';
+export const IMAGEN_FOTO = 'aspect-[4/3] w-full bg-[#dddbd5] object-cover';
+export const IMAGEN_PIEZA = 'w-full bg-[#dddbd5] object-contain';
