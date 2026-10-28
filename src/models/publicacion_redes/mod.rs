@@ -185,6 +185,12 @@ pub struct ActualizarPublicacionRequest {
     pub tags: Option<Vec<String>>,
     pub programada_para: Option<NaiveDate>,
     pub destinos: Option<Destinos>,
+    /* [28AA-4] Procedencia del texto de la IA: el prompt enviado y el modelo que
+     * respondió. Se guardan con el texto para poder rehacerlo o auditarlo. */
+    #[validate(length(max = 20000))]
+    pub prompt_usado: Option<String>,
+    #[validate(length(max = 120))]
+    pub modelo: Option<String>,
 }
 
 /// Detecta el formato de una pieza por su proporción ancho/alto. Acepta un

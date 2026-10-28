@@ -387,6 +387,12 @@ fn aplicar(fila: &mut PublicacionRow, req: &ActualizarPublicacionRequest) -> Res
     if let Some(tags) = &req.tags {
         fila.tags = normalizar_tags(tags);
     }
+    if let Some(prompt) = &req.prompt_usado {
+        fila.prompt_usado = prompt.clone();
+    }
+    if let Some(modelo) = &req.modelo {
+        fila.modelo = modelo.trim().to_string();
+    }
     if let Some(dia) = req.programada_para {
         fila.programada_para = Some(dia);
     }
@@ -508,5 +514,45 @@ mod tests {
     #[test]
     fn rechaza_lo_que_no_es_imagen() {
         assert!(dimensiones(b"no es una imagen").is_err());
+    }
+
+    /* [28AA-4] La procedencia de la IA se guarda tal cual llega y el modelo sin
+     * espacios sobrantes; un campo ausente no pisa lo que ya había. */
+    #[test]
+    fn aplicar_guarda_prompt_y_modelo_sin_pisar_lo_ausente() {
+        use chrono::Utc;
+        use uuid::Uuid;
+
+        use crate::models::{ActualizarPublicacionRequest, PublicacionRow};
+
+        let mut fila = PublicacionRow {
+            id: Uuid::new_v4(),
+            inmueble_id: Uuid::new_v4(),
+            estado: "borrador".into(),
+            descripcion: "previo".into(),
+            tags: vec!["casa".into()],
+            prompt_usado: "prompt viejo".into(),
+            modelo: "modelo-viejo".into(),
+            ig_post: false,
+            fanpage: false,
+            ig_historia: false,
+            fb_perfil: false,
+            programada_para: None,
+            publicada_en: None,
+            creada_en: Utc::now(),
+        };
+        let req = ActualizarPublicacionRequest {
+            descripcion: None,
+            tags: None,
+            programada_para: None,
+            destinos: None,
+            prompt_usado: Some("SISTEMA + ficha".into()),
+            modelo: Some("  gemini-2.5 ".into()),
+        };
+        super::aplicar(&mut fila, &req).expect("aplicar");
+        assert_eq!(fila.prompt_usado, "SISTEMA + ficha");
+        assert_eq!(fila.modelo, "gemini-2.5");
+        assert_eq!(fila.descripcion, "previo", "sin descripción en la petición, no se toca");
+        assert_eq!(fila.tags, vec!["casa"], "sin tags en la petición, no se tocan");
     }
 }
