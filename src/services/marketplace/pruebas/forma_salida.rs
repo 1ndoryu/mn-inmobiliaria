@@ -220,3 +220,34 @@ fn apertura_de_ambas_cita_venta_y_canon() {
     assert_eq!(cifras, vec!["86.000"]);
     assert!(molde.contains("sigue disponible en 86.000$"), "{molde}");
 }
+
+/// [28AA-cache] Ficha sin `nombre_corto` (Emperatriz, Desiree): antes no había
+/// apertura y el fallback se servía con precio. Ahora cita «Este inmueble».
+#[test]
+fn forma_con_ficha_sin_nombre_lleva_el_precio() {
+    let mut s = seguro_kama_meru();
+    s.nombre_corto = String::new();
+    let r = imponer_forma_borrador(&format!("{FALLBACK_BORRADOR}\n\n{CONTACTO_WA}"), Some(&s));
+    assert!(!r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
+    assert!(r.contains("Este inmueble sigue disponible en 86.000$ negociable."), "{r}");
+}
+
+/// [28AA-cache] `falta_precio` marca el fallback y la cifra ajena; no la cifra buena.
+#[test]
+fn falta_precio_marca_fallback_y_cifra_ajena() {
+    let s = seguro_kama_meru();
+    assert!(falta_precio(FALLBACK_BORRADOR, &s));
+    assert!(falta_precio("Apart. en Resd. Kama Merú sigue disponible en 35.000$.", &s));
+    assert!(!falta_precio("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable.", &s));
+    assert!(!falta_precio(FALLBACK_BORRADOR, &PromptSeguro { precio_publico: "$0".into(), ..seguro_kama_meru() }));
+}
+
+/// [28AA-cache] La reserva de la ficha lleva el precio; sin ficha, el fallback.
+#[test]
+fn reserva_sin_nombre_lleva_el_precio() {
+    let mut s = seguro_kama_meru();
+    s.nombre_corto = String::new();
+    let r = borrador_de_reserva(Some(&s));
+    assert!(r.contains("86.000$"), "{r}");
+    assert_eq!(borrador_de_reserva(None), borrador_minimo(None));
+}
