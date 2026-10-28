@@ -155,8 +155,9 @@ impl PublicacionRepository {
     }
 
     /// Historial de un inmueble: cada vez que salió publicado, más reciente primero
-    pub async fn historial_de(
-        pool: &PgPool,
+    /// Acepta un ejecutor genérico, igual que `siguiente_inmueble`, para probarlo en transacción
+    pub async fn historial_de<'c>(
+        executor: impl PgExecutor<'c>,
         inmueble_id: Uuid,
     ) -> Result<Vec<PublicacionRow>, sqlx::Error> {
         sqlx::query_as!(
@@ -169,7 +170,7 @@ impl PublicacionRepository {
                ORDER BY publicada_en DESC NULLS LAST, creada_en DESC"#,
             inmueble_id
         )
-        .fetch_all(pool)
+        .fetch_all(executor)
         .await
     }
 

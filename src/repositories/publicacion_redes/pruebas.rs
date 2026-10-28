@@ -77,6 +77,29 @@ async fn cola_vuelve_al_mas_viejo_cuando_todos_estan_publicados() {
     tx.rollback().await.unwrap();
 }
 
+/* [28AA-5] El historial lista cada vez que el inmueble salió publicado, más
+ * reciente primero; los borradores y los saltos no entran. */
+#[tokio::test]
+async fn historial_guarda_cada_salida_y_no_los_borradores() {
+    let Some(pool) = pool_pruebas().await else { return };
+    let mut tx = aislada(&pool).await;
+    let id = inmueble(&mut tx, "historial").await;
+    publicada_hace(&mut tx, id, 20).await;
+    publicada_hace(&mut tx, id, 5).await;
+    sqlx::query("INSERT INTO publicaciones_redes (inmueble_id) VALUES ($1)")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .expect("borrador de prueba");
+    saltado(&mut tx, id).await;
+
+    let historial = PublicacionRepository::historial_de(&mut *tx, id).await.unwrap();
+    let fechas: Vec<_> = historial.iter().filter_map(|p| p.publicada_en).collect();
+    assert_eq!(historial.len(), 2, "solo las dos salidas publicadas");
+    assert!(fechas[0] > fechas[1], "la más reciente primero");
+    tx.rollback().await.unwrap();
+}
+
 /* [28AA-2] Un inmueble nunca publicado gana a cualquiera ya publicado, y
  * uno con solo un «saltado» sigue contando como nunca publicado. */
 #[tokio::test]
