@@ -89,25 +89,29 @@ pub async fn ficha_por_titulo(
     titulo_fb: &str,
 ) -> Result<Option<InmuebleRow>, AppError> {
     let candidatos = InmuebleRepository::titulos_alias_publicados(pool).await?;
-    let mut mejor: Option<(uuid::Uuid, usize, usize)> = None;
-    let mut empate = false;
-    for (id, titulo, alias) in &candidatos {
-        let (directo, solape, distintivo) = mejor_puntaje_con_alias(titulo_fb, titulo, alias);
-        if !(directo || (solape >= 3 && distintivo >= 1)) {
-            continue;
-        }
-        let clave = (distintivo, solape);
-        match mejor {
-            Some((_, md, ms)) if (md, ms) == clave => empate = true,
-            Some((_, md, ms)) if (md, ms) > clave => {}
-            _ => {
-                mejor = Some((*id, distintivo, solape));
-                empate = false;
-            }
-        }
+    let puntajes: Vec<(uuid::Uuid, (bool, usize, usize))> = candidatos
+        .iter()
+        .filter_map(|(id, titulo, alias)| {
+            let (directo, solape, distintivo) = mejor_puntaje_con_alias(titulo_fb, titulo, alias);
+            /* [28AB-1] Un título exacto (`directo`) manda sobre uno parcial con las
+             * mismas palabras: «Casa en venta en Riberas del Caroní» contra «…en
+             * Urbanización Riberas del Caroní» empataba y la casa salía sin precio. */
+            (directo || (solape >= 3 && distintivo >= 1)).then_some((*id, (directo, distintivo, solape)))
+        })
+        .collect();
+    match mejor_unico(&puntajes) {
+        Some(id) => Ok(InmuebleRepository::find_by_id(pool, id).await?),
+        None => Ok(None),
     }
-    match (mejor, empate) {
-        (Some((id, _, _)), false) => Ok(InmuebleRepository::find_by_id(pool, id).await?),
-        _ => Ok(None),
+}
+
+/// Mejor clave `(directo, distintivo, solape)`; dos con la misma clave máxima
+/// no reclaman a ninguna (`None`), igual que un empate entre avisos.
+pub(crate) fn mejor_unico(puntajes: &[(uuid::Uuid, (bool, usize, usize))]) -> Option<uuid::Uuid> {
+    let max = puntajes.iter().map(|(_, clave)| *clave).max()?;
+    let mut con_max = puntajes.iter().filter(|(_, clave)| *clave == max);
+    match (con_max.next(), con_max.next()) {
+        (Some((id, _)), None) => Some(*id),
+        _ => None,
     }
 }

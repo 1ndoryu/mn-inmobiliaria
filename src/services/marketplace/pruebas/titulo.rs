@@ -130,6 +130,24 @@ fn aviso_conocido_id_titulo_huerfano_y_empate() {
     );
 }
 
+/* [28AB-1] Caso Riberas: el título exacto debe ganar a su variante con
+ * «Urbanización», y dos exactos iguales no reclaman a ninguna ficha. */
+#[test]
+fn mejor_unico_prefiere_el_titulo_exacto() {
+    use crate::services::marketplace::hilo::ficha::mejor_unico;
+    let hilo = "casa en venta en riberas del caroní";
+    assert!(puntaje_titulo(hilo, "Casa en venta en Riberas del Caroní").0);
+    assert!(!puntaje_titulo(hilo, "Casa en venta en Urbanización Riberas del Caroní").0);
+    let exacto = Uuid::new_v4();
+    let parcial = Uuid::new_v4();
+    assert_eq!(
+        mejor_unico(&[(parcial, (false, 9, 9)), (exacto, (true, 1, 3))]),
+        Some(exacto)
+    );
+    assert_eq!(mejor_unico(&[(exacto, (true, 3, 3)), (parcial, (true, 3, 3))]), None);
+    assert_eq!(mejor_unico(&[]), None);
+}
+
 /* [09AA-24] El alias puntúa igual que el canónico: el mejor de los
  * nombres gana. El alias Río Aro no es substring del hilo (el hilo trae
  * "residencias" donde el alias trae "en"), así que empareja por solape
