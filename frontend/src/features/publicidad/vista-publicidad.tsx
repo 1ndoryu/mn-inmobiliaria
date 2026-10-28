@@ -11,8 +11,10 @@ import {
 } from '@/domain/plantilla-publicidad';
 import { fotosVisiblesDe, type Inmueble } from '@/domain/inmueble';
 import { exportarPublicidad, renderizarPublicidad } from '@/platform/canvas-publicidad';
+import { guardarTelefonoAsesor, telefonoAsesor } from '@/platform/telefono-asesor';
 import { usePublicidades } from '@/hooks/publicidad/use-publicidades';
 import { Button, ButtonPlano } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -156,6 +158,36 @@ function TarjetaPublicidad({
   );
 }
 
+/* [28AA-9] Teléfono que sale en las piezas, guardado en este navegador (cada
+ * asesor el suyo). Vacío = el de la empresa. */
+function FormularioTelefono({ alGuardar }: { alGuardar: () => void }) {
+  const [valor, setValor] = useState(telefonoAsesor);
+  const [mensaje, setMensaje] = useState<string | null>(null);
+
+  const guardar = () => {
+    if (!guardarTelefonoAsesor(valor)) {
+      setMensaje('No se pudo guardar en este navegador.');
+      return;
+    }
+    setValor(telefonoAsesor());
+    setMensaje('Teléfono guardado en este navegador.');
+    alGuardar();
+  };
+
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-card p-3">
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Teléfono en las piezas (este navegador)
+        <Input className="h-8 w-56 text-sm" value={valor} maxLength={40} onChange={(e) => setValor(e.target.value)} />
+      </label>
+      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={guardar}>
+        Guardar
+      </Button>
+      {mensaje && <p className="text-xs text-muted-foreground">{mensaje}</p>}
+    </div>
+  );
+}
+
 /* Página Publicidad: galería de imágenes generadas, una por inmueble con
  * fotos. Cada tarjeta permite verla completa, cambiar las 3 fotos y
  * descargar JPG/PNG. */
@@ -174,6 +206,8 @@ export function VistaPublicidad({
   const [editando, setEditando] = useState<Inmueble | null>(null);
   const [fallo, setFallo] = useState<string | null>(null);
   const [ampliando, setAmpliando] = useState<{ inmueble: Inmueble; comp: ComposicionPublicidad } | null>(null);
+  /* Al guardar el teléfono se cambia la clave de la cuadrícula: las vistas previas se redibujan. */
+  const [revision, setRevision] = useState(0);
 
   const lista = inmuebles.filter((i) => fotosVisiblesDe(i).length > 0);
   /* El editor trabaja con el objeto fresco de la lista: si la propiedad se
@@ -196,12 +230,13 @@ export function VistaPublicidad({
           {fallo}
         </p>
       )}
+      <FormularioTelefono alGuardar={() => setRevision((r) => r + 1)} />
       {lista.length === 0 ? (
         <p className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
           Aún no hay inmuebles con fotos para generar publicidad.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div key={revision} className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {lista.map((inmueble) => {
             const comp = compDe(inmueble);
             if (!comp) return null;

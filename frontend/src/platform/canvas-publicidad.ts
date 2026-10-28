@@ -6,7 +6,6 @@ import {
   PLANTILLA_ALTO,
   PLANTILLA_ANCHO,
   PRESETS_EXPORTACION,
-  TELEFONO_PUBLICIDAD,
   WEB_PUBLICIDAD,
   lineasTituloDe,
   precioCortoDe,
@@ -16,6 +15,7 @@ import {
   type IconoSpec,
 } from '../domain/plantilla-publicidad';
 import type { Inmueble } from '../domain/inmueble';
+import { telefonoAsesor } from './telefono-asesor';
 
 // Renderer Canvas 2D de la imagen publicitaria (plantilla "Post I").
 // Dibuja en unidades de plantilla (197x262) con el contexto escalado, así el
@@ -304,8 +304,10 @@ export async function renderizarPublicidad(
   ctx.fillStyle = COLOR_TINTA;
   ctx.font = `700 3.2px ${FUENTE}`;
   dibujarIcono(ctx, ICONO_TELEFONO, 4.2, 254.8, 3.9, COLOR_ACENTO);
-  ctx.fillText(TELEFONO_PUBLICIDAD, 10, 258);
-  const trasTelefono = 10 + ctx.measureText(TELEFONO_PUBLICIDAD).width + 4;
+  // El teléfono es el del asesor que dibuja (ver telefono-asesor.ts).
+  const telefono = telefonoAsesor();
+  ctx.fillText(telefono, 10, 258);
+  const trasTelefono = 10 + ctx.measureText(telefono).width + 4;
   const anchoGlobo = dibujarIcono(ctx, ICONO_GLOBO, trasTelefono, 254.8, 3.9, COLOR_ACENTO);
   ctx.fillText(WEB_PUBLICIDAD, trasTelefono + anchoGlobo + 1.6, 258);
   ctx.restore();
