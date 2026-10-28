@@ -3,8 +3,8 @@ use axum::routing::get;
 use axum::{Json, Router};
 
 use crate::errors::AppError;
-use crate::models::{FiltrosPublicos, Inmueble, PaginatedInmuebles};
-use crate::services::InmuebleService;
+use crate::models::{FiltrosPublicos, Inmueble, PaginatedInmuebles, PublicidadPublica};
+use crate::services::{InmuebleService, PublicidadService};
 use crate::AppState;
 
 use super::comercial::{solicitud, suscriptor};
@@ -48,10 +48,28 @@ pub async fn get_public(
     Ok(Json(inmueble))
 }
 
+/* [28AA-7] Página pública `/publicidad`: publicaciones de redes ya salidas, una
+ * por inmueble visible. Solo lectura, sin JWT, como el resto de esta web. */
+/// Publicaciones ya salidas para la página `/publicidad`, la más reciente primero
+#[utoipa::path(
+    get,
+    path = "/api/public/publicidad",
+    responses(
+        (status = 200, description = "Publicaciones salidas de inmuebles publicados", body = Vec<PublicidadPublica>)
+    )
+)]
+pub async fn list_publicidad(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<PublicidadPublica>>, AppError> {
+    let lista = PublicidadService::listar(&state.pool).await?;
+    Ok(Json(lista))
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/inmuebles", get(list_public))
         .route("/inmuebles/:slug", get(get_public))
+        .route("/publicidad", get(list_publicidad))
         .merge(solicitud::public_routes())
         .merge(suscriptor::public_routes())
 }

@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use sqlx::{PgExecutor, PgPool};
 use uuid::Uuid;
 
-use crate::models::{PiezaRow, PublicacionRow};
+use crate::models::{PiezaRow, PublicadaRow, PublicacionRow};
 
 /* [28AA-2] Persistencia del calendario de redes. Aquí solo hay SQL: qué
  * estado sigue a qué lo decide el servicio. La cola de inmuebles (regla 1
@@ -169,6 +169,29 @@ impl PublicacionRepository {
                WHERE inmueble_id = $1 AND estado = 'publicada'
                ORDER BY publicada_en DESC NULLS LAST, creada_en DESC"#,
             inmueble_id
+        )
+        .fetch_all(executor)
+        .await
+    }
+
+    /* [28AA-7] Una publicación por inmueble visible: la más reciente que salió.
+     * `DISTINCT ON` toma la primera fila de cada inmueble con el orden dado; el
+     * orden final (más reciente primero) lo pone el servicio. Acepta ejecutor
+     * genérico para probarlo dentro de una transacción. Va con `query_as` en
+     * tiempo de ejecución porque el macro no generó su entrada en `.sqlx` y así
+     * no depende de la caché offline. */
+    pub async fn listar_publicadas<'c>(
+        executor: impl PgExecutor<'c>,
+    ) -> Result<Vec<PublicadaRow>, sqlx::Error> {
+        sqlx::query_as::<_, PublicadaRow>(
+            "SELECT DISTINCT ON (p.inmueble_id)
+                    p.id AS publicacion_id, p.inmueble_id, i.titulo, i.slug,
+                    p.descripcion, p.tags, p.publicada_en
+             FROM publicaciones_redes p
+             JOIN inmuebles i ON i.id = p.inmueble_id
+             WHERE p.estado = 'publicada' AND p.publicada_en IS NOT NULL
+               AND i.publicado = TRUE
+             ORDER BY p.inmueble_id, p.publicada_en DESC",
         )
         .fetch_all(executor)
         .await

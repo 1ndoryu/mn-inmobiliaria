@@ -115,3 +115,36 @@ async fn nunca_publicado_gana_y_el_salto_no_cuenta() {
     assert_eq!(elegido, Some(solo_saltado), "el salto no es publicación: sigue primero");
     tx.rollback().await.unwrap();
 }
+
+/* [28AA-7] La página pública ve una publicación por inmueble visible: la más
+ * reciente que salió. Borradores, saltos e inmuebles ocultos no entran. */
+#[tokio::test]
+async fn listar_publicadas_una_por_inmueble_y_solo_visibles() {
+    let Some(pool) = pool_pruebas().await else { return };
+    let mut tx = aislada(&pool).await;
+    let id = inmueble(&mut tx, "dos salidas").await;
+    publicada_hace(&mut tx, id, 20).await;
+    publicada_hace(&mut tx, id, 5).await;
+    sqlx::query("INSERT INTO publicaciones_redes (inmueble_id) VALUES ($1)")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .expect("borrador de prueba");
+    let solo_saltado = inmueble(&mut tx, "solo saltado").await;
+    saltado(&mut tx, solo_saltado).await;
+    let oculto = inmueble(&mut tx, "oculto").await;
+    publicada_hace(&mut tx, oculto, 1).await;
+    sqlx::query("UPDATE inmuebles SET publicado = FALSE WHERE id = $1")
+        .bind(oculto)
+        .execute(&mut *tx)
+        .await
+        .expect("ocultar inmueble de prueba");
+
+    let lista = PublicacionRepository::listar_publicadas(&mut *tx).await.unwrap();
+    let ids: Vec<Uuid> = lista.iter().map(|p| p.inmueble_id).collect();
+    assert_eq!(ids, vec![id], "solo el inmueble visible, una sola vez");
+
+    let historial = PublicacionRepository::historial_de(&mut *tx, id).await.unwrap();
+    assert_eq!(lista[0].publicacion_id, historial[0].id, "la de la página es la más reciente");
+    tx.rollback().await.unwrap();
+}

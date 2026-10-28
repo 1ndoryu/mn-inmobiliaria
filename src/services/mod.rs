@@ -5,6 +5,7 @@ pub mod jwt;
 pub mod marketplace;
 mod mensajeria;
 pub mod politica;
+mod publicidad;
 pub mod sesion;
 pub mod sync;
 mod tope_uso;
@@ -16,6 +17,7 @@ pub use comercial::note::NoteService;
 pub use comercial::solicitud::SolicitudService;
 pub use comercial::suscriptor::SuscriptorService;
 pub use inmueble::InmuebleService;
+pub use publicidad::PublicidadService;
 pub use mensajeria::alerta_whatsapp::vigilar as vigilar_alertas_whatsapp;
 pub use mensajeria::canal_resolver::{modo_por_canal, CanalResolver};
 pub use mensajeria::outbox_idempotency::{

@@ -149,6 +149,33 @@ impl Publicacion {
     }
 }
 
+/// Última publicación `publicada` de un inmueble visible, para la página pública
+#[derive(Debug, Clone, FromRow)]
+pub struct PublicadaRow {
+    pub publicacion_id: Uuid,
+    pub inmueble_id: Uuid,
+    pub titulo: String,
+    pub slug: String,
+    pub descripcion: String,
+    pub tags: Vec<String>,
+    pub publicada_en: DateTime<Utc>,
+}
+
+/* [28AA-7] Lo que ve el público en `/publicidad`: solo texto, tags, piezas y
+ * fotos. Sin estado, checklist, prompt ni modelo: eso es interno del calendario. */
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct PublicidadPublica {
+    pub inmueble_id: Uuid,
+    pub titulo: String,
+    pub slug: String,
+    /// Fotos en su mejor versión (mejorada si existe), como `fotosVisiblesDe`
+    pub fotos: Vec<String>,
+    pub descripcion: String,
+    pub tags: Vec<String>,
+    pub piezas: Vec<Pieza>,
+    pub publicada_en: DateTime<Utc>,
+}
+
 /// Pide la siguiente propuesta; `excluir` evita repetir la que se acaba de saltar
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ProponerRequest {
