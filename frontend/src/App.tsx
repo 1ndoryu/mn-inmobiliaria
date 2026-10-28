@@ -2,7 +2,6 @@ import { Suspense, lazy } from 'react';
 import { PaginaPublica } from './features/publica/pagina-publica';
 import { PaginaInmueble } from './features/publica/inmueble/pagina-inmueble';
 import { slugDeRuta } from './features/publica/inmueble/ruta-inmueble';
-import { PaginaPublicidad } from './features/publica/publicidad/pagina-publicidad';
 import { rutaActual } from './platform/ventana';
 
 /* [249A-1] El panel va en chunk aparte (`React.lazy`): el visitante público
@@ -34,8 +33,6 @@ export default function App() {
       </Suspense>
     );
   }
-  /* `/publicidad` = piezas publicadas para copiar y descargar; sin enlace en el menú. */
-  if (rutaActual() === '/publicidad') return <PaginaPublicidad />;
   /* `/inmueble/<slug>` = página propia del inmueble (`key` la remonta al cambiar de slug). */
   const slug = slugDeRuta(rutaActual());
   if (slug !== null) return <PaginaInmueble key={slug} slug={slug} />;
