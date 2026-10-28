@@ -4,6 +4,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::services::marketplace::continuacion;
+use crate::services::marketplace::{borrador_de_reserva, falta_precio};
 use chrono::Timelike as _;
 
 /* [16AA-6] Era 30/min: las burbujas de la lab piden en ráfagas de ~90/min y
@@ -22,6 +23,33 @@ pub struct BorradorResponse {
     /// [09AA-30] Coste de la pasada IA de este texto; vacío en `cache` (un
     /// hit no gasta IA, el coste original vive en la fila).
     pub coste: crate::services::marketplace::Coste,
+}
+
+/* [28AA-cache] Un hit sin el precio de la ficha no se sirve (salvo corrección
+ * de la dueña): se regenera y la nueva respuesta pisa la fila vieja. */
+fn hit_sin_precio(
+    hit: Option<&(String, bool)>,
+    seguro: Option<&crate::services::marketplace::PromptSeguro>,
+) -> bool {
+    hit.is_some_and(|(t, corregida)| !corregida && seguro.is_some_and(|f| falta_precio(t, f)))
+}
+
+/* [28AA-cache] La reserva del vuelo (seguidor sin líder) no lleva la ficha:
+ * si ya hay precio que decir, sale con la misma forma que la reserva propia. */
+fn reserva_con_precio(
+    gen: std::sync::Arc<crate::services::marketplace::Generado>,
+    seguro: Option<&crate::services::marketplace::PromptSeguro>,
+) -> std::sync::Arc<crate::services::marketplace::Generado> {
+    match seguro {
+        Some(f) if gen.fuente == "reserva" && falta_precio(&gen.texto, f) => {
+            std::sync::Arc::new(crate::services::marketplace::Generado {
+                texto: borrador_de_reserva(Some(f)),
+                fuente: gen.fuente.clone(),
+                coste: gen.coste,
+            })
+        }
+        _ => gen,
+    }
 }
 
 /* F0 estructuradas/idempotencia → `marketplace_estructuradas.rs`
@@ -112,10 +140,9 @@ pub async fn borrador(
     };
     /* [10AA-17] Regenerar (`force`): solo una corrección de la dueña corta el
      * paso; cualquier otro hit se descarta y el texto se regenera de verdad. */
-    let hit = aceptar_hit(
-        buscar_hit(&state.pool, &cl, &foto, compartida).await?,
-        r.force,
-    );
+    let hit = buscar_hit(&state.pool, &cl, &foto, compartida).await?;
+    let malo = hit_sin_precio(hit.as_ref(), seguro.as_ref());
+    let hit = aceptar_hit(hit.filter(|_| !malo), r.force);
     if let Some((texto, corregida)) = hit {
         /* Hit: el plugin audita `hit`; aquí no se audita nada (el conteo de
          * usos ya subió en la misma sentencia del `UPDATE ... RETURNING`). */
@@ -141,6 +168,7 @@ pub async fn borrador(
             generar_borrador(&r, seguro.as_ref(), &state.pool)
         })
         .await;
+    let gen = reserva_con_precio(gen, seguro.as_ref());
     /* `u128` sin cast: `serde_json` no lo representa; si algún día no
      * cupiera en `u64`, se satura en vez de envolver. */
     let latencia_ms = u64::try_from(inicio.elapsed().as_millis()).unwrap_or(u64::MAX);
@@ -151,7 +179,7 @@ pub async fn borrador(
         conocido,
     );
     if gen.fuente == "ia" {
-        guardar_generado(&state.pool, &cl, &foto, &gen, compartida, r.force).await?;
+        guardar_generado(&state.pool, &cl, &foto, &gen, compartida, r.force || malo).await?;
     }
     let resp = (
         StatusCode::OK,
