@@ -1,3 +1,6 @@
+#![cfg(test)]
+//! Pruebas de la cola del calendario, sobre la BD de pruebas en transacción.
+
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
