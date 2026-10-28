@@ -518,17 +518,15 @@ mod tests {
 
     /* [28AA-4] La procedencia de la IA se guarda tal cual llega y el modelo sin
      * espacios sobrantes; un campo ausente no pisa lo que ya había. */
-    #[test]
-    fn aplicar_guarda_prompt_y_modelo_sin_pisar_lo_ausente() {
+    /// Publicación de prueba en `estado`, con el texto y los tags ya escritos
+    fn fila(estado: &str) -> crate::models::PublicacionRow {
         use chrono::Utc;
         use uuid::Uuid;
 
-        use crate::models::{ActualizarPublicacionRequest, PublicacionRow};
-
-        let mut fila = PublicacionRow {
+        crate::models::PublicacionRow {
             id: Uuid::new_v4(),
             inmueble_id: Uuid::new_v4(),
-            estado: "borrador".into(),
+            estado: estado.into(),
             descripcion: "previo".into(),
             tags: vec!["casa".into()],
             prompt_usado: "prompt viejo".into(),
@@ -540,7 +538,52 @@ mod tests {
             programada_para: None,
             publicada_en: None,
             creada_en: Utc::now(),
+        }
+    }
+
+    /// Checklist de destinos: solo los cuatro marcados dan `publicada`; quitar uno la devuelve a `lista`
+    #[test]
+    fn checklist_completo_publica_y_quitar_un_destino_vuelve_a_lista() {
+        use crate::models::{ActualizarPublicacionRequest, Destinos};
+
+        let todos = Destinos { ig_post: true, fanpage: true, ig_historia: true, fb_perfil: true };
+        let mut tres = fila("lista");
+        let parcial = ActualizarPublicacionRequest {
+            destinos: Some(Destinos { fb_perfil: false, ..todos }),
+            ..vacia()
         };
+        super::aplicar(&mut tres, &parcial).expect("aplicar");
+        assert_eq!(tres.estado, "lista", "tres destinos no bastan");
+        assert!(tres.publicada_en.is_none());
+
+        let mut publicada = fila("lista");
+        let completa = ActualizarPublicacionRequest { destinos: Some(todos), ..vacia() };
+        super::aplicar(&mut publicada, &completa).expect("aplicar");
+        assert_eq!(publicada.estado, "publicada");
+        assert!(publicada.publicada_en.is_some(), "la fecha real de salida queda guardada");
+
+        super::aplicar(&mut publicada, &parcial).expect("aplicar");
+        assert_eq!(publicada.estado, "lista", "quitar un destino la devuelve a lista");
+        assert!(publicada.publicada_en.is_none());
+    }
+
+    /// Petición sin ningún campo: no cambia nada
+    fn vacia() -> crate::models::ActualizarPublicacionRequest {
+        crate::models::ActualizarPublicacionRequest {
+            descripcion: None,
+            tags: None,
+            programada_para: None,
+            destinos: None,
+            prompt_usado: None,
+            modelo: None,
+        }
+    }
+
+    #[test]
+    fn aplicar_guarda_prompt_y_modelo_sin_pisar_lo_ausente() {
+        use crate::models::ActualizarPublicacionRequest;
+
+        let mut fila = fila("borrador");
         let req = ActualizarPublicacionRequest {
             descripcion: None,
             tags: None,
