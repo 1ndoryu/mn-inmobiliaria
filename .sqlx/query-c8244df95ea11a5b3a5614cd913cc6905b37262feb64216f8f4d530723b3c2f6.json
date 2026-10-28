@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, publicacion_id, formato, storage_key, ancho, alto, bytes, creada_en\n               FROM publicacion_piezas\n               WHERE publicacion_id = ANY($1)\n               ORDER BY creada_en",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "publicacion_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "formato",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "storage_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "ancho",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "alto",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "bytes",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "creada_en",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c8244df95ea11a5b3a5614cd913cc6905b37262feb64216f8f4d530723b3c2f6"
+}

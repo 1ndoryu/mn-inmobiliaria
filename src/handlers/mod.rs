@@ -76,6 +76,16 @@ impl utoipa::Modify for SecurityAddon {
         comercial::solicitud::revisar_solicitud,
         comercial::visita::list_visitas,
         comercial::visita::revisar_visita,
+        comercial::publicacion_redes::list_publicaciones,
+        comercial::publicacion_redes::proponer_siguiente,
+        comercial::publicacion_redes::crear_publicacion,
+        comercial::publicacion_redes::saltar_propuesta,
+        comercial::publicacion_redes::actualizar_publicacion,
+        comercial::publicacion_redes::borrar_publicacion,
+        comercial::publicacion_redes::historial,
+        comercial::publicacion_redes::subir_pieza,
+        comercial::publicacion_redes::borrar_pieza,
+        inmobiliario::uploads::servir_archivo_publicacion,
         marketplace::token::emitir_token,
         marketplace::token::emitir_token_cli,
         marketplace::borrador,
@@ -163,6 +173,14 @@ impl utoipa::Modify for SecurityAddon {
         crate::models::Visita,
         crate::models::PaginatedVisitas,
         crate::models::UpdateEstadoVisita,
+        crate::models::Publicacion,
+        crate::models::Pieza,
+        crate::models::Destinos,
+        crate::models::CrearPublicacionRequest,
+        crate::models::SaltarPropuestaRequest,
+        crate::models::ActualizarPublicacionRequest,
+        crate::models::ProponerRequest,
+        crate::models::Propuesta,
         crate::services::marketplace::PromptSeguro,
         crate::services::marketplace::BorradorRequest,
         crate::services::marketplace::ExcerptIn,
@@ -274,6 +292,11 @@ pub fn create_router(pool: sqlx::PgPool, config: crate::config::AppConfig) -> Ro
             "/uploads/whatsapp/:telefono/:archivo",
             get(inmobiliario::uploads::servir_archivo_whatsapp),
         )
+        /* [28AA-4] Piezas de publicación en redes: públicas, la clave la genera el servidor. */
+        .route(
+            "/uploads/publicaciones/:publicacion/:archivo",
+            get(inmobiliario::uploads::servir_archivo_publicacion),
+        )
         /* [249A-1] Sitemap dinámico (ruta explícita: no cae al fallback). */
         .route("/sitemap.xml", get(inmobiliario::superficie::sitemap))
         /* [249A-4] `llms.txt` y catálogo agente dinámicos desde la BD
@@ -338,6 +361,8 @@ fn admin_routes() -> Router<AppState> {
         .merge(ia::ask::routes())
         .merge(comercial::solicitud::admin_routes())
         .merge(comercial::visita::admin_routes())
+        /* [28AA-3] Calendario de publicaciones en redes (cola, checklist, historial). */
+        .merge(comercial::publicacion_redes::admin_routes())
         .merge(inmobiliario::uploads::routes())
         /* [13AA-12] Manifiesto de huellas para comparar entornos. */
         .merge(inmobiliario::sync::routes())

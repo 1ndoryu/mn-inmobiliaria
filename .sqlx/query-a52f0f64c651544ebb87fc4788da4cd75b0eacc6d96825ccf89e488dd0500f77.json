@@ -1,0 +1,101 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, inmueble_id, estado, descripcion, tags, prompt_usado, modelo,\n                      ig_post, fanpage, ig_historia, fb_perfil, programada_para,\n                      publicada_en, creada_en\n               FROM publicaciones_redes\n               WHERE estado <> 'saltada'\n                 AND COALESCE(programada_para, publicada_en::DATE) BETWEEN $1 AND $2\n               ORDER BY creada_en",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "inmueble_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "estado",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "descripcion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 5,
+        "name": "prompt_usado",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "modelo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "ig_post",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "fanpage",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 9,
+        "name": "ig_historia",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 10,
+        "name": "fb_perfil",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 11,
+        "name": "programada_para",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 12,
+        "name": "publicada_en",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 13,
+        "name": "creada_en",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "a52f0f64c651544ebb87fc4788da4cd75b0eacc6d96825ccf89e488dd0500f77"
+}

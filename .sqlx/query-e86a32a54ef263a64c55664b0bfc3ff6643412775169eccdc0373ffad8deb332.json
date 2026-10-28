@@ -1,0 +1,69 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO publicacion_piezas (publicacion_id, formato, storage_key, ancho, alto, bytes)\n               VALUES ($1, $2, $3, $4, $5, $6)\n               RETURNING id, publicacion_id, formato, storage_key, ancho, alto, bytes, creada_en",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "publicacion_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "formato",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "storage_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "ancho",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "alto",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "bytes",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "creada_en",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e86a32a54ef263a64c55664b0bfc3ff6643412775169eccdc0373ffad8deb332"
+}

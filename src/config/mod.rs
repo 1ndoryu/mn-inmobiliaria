@@ -64,13 +64,18 @@ const BD_DESARROLLO: &str = "glory_backend_inmobiliaria";
 #[cfg(test)]
 pub fn url_bd_pruebas() -> Option<String> {
     let hilo = std::thread::current().name().unwrap_or("?").to_string();
-    let Ok(url) = std::env::var("DATABASE_URL") else {
+    /* [28AA-2] `TEST_DATABASE_URL` gana a `DATABASE_URL`: el wrapper de cargo
+     * reescribe `DATABASE_URL` con la BD de la rama (en main, la de desarrollo),
+     * así que sin esta vía los tests de BD nunca llegan a su BD de pruebas. */
+    let Ok(url) = std::env::var("TEST_DATABASE_URL").or_else(|_| std::env::var("DATABASE_URL")) else {
         eprintln!("OMITIDO {hilo}: sin DATABASE_URL");
         return None;
     };
-    let nombre = url.rsplit('/').next()?.split('?').next()?;
+    /* El nombre va antes del `?`: un `?host=/var/run/postgresql` deja como
+     * último segmento «postgresql» y la guarda no vería la BD de desarrollo. */
+    let nombre = url.split('?').next()?.rsplit('/').next()?;
     if nombre == BD_DESARROLLO {
-        eprintln!("OMITIDO {hilo}: DATABASE_URL apunta a la BD de desarrollo ({BD_DESARROLLO}); los tests de BD viva solo corren en BD de rama");
+        eprintln!("OMITIDO {hilo}: la URL de pruebas apunta a la BD de desarrollo ({BD_DESARROLLO}); los tests de BD viva solo corren en BD de rama");
         return None;
     }
     Some(url)

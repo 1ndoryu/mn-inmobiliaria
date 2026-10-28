@@ -3,12 +3,19 @@ mod inmueble;
 mod inmueble_alias;
 mod inmueble_paginacion;
 mod note;
+mod publicacion_redes;
 mod solicitud;
 mod suscriptor;
 mod user;
 mod visita;
 
 pub use cliente::{Cliente, ClienteRow, CreateClienteRequest};
+pub use publicacion_redes::{
+    formato_de_proporcion, normalizar_tags, ActualizarPublicacionRequest, CrearPublicacionRequest,
+    Destinos, Pieza, PiezaRow, Propuesta, ProponerRequest, Publicacion, PublicacionRow,
+    SaltarPropuestaRequest, DESTINOS, ESTADOS_PUBLICACION, FORMATOS_PIEZA, MAX_DESCRIPCION,
+    MAX_TAGS, MAX_TAG_LEN,
+};
 pub use inmueble::{
     sugerir_nombre_corto, url_publica_de_foto, validar_extras, ActualizacionInmueble,
     AddFotoRequest, CopyInmueble, CreateInmuebleRequest, CreateUserRequest, EstadoRequest,

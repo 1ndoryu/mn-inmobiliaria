@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT i.id\n               FROM inmuebles i\n               LEFT JOIN LATERAL (\n                   SELECT MAX(p.publicada_en) AS ultima\n                   FROM publicaciones_redes p\n                   WHERE p.inmueble_id = i.id AND p.estado = 'publicada'\n               ) u ON TRUE\n               WHERE i.publicado = TRUE\n                 AND i.estado = 'disponible'\n                 AND ($1::UUID IS NULL OR i.id <> $1)\n               ORDER BY (u.ultima)::DATE ASC NULLS FIRST, random()\n               LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2e3e7ab9d916d11bd5636d426e90a0c0aec79c7569b221a0814e3e316e2831f5"
+}
