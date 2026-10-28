@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT ON (p.inmueble_id)\n                      p.id AS publicacion_id, p.inmueble_id, i.titulo, i.slug,\n                      p.descripcion, p.tags, p.publicada_en AS \"publicada_en!\"\n               FROM publicaciones_redes p\n               JOIN inmuebles i ON i.id = p.inmueble_id\n               WHERE p.estado = 'publicada' AND p.publicada_en IS NOT NULL\n                 AND i.publicado = TRUE\n               ORDER BY p.inmueble_id, p.publicada_en DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "publicacion_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "inmueble_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "titulo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "descripcion",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 6,
+        "name": "publicada_en!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "7152fe3189762a44556ba00a464df865e5d5f33232da341788526de59c6f42fc"
+}

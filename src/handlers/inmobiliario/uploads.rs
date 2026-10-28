@@ -164,15 +164,7 @@ pub async fn servir_archivo_solicitud(
     let bytes = tokio::fs::read(InmuebleService::ruta_archivo(&state.upload_dir, &clave))
         .await
         .map_err(|_| AppError::NotFound("No encontrado".into()))?;
-    let mime = match std::path::Path::new(&clave)
-        .extension()
-        .and_then(|e| e.to_str())
-    {
-        Some(e) if e.eq_ignore_ascii_case("png") => "image/png",
-        Some(e) if e.eq_ignore_ascii_case("webp") => "image/webp",
-        _ => "image/jpeg",
-    };
-    Ok(respuesta_archivo(bytes, mime, &cabeceras))
+    Ok(respuesta_archivo(bytes, mime_de(&clave), &cabeceras))
 }
 
 /// Servir una foto entrante de `WhatsApp` — pública, sin JWT (el panel staff
@@ -273,6 +265,11 @@ fn respuesta_archivo(bytes: Vec<u8>, mime: &'static str, cabeceras: &HeaderMap) 
 /// Solo `solicitudes/<uuid>/<uuid>.<ext permitida>`: el prefijo es fijo,
 /// nada de `..`, subrutas ni extensiones raras
 fn clave_solicitud_valida(sesion: &str, archivo: &str) -> Option<String> {
+    clave_bajo("solicitudes", sesion, archivo)
+}
+
+/// Solo `<carpeta>/<uuid>/<uuid>.<ext permitida>`: la carpeta la fija el servidor
+fn clave_bajo(carpeta: &str, sesion: &str, archivo: &str) -> Option<String> {
     if archivo.contains('/') || archivo.contains('\\') {
         return None;
     }
@@ -281,9 +278,48 @@ fn clave_solicitud_valida(sesion: &str, archivo: &str) -> Option<String> {
     Uuid::parse_str(&archivo[..punto]).ok()?;
     let extension = archivo[punto..].to_lowercase();
     if EXTENSIONES_FOTO.iter().any(|e| *e == extension) {
-        Some(format!("solicitudes/{sesion}/{}", archivo.to_lowercase()))
+        Some(format!("{carpeta}/{sesion}/{}", archivo.to_lowercase()))
     } else {
         None
+    }
+}
+
+/// Servir una pieza de publicación — pública, sin JWT (la página /publicidad y
+/// las redes cuelgan de aquí; la clave la genera el servidor al subir)
+#[utoipa::path(
+    get,
+    path = "/uploads/publicaciones/{publicacion}/{archivo}",
+    params(
+        ("publicacion" = Uuid, Path, description = "Carpeta de la publicación"),
+        ("archivo" = String, Path, description = "Archivo <uuid>.<ext>"),
+    ),
+    responses(
+        (status = 200, description = "Imagen", body = Vec<u8>, content_type = "image/jpeg"),
+        (status = 404, description = "No encontrada", body = crate::errors::ErrorResponse)
+    )
+)]
+pub async fn servir_archivo_publicacion(
+    State(state): State<AppState>,
+    Path((publicacion, archivo)): Path<(String, String)>,
+    cabeceras: HeaderMap,
+) -> Result<Response, AppError> {
+    let clave = clave_bajo("publicaciones", &publicacion, &archivo)
+        .ok_or_else(|| AppError::NotFound("No encontrado".into()))?;
+    let bytes = tokio::fs::read(InmuebleService::ruta_archivo(&state.upload_dir, &clave))
+        .await
+        .map_err(|_| AppError::NotFound("No encontrado".into()))?;
+    Ok(respuesta_archivo(bytes, mime_de(&clave), &cabeceras))
+}
+
+/// Tipo MIME por extensión; lo que no sea PNG ni WebP se sirve como JPEG
+fn mime_de(clave: &str) -> &'static str {
+    match std::path::Path::new(clave)
+        .extension()
+        .and_then(|e| e.to_str())
+    {
+        Some(e) if e.eq_ignore_ascii_case("png") => "image/png",
+        Some(e) if e.eq_ignore_ascii_case("webp") => "image/webp",
+        _ => "image/jpeg",
     }
 }
 /// Solo `<uuid>/<uuid>.<ext permitida>` (nada de `..`, subrutas ni extensiones raras)
@@ -320,7 +356,25 @@ pub fn routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
-    use super::{clave_solicitud_valida, clave_valida, clave_whatsapp_valida};
+    use super::{clave_bajo, clave_solicitud_valida, clave_valida, clave_whatsapp_valida, mime_de};
+
+    #[test]
+    fn clave_bajo_fija_la_carpeta_publicaciones() {
+        let id = "aa03ccec-c424-40e1-86ed-5f862d1bfa8f";
+        assert_eq!(
+            clave_bajo("publicaciones", id, &format!("{id}.webp")),
+            Some(format!("publicaciones/{id}/{id}.webp"))
+        );
+        assert!(clave_bajo("publicaciones", id, "../fuga.jpg").is_none());
+        assert!(clave_bajo("publicaciones", id, &format!("{id}.gif")).is_none());
+    }
+
+    #[test]
+    fn mime_de_por_extension() {
+        assert_eq!(mime_de("a/b.PNG"), "image/png");
+        assert_eq!(mime_de("a/b.webp"), "image/webp");
+        assert_eq!(mime_de("a/b.jpg"), "image/jpeg");
+    }
 
     #[test]
     fn clave_valida_acepta_y_rechaza() {
