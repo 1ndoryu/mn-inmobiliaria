@@ -115,7 +115,8 @@ pub async fn borrador(
      * similar disponible, sin caché ni IA (el estado cambia y no debe quedar
      * guardado un borrador que ofrezca lo que ya no está). */
     if let Some(f) = seguro.as_ref().filter(|f| no_disponible(&f.estado)) {
-        let resp = respuesta_no_disponible(&state.pool, f, &r, conocido, &firma_version).await;
+        let cuerpo = respuesta_no_disponible(&state.pool, f, &r, conocido, &firma_version).await;
+        let resp = (StatusCode::OK, Json(cuerpo)).into_response();
         return Ok(con_idempotencia(resp, clave_idem.as_ref()));
     }
     /* [09AA-30 F2] Caché compartida por inmueble: solo con los 2 primeros
@@ -238,13 +239,13 @@ fn respuesta_hit(texto: String, corregida: bool, conocido: bool, firma_version: 
 /// [28AD-1] Borrador de un inmueble que ya no está disponible: busca el similar
 /// por precio y zona (si la BD falla, va sin similar y lo avisa en el log: el
 /// borrador no se bloquea) y responde con `fuente=no-disponible`, coste vacío.
-async fn respuesta_no_disponible(
+pub(super) async fn respuesta_no_disponible(
     pool: &sqlx::PgPool,
     ficha: &PromptSeguro,
     r: &BorradorRequest,
     conocido: bool,
     firma_version: &str,
-) -> Response {
+) -> BorradorResponse {
     let similar = match InmuebleRepository::similar_disponible(pool, ficha.inmueble_id).await {
         Ok(fila) => fila,
         Err(e) => {
@@ -259,18 +260,14 @@ async fn respuesta_no_disponible(
         strip_ficha_para_prompt(&fila, STRIP_VERSION).ok().map(|s| (s, aviso))
     });
     let texto = borrador_no_disponible(ficha, similar.as_ref().map(|(s, a)| (s, a.as_str())));
-    (
-        StatusCode::OK,
-        Json(BorradorResponse {
-            borrador: servir_cuerpo(&texto, r),
-            fuente: "no-disponible".to_string(),
-            aviso_conocido: conocido,
-            firma_version: firma_version.to_string(),
-            corregida: false,
-            coste: crate::services::marketplace::Coste::default(),
-        }),
-    )
-        .into_response()
+    BorradorResponse {
+        borrador: servir_cuerpo(&texto, r),
+        fuente: "no-disponible".to_string(),
+        aviso_conocido: conocido,
+        firma_version: firma_version.to_string(),
+        corregida: false,
+        coste: crate::services::marketplace::Coste::default(),
+    }
 }
 
 /// Claves de caché de una petición ya resueltas: llave de la fila del hilo

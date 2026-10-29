@@ -97,7 +97,10 @@ pub async fn ficha_por_titulo(
     pool: &sqlx::PgPool,
     titulo_fb: &str,
 ) -> Result<Option<InmuebleRow>, AppError> {
-    let candidatos = InmuebleRepository::titulos_alias_publicados(pool).await?;
+    let mut candidatos = InmuebleRepository::titulos_alias_publicados(pool).await?;
+    /* [28AD-1] Los cerrados y despublicados también compiten: si el hilo habla de
+     * uno, el borrador debe decir que ya no está (el precio tampoco se cita). */
+    candidatos.extend(InmuebleRepository::titulos_alias_cerrados(pool).await?);
     let puntajes: Vec<(uuid::Uuid, (bool, usize, usize))> = candidatos
         .iter()
         .filter_map(|(id, titulo, alias)| {

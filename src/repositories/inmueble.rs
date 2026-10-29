@@ -198,6 +198,23 @@ impl InmuebleRepository {
         Self::titulos_publicados(pool, false).await
     }
 
+    /* [28AD-1] Títulos de los inmuebles ya cerrados (reservado, vendido, alquilado)
+     * que siguen despublicados: el hilo de un cliente sobre un aviso viejo debe
+     * emparejar con ellos para responder «ya no está disponible» y no «sigue
+     * disponible». Solo sirven para ese texto; el resto del flujo sigue citando
+     * únicamente publicados. */
+    pub async fn titulos_alias_cerrados(
+        pool: &PgPool,
+    ) -> Result<Vec<(Uuid, String, Vec<String>)>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- tupla sin struct; el SQL se mantiene fuera del caché `.sqlx/`
+        sqlx::query_as::<_, (Uuid, String, Vec<String>)>(
+            "SELECT id, titulo, alias_titulos FROM inmuebles \
+             WHERE publicado = FALSE AND estado IN ('reservado', 'vendido', 'alquilado')",
+        )
+        .fetch_all(pool)
+        .await
+    }
+
     /* [09AA-29] Parámetro del SQL: `true` = solo fichas sin vínculo. Hoy solo se
      * llama con `false` (13AA-4 quitó el fallback que lo usaba); se deja el
      * SQL intacto porque su entrada está en el caché `.sqlx/`. */

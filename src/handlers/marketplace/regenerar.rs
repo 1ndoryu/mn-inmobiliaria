@@ -73,6 +73,14 @@ pub(super) async fn regenerar_uno(
     let titulo_fb = aviso_fb_de_thread(r.thread_id.trim());
     let (seguro, precio_hash, catalog_hash, conocido) =
         claves_cache(pool, r.aviso_id.as_deref(), titulo_fb.as_deref()).await?;
+    /* [28AD-1] Igual que `borrador`: un inmueble cerrado no pasa por la IA ni se
+     * guarda en caché, así Regenerar tampoco lo resucita como «disponible». */
+    if let Some(f) = seguro
+        .as_ref()
+        .filter(|f| crate::services::marketplace::no_disponible(&f.estado))
+    {
+        return Ok(super::borrador::respuesta_no_disponible(pool, f, &r, conocido, &firma_version).await);
+    }
     let nombre = nombre_de_thread(r.thread_id.trim());
     /* [11AA] Misma llave por hilo que `borrador` (ver ahí). */
     let clave_firma = clave_cache_hilo(&firma);
