@@ -6,6 +6,7 @@
 //! cambiaron los dos o no hay base, gana el inmueble con `updated_at` más
 //! reciente (empate → local). «Conservar lo viejo» invierte la elección de ese
 //! campo. Un elemento que no existe en el lado elegido se quita del otro.
+//! Un inmueble vendido o alquilado nunca queda publicado (`coherente_con_estado`).
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
@@ -94,7 +95,7 @@ pub fn planificar(
     } else {
         Eleccion::Servidor
     };
-    let filas: Vec<FilaPlan> = dif
+    let mut filas: Vec<FilaPlan> = dif
         .filas
         .iter()
         .map(|f| {
@@ -128,6 +129,9 @@ pub fn planificar(
             }
         })
         .collect();
+    // Antes de decidir `publicado`: el estado final puede exigir que no quede publicado.
+    let estado = estado_final(&filas, local, remoto, mas_reciente);
+    coherente_con_estado(&mut filas, estado.as_deref());
     let reordenadas = por_reorden(&filas, local, remoto);
     // Cada fila es una operación en el lado contrario a su elección. Las de foto
     // solo cuentan si `aplicar` va a poder hacerlas. Al **local** se le cambia el
@@ -193,6 +197,56 @@ fn por_reorden<'a>(
         })
         .map(|f| f.clave.as_str())
         .collect()
+}
+
+/// Estado que queda tras el plan: el de su fila o, si los dos lados coinciden y no
+/// hay fila, el del lado ganador.
+fn estado_final(
+    filas: &[FilaPlan],
+    local: &InmuebleHuella,
+    remoto: &InmuebleHuella,
+    ganador: Eleccion,
+) -> Option<String> {
+    if let Some(f) = filas.iter().find(|f| f.clave == "estado") {
+        return match f.elegido {
+            Eleccion::Local => f.local.clone(),
+            Eleccion::Servidor => f.servidor.clone(),
+        };
+    }
+    let huella = match ganador {
+        Eleccion::Local => local,
+        Eleccion::Servidor => remoto,
+    };
+    huella.campos.get("estado").cloned()
+}
+
+/// Un vendido o alquilado no se publica: el repositorio lo despublica al cambiar el
+/// estado, pero si el plan deja `publicado` en `true`, la escritura posterior lo
+/// volvería a publicar. Por eso se elige el lado que tiene `false`.
+fn coherente_con_estado(filas: &mut [FilaPlan], estado: Option<&str>) {
+    if !matches!(estado, Some("vendido" | "alquilado")) {
+        return;
+    }
+    let Some(fila) = filas.iter_mut().find(|f| f.clave == "publicado") else {
+        return;
+    };
+    let elegido = match fila.elegido {
+        Eleccion::Local => fila.local.as_deref(),
+        Eleccion::Servidor => fila.servidor.as_deref(),
+    };
+    if elegido != Some("true") {
+        return;
+    }
+    fila.elegido = fila.elegido.contraria();
+    let nuevo = match fila.elegido {
+        Eleccion::Local => &fila.local,
+        Eleccion::Servidor => &fila.servidor,
+    };
+    fila.accion = if nuevo.is_some() {
+        Accion::Escribir
+    } else {
+        Accion::Quitar
+    };
 }
 
 /// Huella del plan: operaciones + huella completa de cada lado.
@@ -342,6 +396,33 @@ mod pruebas {
             (Eleccion::Servidor, Accion::Quitar)
         );
         assert_eq!((vieja.en_local, vieja.en_servidor), (1, 0));
+    }
+
+    #[test]
+    fn vendido_no_deja_publicado_en_true() {
+        // Caso Riberas del Caroní: el servidor pasó a `vendido` (y `publicado=false`),
+        // el local conserva `publicado=true`. Lo último gana el servidor en los dos.
+        let d = dif(vec![
+            fila("estado", Lado::Servidor, Some("disponible"), Some("vendido")),
+            fila("publicado", Lado::Local, Some("true"), Some("false")),
+        ]);
+        let p = plan(&d, &huella(0), &huella(0), &[]);
+        let publicado = p.filas.iter().find(|f| f.clave == "publicado").unwrap();
+        assert_eq!(
+            (publicado.elegido, publicado.accion),
+            (Eleccion::Servidor, Accion::Escribir)
+        );
+    }
+
+    #[test]
+    fn disponible_con_publicado_distinto_sigue_la_regla_normal() {
+        let d = dif(vec![
+            fila("estado", Lado::Local, Some("disponible"), Some("reservado")),
+            fila("publicado", Lado::Local, Some("true"), Some("false")),
+        ]);
+        let p = plan(&d, &huella(0), &huella(0), &[]);
+        let publicado = p.filas.iter().find(|f| f.clave == "publicado").unwrap();
+        assert_eq!(publicado.elegido, Eleccion::Local);
     }
 
     #[test]
