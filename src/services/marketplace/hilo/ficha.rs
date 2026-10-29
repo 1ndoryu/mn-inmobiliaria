@@ -28,6 +28,13 @@ pub struct PromptSeguro {
     /// Kama Merú»). [18AA-6] Es un dato guardado del inmueble, no algo que la
     /// IA componga con el título.
     pub nombre_corto: String,
+    /* [28AD-1] Solo para decidir el borrador de «no disponible» y excluir al
+     * propio inmueble del similar. `skip`: no entra al prompt ni a los hashes
+     * de caché, así que no invalida nada. */
+    #[serde(skip)]
+    pub inmueble_id: uuid::Uuid,
+    #[serde(skip)]
+    pub estado: String,
 }
 
 /// Recorta la ficha al allowlist. `strip` distinto de la versión vigente se
@@ -66,6 +73,8 @@ pub fn strip_ficha_para_prompt(ficha: &InmuebleRow, strip: &str) -> Result<Promp
         } else {
             ficha.nombre_corto.trim().to_string()
         },
+        inmueble_id: ficha.id,
+        estado: ficha.estado.clone(),
     })
 }
 

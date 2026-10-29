@@ -131,6 +131,32 @@ impl InmuebleRepository {
             .await
     }
 
+    /* [28AD-1] Similar disponible para el borrador de un inmueble que ya no lo
+     * está: misma operación («ambas» casa con cualquiera), publicado, con aviso
+     * de Marketplace (sin él no hay enlace que dar). Primero la misma ubicación;
+     * dentro, el precio más cercano. Si `$1` no existe, las subconsultas dan
+     * NULL y no hay candidato. */
+    pub async fn similar_disponible(
+        pool: &PgPool,
+        id: Uuid,
+    ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
+        sqlx::query_as::<_, InmuebleRow>(&format!(
+            "WITH ref AS (SELECT ubicacion, operacion, precio FROM inmuebles WHERE id = $1) \
+             SELECT {COLUMNAS} FROM inmuebles \
+             WHERE id <> $1 AND publicado = TRUE AND estado = 'disponible' \
+               AND precio > 0 AND marketplace_id IS NOT NULL \
+               AND (operacion = (SELECT operacion FROM ref) OR operacion = 'ambas' \
+                    OR (SELECT operacion FROM ref) = 'ambas') \
+             ORDER BY (lower(ubicacion) = lower((SELECT ubicacion FROM ref))) DESC, \
+                      abs(precio - (SELECT precio FROM ref)) ASC, created_at DESC \
+             LIMIT 1"
+        ))
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+    }
+
     /* [09AA-21] Búsqueda exacta por aviso (`WHERE marketplace_id = $1`).
      * El llamador normaliza antes (dígitos 5–32); aquí coincidencia exacta.
      * `None`/vacío nunca llega: el servicio la filtra y devuelve `Ok(None)`. */

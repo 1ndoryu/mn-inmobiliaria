@@ -108,6 +108,8 @@ fn seguro_kama_meru() -> PromptSeguro {
         habitaciones: 3,
         descripcion_corta: "Planta baja con patio".to_string(),
         nombre_corto: "Apart. en Resd. Kama Merú".to_string(),
+        inmueble_id: uuid::Uuid::nil(),
+        estado: "disponible".to_string(),
     }
 }
 
@@ -240,6 +242,68 @@ fn falta_precio_marca_fallback_y_cifra_ajena() {
     assert!(falta_precio("Apart. en Resd. Kama Merú sigue disponible en 35.000$.", &s));
     assert!(!falta_precio("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable.", &s));
     assert!(!falta_precio(FALLBACK_BORRADOR, &PromptSeguro { precio_publico: "$0".into(), ..seguro_kama_meru() }));
+}
+
+/// [28AD-1] Solo reservado, vendido y alquilado cuentan como «no disponible».
+#[test]
+fn no_disponible_solo_los_tres_estados() {
+    for e in ["reservado", "vendido", "alquilado", " vendido "] {
+        assert!(no_disponible(e), "{e}");
+    }
+    for e in ["disponible", "", "Vendido"] {
+        assert!(!no_disponible(e), "{e}");
+    }
+}
+
+fn seguro_similar() -> PromptSeguro {
+    PromptSeguro {
+        nombre_corto: "Apart. en Torre Alta".to_string(),
+        precio_publico: "$82.000".to_string(),
+        zona: "Puerto Ordaz, Torre Alta".to_string(),
+        ..seguro_kama_meru()
+    }
+}
+
+/// [28AD-1] Avisa que ya no está, propone el similar con su enlace y cierra con el contacto.
+#[test]
+fn no_disponible_propone_similar_y_contacto() {
+    let mut f = seguro_kama_meru();
+    f.estado = "reservado".to_string();
+    let s = seguro_similar();
+    let r = borrador_no_disponible(&f, Some((&s, "123456789")));
+    assert!(r.starts_with("Apart. en Resd. Kama Merú ya está reservado"), "{r}");
+    assert!(!r.contains("sigue disponible"), "{r}");
+    assert!(r.contains("Apart. en Torre Alta"), "{r}");
+    assert!(r.contains("82.000$"), "{r}");
+    assert!(r.contains("https://www.facebook.com/marketplace/item/123456789"), "{r}");
+    assert!(r.contains(CONTACTO_TEL), "{r}");
+    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+}
+
+/// [28AD-1] Cada estado dice lo suyo; el alquiler del similar lleva «al mes».
+#[test]
+fn no_disponible_texto_por_estado_y_canon() {
+    let mut f = seguro_kama_meru();
+    f.estado = "vendido".to_string();
+    assert!(borrador_no_disponible(&f, None).contains("ya fue vendido"));
+    f.estado = "alquilado".to_string();
+    assert!(borrador_no_disponible(&f, None).contains("ya fue alquilado"));
+    let mut s = seguro_similar();
+    s.operacion = "alquiler".to_string();
+    assert!(borrador_no_disponible(&f, Some((&s, "9"))).contains("82.000$ al mes"));
+}
+
+/// [28AD-1] Sin similar: ofrece ayuda para buscar y mantiene el contacto; sin nombre, «Este inmueble».
+#[test]
+fn no_disponible_sin_similar_ofrece_buscar() {
+    let mut f = seguro_kama_meru();
+    f.estado = "vendido".to_string();
+    f.nombre_corto = String::new();
+    let r = borrador_no_disponible(&f, None);
+    assert!(r.starts_with("Este inmueble ya fue vendido"), "{r}");
+    assert!(r.contains("buscar otra opción"), "{r}");
+    assert!(!r.contains("facebook.com/marketplace"), "{r}");
+    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
 }
 
 /// [28AA-cache] La reserva de la ficha lleva el precio; sin ficha, el fallback.

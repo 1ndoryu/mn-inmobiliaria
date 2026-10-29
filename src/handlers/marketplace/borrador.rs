@@ -4,7 +4,9 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::services::marketplace::continuacion;
-use crate::services::marketplace::{borrador_de_reserva, falta_precio};
+use crate::services::marketplace::{
+    borrador_de_reserva, borrador_no_disponible, falta_precio, no_disponible, PromptSeguro,
+};
 use chrono::Timelike as _;
 
 /* [16AA-6] Era 30/min: las burbujas de la lab piden en ráfagas de ~90/min y
@@ -109,6 +111,13 @@ pub async fn borrador(
     let titulo_fb = aviso_fb_de_thread(r.thread_id.trim());
     let (seguro, precio_hash, catalog_hash, conocido) =
         claves_cache(&state.pool, r.aviso_id.as_deref(), titulo_fb.as_deref()).await?;
+    /* [28AD-1] Reservado, vendido o alquilado: el texto sale de la ficha y de un
+     * similar disponible, sin caché ni IA (el estado cambia y no debe quedar
+     * guardado un borrador que ofrezca lo que ya no está). */
+    if let Some(f) = seguro.as_ref().filter(|f| no_disponible(&f.estado)) {
+        let resp = respuesta_no_disponible(&state.pool, f, &r, conocido, &firma_version).await;
+        return Ok(con_idempotencia(resp, clave_idem.as_ref()));
+    }
     /* [09AA-30 F2] Caché compartida por inmueble: solo con los 2 primeros
      * mensajes del cliente y aviso conocido; sin nombre del hilo no se puede
      * rellenar `{{nombre}}`, así que ese hilo va por su camino de siempre.
@@ -181,11 +190,22 @@ pub async fn borrador(
     if gen.fuente == "ia" {
         guardar_generado(&state.pool, &cl, &foto, &gen, compartida, r.force || malo).await?;
     }
-    let resp = (
+    let resp = respuesta_generada(&gen, &r, conocido, firma_version);
+    Ok(con_idempotencia(resp, clave_idem.as_ref()))
+}
+
+/// Respuesta de un miss: solo el texto de la IA lleva saludo (la reserva sale tal cual).
+fn respuesta_generada(
+    gen: &crate::services::marketplace::Generado,
+    r: &BorradorRequest,
+    conocido: bool,
+    firma_version: String,
+) -> Response {
+    (
         StatusCode::OK,
         Json(BorradorResponse {
             borrador: if gen.fuente == "ia" {
-                servir_cuerpo(&gen.texto, &r)
+                servir_cuerpo(&gen.texto, r)
             } else {
                 gen.texto.clone()
             },
@@ -196,8 +216,7 @@ pub async fn borrador(
             coste: gen.coste,
         }),
     )
-        .into_response();
-    Ok(con_idempotencia(resp, clave_idem.as_ref()))
+        .into_response()
 }
 
 /// Respuesta de un hit de caché: `fuente=cache` y coste vacío (no gastó IA).
@@ -210,6 +229,44 @@ fn respuesta_hit(texto: String, corregida: bool, conocido: bool, firma_version: 
             aviso_conocido: conocido,
             firma_version: firma_version.to_string(),
             corregida,
+            coste: crate::services::marketplace::Coste::default(),
+        }),
+    )
+        .into_response()
+}
+
+/// [28AD-1] Borrador de un inmueble que ya no está disponible: busca el similar
+/// por precio y zona (si la BD falla, va sin similar y lo avisa en el log: el
+/// borrador no se bloquea) y responde con `fuente=no-disponible`, coste vacío.
+async fn respuesta_no_disponible(
+    pool: &sqlx::PgPool,
+    ficha: &PromptSeguro,
+    r: &BorradorRequest,
+    conocido: bool,
+    firma_version: &str,
+) -> Response {
+    let similar = match InmuebleRepository::similar_disponible(pool, ficha.inmueble_id).await {
+        Ok(fila) => fila,
+        Err(e) => {
+            tracing::warn!("borrador mp: similar de {} falló ({e}), va sin similar", ficha.inmueble_id);
+            None
+        }
+    };
+    /* El enlace exige `marketplace_id`: la consulta ya lo pide, pero un `None`
+     * aquí degrada a «sin similar» en vez de armar un enlace roto. */
+    let similar = similar.and_then(|fila| {
+        let aviso = fila.marketplace_id.clone()?;
+        strip_ficha_para_prompt(&fila, STRIP_VERSION).ok().map(|s| (s, aviso))
+    });
+    let texto = borrador_no_disponible(ficha, similar.as_ref().map(|(s, a)| (s, a.as_str())));
+    (
+        StatusCode::OK,
+        Json(BorradorResponse {
+            borrador: servir_cuerpo(&texto, r),
+            fuente: "no-disponible".to_string(),
+            aviso_conocido: conocido,
+            firma_version: firma_version.to_string(),
+            corregida: false,
             coste: crate::services::marketplace::Coste::default(),
         }),
     )

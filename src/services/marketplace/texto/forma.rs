@@ -327,6 +327,44 @@ pub fn borrador_de_reserva(ficha: Option<&PromptSeguro>) -> String {
     borrador_minimo(apertura.as_ref().map(|(_, m)| m.as_str()))
 }
 
+/// [28AD-1] true si el estado saca al inmueble del mercado: su borrador no
+/// ofrece el inmueble, avisa y propone otro.
+#[must_use]
+pub fn no_disponible(estado: &str) -> bool {
+    matches!(estado.trim(), "reservado" | "vendido" | "alquilado")
+}
+
+/// [28AD-1] Borrador determinista de un inmueble que ya no está disponible
+/// (sin IA ni caché: el precio del similar y el enlace salen de la ficha, no de
+/// un modelo). `similar` = ficha del parecido y su ID de aviso de Marketplace;
+/// sin él, se invita a escribir. Siempre cierra con el contacto canónico.
+#[must_use]
+pub fn borrador_no_disponible(ficha: &PromptSeguro, similar: Option<(&PromptSeguro, &str)>) -> String {
+    let nombre = match ficha.nombre_corto.trim() {
+        "" => "Este inmueble",
+        n => n,
+    };
+    let aviso = match ficha.estado.trim() {
+        "reservado" => format!("{nombre} ya está reservado y por ahora no está disponible."),
+        "alquilado" => format!("{nombre} ya fue alquilado y ya no está disponible."),
+        _ => format!("{nombre} ya fue vendido y ya no está disponible."),
+    };
+    let propuesta = match similar {
+        Some((s, marketplace_id)) => {
+            let al_mes = if s.operacion.eq_ignore_ascii_case("alquiler") { " al mes" } else { "" };
+            format!(
+                "Tenemos una opción parecida en {}: {}, por {}${al_mes}. Puede verla aquí: \
+                 https://www.facebook.com/marketplace/item/{marketplace_id}",
+                s.zona,
+                s.nombre_corto.trim(),
+                cifra_sin_simbolo(&s.precio_publico),
+            )
+        }
+        None => "Si desea, escríbanos y le ayudamos a buscar otra opción que se ajuste a lo que necesita.".to_string(),
+    };
+    formatear_parrafos(&format!("{aviso}\n\n{propuesta}\n\n{CIERRE_BORRADOR}"))
+}
+
 /// [08AA-11] Párrafos coherentes para el borrador que se copia a
 /// `WhatsApp`: la IA a veces devuelve líneas sueltas (venía de pedirle
 /// "máximo 6 líneas") o pega el contacto al final de la frase anterior.
