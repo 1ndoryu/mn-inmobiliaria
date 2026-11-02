@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link2, LogOut, Plus, Search, Settings2 } from 'lucide-react';
+import { Link2, LogOut, Plus, Settings2 } from 'lucide-react';
 import { Layout, type VistaApp } from './layout';
+import { FiltrosInmuebles, PaginacionInmuebles } from './controles-inmuebles-admin';
 import { ModalesApp } from './modales-app';
 import { PantallaLogin } from '../features/sesion/pantalla-login';
 import { TablaInmuebles } from '../features/inmuebles/tabla-inmuebles';
@@ -26,8 +27,6 @@ import type { EstadoInmueble, Inmueble } from '../domain/inmueble';
 import { resumirConexionIA } from '../domain/ia';
 import { descripcionVista, guardarVista, leerVistaGuardada, tituloVista } from './vista-admin';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 
 /* [249A-1] Panel de gestión en módulo aparte: `App.tsx` lo carga con
  * `React.lazy` solo bajo `/admin*`, así el visitante público no descarga el
@@ -227,34 +226,18 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
         <VistaCalendario inmuebles={inmuebles} />
       ) : vista === 'inmuebles' ? (
         <>
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={busqueda}
-                onChange={(e) => {
-                  setBusqueda(e.target.value);
-                  setPagina(1);
-                }}
-                placeholder="Buscar por título, ubicación o descripción…"
-                className="pl-9"
-              />
-            </div>
-            <Select sinBase
-              value={filtroEstado}
-              onChange={(e) => {
-                setFiltroEstado(e.target.value as 'todos' | EstadoInmueble);
-                setPagina(1);
-              }}
-              className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-            >
-              <option value="todos">Todos los estados</option>
-              <option value="disponible">disponible</option>
-              <option value="reservado">reservado</option>
-              <option value="vendido">vendido</option>
-              <option value="alquilado">alquilado</option>
-            </Select>
-          </div>
+          <FiltrosInmuebles
+            busqueda={busqueda}
+            alCambiarBusqueda={(valor) => {
+              setBusqueda(valor);
+              setPagina(1);
+            }}
+            filtroEstado={filtroEstado}
+            alCambiarFiltro={(estado) => {
+              setFiltroEstado(estado);
+              setPagina(1);
+            }}
+          />
 
           {cargando ? (
             <p className="rounded-lg border border-dashed px-6 py-16 text-center text-sm text-muted-foreground">
@@ -273,33 +256,13 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
                 onActualizarInmueble={reponer}
               />
               {filtrados.length > TAMANO_PAGINA && (
-                <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-                  <span className="text-muted-foreground">
-                    {(paginaActual - 1) * TAMANO_PAGINA + 1}–
-                    {Math.min(paginaActual * TAMANO_PAGINA, filtrados.length)} de {filtrados.length}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={paginaActual <= 1}
-                      onClick={() => setPagina(paginaActual - 1)}
-                    >
-                      Anterior
-                    </Button>
-                    <span className="tabular-nums">
-                      {paginaActual} / {totalPaginas}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={paginaActual >= totalPaginas}
-                      onClick={() => setPagina(paginaActual + 1)}
-                    >
-                      Siguiente
-                    </Button>
-                  </div>
-                </div>
+                <PaginacionInmuebles
+                  pagina={paginaActual}
+                  totalPaginas={totalPaginas}
+                  tamano={TAMANO_PAGINA}
+                  total={filtrados.length}
+                  alCambiar={setPagina}
+                />
               )}
             </>
           )}
