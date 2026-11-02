@@ -11,7 +11,6 @@
 - [ ] `25AA-6` — **«Ambas» en el sync sin romper nada.** Hecho cuando la huella y el PUT llevan `precio_alquiler`, y empujar un «ambas» a una API de producción sin la migración falla solo esa fila con un aviso claro (el deploy es de la usuaria, antes de empujar).
 - [ ] `25AA-11` — **Desplegar a producción lo de 25AA-1..10.** La usuaria autorizó el deploy (2026-10-27) al terminar estas tareas. Hecho cuando `coolify-manager-rs` despliega (con `WA_WEBHOOK_SECRETO` ya en producción, ver `15AA-6`), la migración `20261027000045` está aplicada, `/publicar` carga y «ambas» funciona; los inmuebles «ambas» se empujan solo después.
 - [ ] `28AB-3` — **Rehacer la página pública `/publicidad` desde cero.** Hecho cuando hay una página nueva con el diseño del front público, `noindex` y sin enlace en el menú, consumiendo `GET /api/public/publicidad` (lógica conservada). Se retiró el diseño anterior por decisión de la usuaria (2026-10-28); la prueba viva de piezas, descargas y teléfono se hace sobre la página nueva. Plan original: `plan-calendario-publicidad-redes-2026-10-28.md`.
-- [ ] `19AA-6` — **Backup pre-deploy que no aborta con la app en bucle.** Hecho cuando `coolify-manager-rs` (`fases_inicio.rs:22-55`) deja de abortar el backup si la app está en bucle, y un deploy de prueba en la 89 lo confirma. Detalle en el plan del piloto, §G.
 - [ ] `08AA-10` — **Texto final con precio.** Pendiente; el proveedor IA devuelve vacío (`/ia/probar` cuelga).
 - [ ] `08AA-11` — y `08AA-15` — **Verificación visual y viva del borrador.** Mismo proveedor IA.
 
