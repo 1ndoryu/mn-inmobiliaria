@@ -3,6 +3,7 @@ import { readFileSync, rmSync } from 'node:fs';
 import { api, leerEnv, login, nucleo, ENV_DEFECTO } from '../../dev/lib-api.mjs';
 import { diffNucleo, leerDatos, listar, porTitulo, REQUERIDAS } from './comun.mjs';
 import { prepararFotos } from './fotos.mjs';
+import { ordenarDescripcion, respaldarOriginal } from './ficha-ia.mjs';
 
 /* Sincroniza UN destino: crea o (con --sobrescribir) reemplaza + fotos + publica. */
 async function sincronizarDestino(base, quien, token, datos, fotos, { borrador, sobrescribir, dry }) {
@@ -99,13 +100,19 @@ export async function cmdPublicar(o) {
   const { listas, tmp } = prepararFotos(o.fotos);
   console.log(`Fotos listas: ${listas.length} (EXIF pelado en ${tmp})`);
   try {
+    /* [28AE-2] La IA vive en el backend local: se loguea aunque sea --solo-prod (salvo dry-run). */
+    const tL = !soloProd || !dry ? await login(LOCAL, cfg.LOCAL_EMAIL, cfg.LOCAL_PASSWORD, 'local', o.env ?? ENV_DEFECTO) : null;
+    const original = datos.descripcion;
+    const ordenados = await ordenarDescripcion(datos, { base: LOCAL, token: tL, dry, sinIa: o['sin-ia'] === true || o['sin-ia'] === '' });
+    const opciones = { borrador: !!o.borrador, sobrescribir: !!o.sobrescribir, dry };
     if (!soloProd) {
-      const tL = await login(LOCAL, cfg.LOCAL_EMAIL, cfg.LOCAL_PASSWORD, 'local', o.env ?? ENV_DEFECTO);
-      await sincronizarDestino(LOCAL, 'local', tL, datos, listas, { borrador: !!o.borrador, sobrescribir: !!o.sobrescribir, dry });
+      await sincronizarDestino(LOCAL, 'local', tL, ordenados, listas, opciones);
     }
     if (!soloLocal) {
       const tP = await login(PROD, cfg.PROD_EMAIL, cfg.PROD_PASSWORD, 'prod', o.env ?? ENV_DEFECTO);
-      await sincronizarDestino(PROD, 'prod', tP, datos, listas, { borrador: !!o.borrador, sobrescribir: !!o.sobrescribir, dry });
+      /* El original también queda en la base de prod (sin IA allí: la IA corrió en local). */
+      if (!dry) await respaldarOriginal(PROD, tP, original, 'prod');
+      await sincronizarDestino(PROD, 'prod', tP, ordenados, listas, opciones);
     }
     console.log(dry ? 'dry-run OK (nada escrito)' : 'Publicación OK en ' + (soloLocal ? 'local' : soloProd ? 'prod' : 'local+prod'));
   } finally {

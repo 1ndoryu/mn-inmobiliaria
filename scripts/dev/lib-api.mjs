@@ -28,7 +28,7 @@ export function leerEnv(ruta, requeridas) {
   return cfg;
 }
 
-export async function api(base, ruta, { metodo = 'GET', token, json, bytes } = {}) {
+export async function api(base, ruta, { metodo = 'GET', token, json, bytes, timeoutMs = 60000 } = {}) {
   const cabeceras = {};
   if (token) cabeceras.Authorization = `Bearer ${token}`;
   let cuerpo;
@@ -43,7 +43,7 @@ export async function api(base, ruta, { metodo = 'GET', token, json, bytes } = {
     method: metodo,
     headers: cabeceras,
     body: cuerpo,
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (bytes === true) {
     if (!res.ok) throw new Error(`${metodo} ${ruta} → ${res.status}`);

@@ -21,7 +21,7 @@ async function main() {
   if (cmd === 'push') return o.vinculos === true || o.vinculos === '' ? cmdPushVinculos(o) : cmdPush(o);
   if (cmd === 'verificar') return cmdVerificar(o);
   console.log('Uso: node scripts/datos/inmueble.mjs<estado|publicar|mejorar|push|verificar> [opciones]');
-  console.log('  estado --slug <slug> | publicar --fotos <carpeta> --datos \'{...}\'|@f.json [--borrador] [--solo-local|--solo-prod] [--sobrescribir] [--dry-run]');
+  console.log('  estado --slug <slug> | publicar --fotos <carpeta> --datos \'{...}\'|@f.json [--borrador] [--solo-local|--solo-prod] [--sobrescribir] [--sin-ia] [--dry-run]');
   console.log('  mejorar --slug <slug> [--limite N] [--repetir] [--foto <id,id,…>]  (solo local)');
   console.log('  push --slug <slug> [--dry-run] [--sobrescribir]  (local → prod)');
   console.log('  push --vinculos [--dry-run]  (todos los vínculos de Marketplace, local → prod)');
