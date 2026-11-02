@@ -15,6 +15,11 @@ const PaginaAsk = lazy(() =>
   import('./features/ask/pagina-ask').then((m) => ({ default: m.PaginaAsk })),
 );
 
+/* [28AB-3] /publicidad: material para asesores, noindex y sin enlace en el menú. */
+const PaginaPublicidad = lazy(() =>
+  import('./features/publica/publicidad/pagina-publicidad').then((m) => ({ default: m.PaginaPublicidad })),
+);
+
 export default function App() {
   /* `/ask*` = cuestionario privado con sesión; `/admin*` = gestión con
    * sesión; el resto = web pública. */
@@ -30,6 +35,13 @@ export default function App() {
     return (
       <Suspense fallback={<p className="px-6 py-16 text-center text-sm">Cargando panel…</p>}>
         <AppAdmin />
+      </Suspense>
+    );
+  }
+  if (rutaActual() === '/publicidad') {
+    return (
+      <Suspense fallback={<p className="px-6 py-16 text-center text-sm">Cargando material…</p>}>
+        <PaginaPublicidad />
       </Suspense>
     );
   }
