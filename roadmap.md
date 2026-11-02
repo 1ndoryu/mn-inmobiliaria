@@ -8,8 +8,6 @@
 
 ## Pendientes
 
-- [ ] `25AA-6` — **«Ambas» en el sync sin romper nada.** Hecho cuando la huella y el PUT llevan `precio_alquiler`, y empujar un «ambas» a una API de producción sin la migración falla solo esa fila con un aviso claro (el deploy es de la usuaria, antes de empujar).
-- [ ] `25AA-11` — **Desplegar a producción lo de 25AA-1..10.** La usuaria autorizó el deploy (2026-10-27) al terminar estas tareas. Hecho cuando `coolify-manager-rs` despliega (con `WA_WEBHOOK_SECRETO` ya en producción, ver `15AA-6`), la migración `20261027000045` está aplicada, `/publicar` carga y «ambas» funciona; los inmuebles «ambas» se empujan solo después.
 - [ ] `08AA-10` — **Texto final con precio.** Pendiente; el proveedor IA devuelve vacío (`/ia/probar` cuelga).
 - [ ] `08AA-11` — y `08AA-15` — **Verificación visual y viva del borrador.** Mismo proveedor IA.
 
