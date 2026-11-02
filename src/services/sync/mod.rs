@@ -12,6 +12,7 @@ pub mod operacion;
 pub mod plan;
 pub mod publicar;
 pub mod remoto;
+pub mod solicitudes;
 pub mod traer;
 pub mod vigilancia;
 

@@ -62,8 +62,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /* [13AA-12] Vigilancia de sincronización: consulta al servidor y mantiene el estado en memoria. */
     tokio::spawn(glory_backend::services::sync::vigilancia::vigilar(
         pool.clone(),
-        upload_dir,
+        upload_dir.clone(),
     ));
+    /* [28AE-1] Solicitudes «Publicar mi inmueble» de producción; apagado sin SYNC_SOLICITUDES_SEG. */
+    if let Some(intervalo) = glory_backend::services::sync::solicitudes::intervalo_desde_entorno() {
+        tokio::spawn(glory_backend::services::sync::solicitudes::vigilar(
+            pool.clone(),
+            upload_dir,
+            intervalo,
+        ));
+    }
     /* [279A-2] Tope diario de tokens LLM: solo alerta (nunca apaga). */
     tokio::spawn(glory_backend::services::vigilar_tope_uso(pool));
     let listener = tokio::net::TcpListener::bind(&addr).await?;

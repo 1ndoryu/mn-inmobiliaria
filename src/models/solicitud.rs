@@ -157,7 +157,7 @@ fn validar_operacion(operacion: &str) -> Result<(), ValidationError> {
 }
 
 /// Clave generada por el servicio: `solicitudes/<uuid>/<uuid>.<ext>`
-fn clave_foto_valida(clave: &str) -> bool {
+pub(crate) fn clave_foto_valida(clave: &str) -> bool {
     if clave.contains("..") || !clave.starts_with("solicitudes/") {
         return false;
     }
@@ -306,6 +306,18 @@ pub struct FiltrosSolicitudes {
     /// `recientes` (defecto) o `antiguas`
     #[serde(default)]
     pub orden: Option<String>,
+}
+
+/// Solicitudes sin ver por el admin: el aviso de la cabecera [28AE-1]
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct NoVistasSolicitudes {
+    pub total: i64,
+}
+
+/// Resultado de marcar el aviso como visto [28AE-1]
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct SolicitudesMarcadas {
+    pub marcadas: u64,
 }
 
 /// Una fila del agregado por estado del panel

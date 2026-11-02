@@ -334,7 +334,8 @@ impl InmuebleService {
         }
     }
 
-    pub(super) fn extension_valida(filename: &str) -> Result<&'static str, AppError> {
+    /// Pública al crate: la sincronización de solicitudes valida sus fotos igual [28AE-1].
+    pub(crate) fn extension_valida(filename: &str) -> Result<&'static str, AppError> {
         let minusculas = filename.to_lowercase();
         let punto = minusculas.rfind('.').ok_or_else(|| {
             AppError::BadRequest("El archivo necesita extensión (.jpg, .png, .webp)".into())
@@ -349,7 +350,7 @@ impl InmuebleService {
             })
     }
 
-    pub(super) fn magia_valida(bytes: &[u8], extension: &str) -> Result<(), AppError> {
+    pub(crate) fn magia_valida(bytes: &[u8], extension: &str) -> Result<(), AppError> {
         let es_jpeg = bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
         let es_png = bytes.len() >= 8
             && bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);

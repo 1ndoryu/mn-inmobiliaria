@@ -21,6 +21,9 @@ use super::huella::{Manifiesto, VERSION};
 use crate::models::{CopyInmueble, CreateInmuebleRequest, RecetaPublicidad, MAX_FOTO_BYTES};
 
 mod http;
+mod solicitudes;
+
+pub use solicitudes::{FotoSolicitudRemota, PaginaSolicitudesRemota, SolicitudRemota, pagina_solicitudes};
 
 use http::{
     cliente, enviar, error_de_estado, escribir, escribir_sin_cuerpo, leer, red, Envio,
@@ -42,6 +45,8 @@ pub enum ErrorRemoto {
     /// El servidor responde y rechaza la operación (400, 404, 409, 413...). El motivo es el suyo.
     Rechazado(String),
 }
+
+impl std::error::Error for ErrorRemoto {}
 
 impl std::fmt::Display for ErrorRemoto {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -27,10 +27,12 @@ pub use inmueble_alias::{normalizar_alias_titulos, MAX_ALIAS, MAX_ALIAS_LEN};
 pub use inmueble_paginacion::{FiltrosPublicos, PaginatedInmuebles};
 
 pub use note::{CreateNoteRequest, Note, PaginatedNotes, PaginationParams, UpdateNoteRequest};
+pub(crate) use solicitud::clave_foto_valida;
 pub use solicitud::{
-    ConteoEstado, CreateSolicitudRequest, FiltrosSolicitudes, FotoSolicitud, FotoSolicitudSubida,
-    PaginatedSolicitudes, Solicitud, SolicitudRow, SolicitudesAdminParams, StatsSolicitudes,
-    UpdateEstadoSolicitud, ESTADOS_SOLICITUD, MAX_FOTOS_SOLICITUD, ORIGENES_CONTACTO,
+    ConteoEstado, CreateSolicitudRequest, FiltrosSolicitudes, FotoSolicitud,
+    FotoSolicitudSubida, NoVistasSolicitudes, PaginatedSolicitudes, Solicitud, SolicitudRow,
+    SolicitudesAdminParams, SolicitudesMarcadas, StatsSolicitudes, UpdateEstadoSolicitud,
+    ESTADOS_SOLICITUD, MAX_FOTOS_SOLICITUD, ORIGENES_CONTACTO,
 };
 pub use suscriptor::{CreateSuscriptorRequest, Suscriptor, SuscriptorRow};
 pub use user::{AuthResponse, LoginRequest, RegisterRequest, User, UserResponse};

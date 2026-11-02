@@ -14,7 +14,7 @@ pub use cliente::ClienteRepository;
 pub use inmueble::{InmuebleRepository, NuevoInmueble};
 pub use note::NoteRepository;
 pub use publicacion_redes::{NuevaPieza, PublicacionRepository};
-pub use solicitud::{NuevaSolicitud, SolicitudRepository};
+pub use solicitud::{NuevaSolicitud, SolicitudRepository, SolicitudSincronizada};
 pub use suscriptor::{NuevoSuscriptor, SuscriptorRepository};
 pub use user::UserRepository;
 pub use visita::{NuevaVisita, VisitaRepository};

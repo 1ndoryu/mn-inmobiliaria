@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -30,6 +31,17 @@ pub struct NuevaSolicitud<'a> {
     pub ip_origen: Option<&'a str>,
     pub user_agent: Option<&'a str>,
     pub origen_contacto: &'a str,
+}
+
+/// Solicitud llegada de producción: conserva su id y sus fechas originales [28AE-1]
+pub struct SolicitudSincronizada<'a> {
+    pub id: Uuid,
+    pub nueva: NuevaSolicitud<'a>,
+    pub estado: &'a str,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    /// `true` en la primera carga: lo que ya existía en producción no debe avisar.
+    pub aviso_visto: bool,
 }
 
 pub struct SolicitudRepository;
@@ -122,5 +134,86 @@ impl SolicitudRepository {
         .bind(estado)
         .fetch_optional(pool)
         .await
+    }
+
+    /// Inserta una solicitud de producción con su mismo id. `false` si ya estaba:
+    /// repetir la pasada no duplica nada.
+    pub async fn insertar_sincronizada(
+        pool: &PgPool,
+        nueva: &SolicitudSincronizada<'_>,
+    ) -> Result<bool, sqlx::Error> {
+        let r = &nueva.nueva;
+        // RETURNING solo devuelve fila si se insertó: `None` = ya existía (ON CONFLICT).
+        // Sin macro `query!`: su cache en `.sqlx/` no recogía esta sentencia.
+        let insertada = sqlx::query_scalar::<_, Uuid>(
+            "INSERT INTO solicitudes (id, nombre, telefono, email, descripcion, ubicacion, \
+              puestos, residencia, precio_estimado, operacion, estado, fotos, ip_origen, \
+              user_agent, origen_contacto, created_at, updated_at, aviso_visto, sincronizada_en) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW()) \
+             ON CONFLICT (id) DO NOTHING RETURNING id",
+        )
+        .bind(nueva.id)
+        .bind(r.nombre)
+        .bind(r.telefono)
+        .bind(r.email)
+        .bind(r.descripcion)
+        .bind(r.ubicacion)
+        .bind(r.puestos)
+        .bind(r.residencia)
+        .bind(r.precio_estimado)
+        .bind(r.operacion)
+        .bind(nueva.estado)
+        .bind(r.fotos)
+        .bind(r.ip_origen)
+        .bind(r.user_agent)
+        .bind(r.origen_contacto)
+        .bind(nueva.created_at)
+        .bind(nueva.updated_at)
+        .bind(nueva.aviso_visto)
+        .fetch_optional(pool)
+        .await?;
+        Ok(insertada.is_some())
+    }
+
+    /// Ids de `ids` que ya están en la base local
+    pub async fn ids_existentes(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<Uuid>, sqlx::Error> {
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM solicitudes WHERE id = ANY($1)")
+            .bind(ids)
+            .fetch_all(pool)
+            .await
+    }
+
+    /// ¿Hubo ya una pasada de sincronización? Si no, la siguiente es la primera carga.
+    pub async fn primera_pasada_hecha(pool: &PgPool) -> Result<bool, sqlx::Error> {
+        sqlx::query_scalar::<_, bool>("SELECT EXISTS (SELECT 1 FROM sync_solicitudes_estado)")
+            .fetch_one(pool)
+            .await
+    }
+
+    /// Anota que ya hubo una pasada (idempotente; la tabla tiene una sola fila)
+    pub async fn marcar_primera_pasada(pool: &PgPool) -> Result<(), sqlx::Error> {
+        sqlx::query_scalar::<_, bool>(
+            "INSERT INTO sync_solicitudes_estado (id) VALUES (TRUE) ON CONFLICT (id) DO NOTHING RETURNING TRUE",
+        )
+        .fetch_optional(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Solicitudes que el admin aún no ha visto (aviso de la cabecera)
+    pub async fn contar_no_vistas(pool: &PgPool) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM solicitudes WHERE aviso_visto = FALSE")
+            .fetch_one(pool)
+            .await
+    }
+
+    /// Marca todas como vistas; devuelve cuántas cambiaron
+    pub async fn marcar_vistas(pool: &PgPool) -> Result<u64, sqlx::Error> {
+        let ids = sqlx::query_scalar::<_, Uuid>(
+            "UPDATE solicitudes SET aviso_visto = TRUE WHERE aviso_visto = FALSE RETURNING id",
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(ids.len() as u64)
     }
 }
