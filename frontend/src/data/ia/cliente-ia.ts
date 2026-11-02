@@ -99,6 +99,25 @@ export async function completarIA(
   }
 }
 
+/* [28AE-2] Ficha: el backend guarda la descripción original (privada) ANTES de
+ * llamar a la IA y aplica el prompt único; aquí solo se envía el texto crudo. */
+export async function completarFichaIA(
+  texto: string,
+  fotos: string[],
+  opciones: { inmuebleId?: string; origen?: 'panel' | 'publicar'; signal?: AbortSignal } = {},
+): Promise<CompletarIA> {
+  const { inmuebleId, origen = 'panel', signal } = opciones;
+  try {
+    return await apiFetch<CompletarCrudo>('/api/admin/ia/ficha', {
+      method: 'POST',
+      body: JSON.stringify({ texto, fotos, inmueble_id: inmuebleId ?? null, origen }),
+      signal,
+    });
+  } catch (e) {
+    return { ok: false, texto: null, proveedor: null, modelo: null, motivos: [mensajeError(e, signal)] };
+  }
+}
+
 function mensajeError(e: unknown, signal?: AbortSignal): string {
   if (signal?.aborted) return 'Petición cancelada.';
   return e instanceof ErrorApi ? e.message : 'Error inesperado de la IA.';

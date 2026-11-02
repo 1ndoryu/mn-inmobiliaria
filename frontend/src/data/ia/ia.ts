@@ -1,10 +1,11 @@
 import { ESTADOS, TIPOS, type EstadoInmueble, type TipoInmueble } from '@/domain/inmueble';
-import { completarIA } from './cliente-ia';
+import { completarFichaIA } from './cliente-ia';
 
-/* Adaptador de IA para ordenar fichas de inmuebles vía el centro de IA del
- * backend [199A-2] (GloryAPI + OpenCode Go con fallback; las claves viven en
- * el `.env` del servidor). Puro salvo la red: prompts y normalización quedan
- * aquí, los componentes solo llaman a `organizarConIA`. */
+/* Adaptador de IA para ordenar fichas de inmuebles. [28AE-2] El prompt vive en
+ * el backend (`config/ia.rs::SISTEMA_FICHA`, el mismo para panel, completar al
+ * publicar y CLI) y el original se respalda allí antes de llamar a la IA
+ * (OpenCode Go, DeepSeek Flash). Puro salvo la red: aquí solo se normaliza la
+ * respuesta; los componentes llaman a `organizarConIA`. */
 
 /* Texto comercial de la ficha. */
 export interface FichaTexto {
@@ -41,37 +42,6 @@ export interface FichaIA extends FichaTexto, FichaMedidas, FichaClase {
 export type ResultadoIA =
   | { ok: true; ficha: FichaIA; modelo: string }
   | { ok: false; motivo: string };
-
-const SISTEMA = [
-  'Eres un experto inmobiliario que ordena fichas de inmuebles en español.',
-  'Recibes una descripción libre (a veces desordenada) y fotos del inmueble.',
-  'Devuelve SOLO un objeto JSON, sin markdown ni explicaciones, con estas claves exactas:',
-  '{"titulo": string, "descripcion": string, "ubicacion": string, "residencia": string,',
-  ' "nombre_corto": string, "precio": number|null,',
-  ' "tipo": "apartamento"|"casa"|"local"|"terreno"|"townhouse"|"", "operacion": "venta"|"alquiler"|"ambas"|"",',
-  ' "precio_alquiler": number|null,',
-  ' "habitaciones": number|null, "banos": number|null, "metros": number|null, "metrosTerreno": number|null,',
-  ' "puestos": number|null, "estado": "disponible"}',
-  'Reglas: "metros" son m² de propiedad (construidos); "metrosTerreno" son m² de parcela/terreno (null si no se indican).',
-  'Reglas: "residencia" es el nombre de la residencia/conjunto/urbanización ("Residencias Los Naranjos"); "" si no se indica.',
-  /* [18AA-7] Misma regla que `sugerir_nombre_corto` en el backend (canónica
-   * allí; esta es la que escribe el nombre al publicar). */
-  'Reglas: "nombre_corto" es cómo se cita el inmueble al hablar de él en un chat (máx 120 caracteres):',
-  'tipo abreviado ("Apart." para apartamento, "Casa", "Local", "Terreno", "Townhouse") + " en " + la residencia,',
-  'o la zona/ciudad si no hay residencia; sin "Edificio"/"Edif." y con "Residencias" abreviado a "Resd."; "" si dudas.',
-  'Reglas: "puestos" son los puestos de estacionamiento (null si no se indican).',
-  'Reglas: titulo comercial corto (máx 80 caracteres); descripcion comercial ordenada de 2 a 4 frases',
-  'basada en el texto y lo visible en las fotos; precio como número sin símbolos (null si no se indica);',
-  'no inventes la dirección exacta, usa solo lo que diga el texto ("" si no hay);',
-  'tipo en minúsculas de la lista exacta ("apartamento","casa","local","terreno","townhouse") o "" si dudas;',
-  'operacion en minúsculas ("venta","alquiler","ambas") o "" si dudas; estado SIEMPRE el literal "disponible".',
-  /* [25AA-7] «ambas» = se vende y se alquila: "precio" es la venta y "precio_alquiler" el canon mensual. */
-  'Reglas: si el inmueble se vende y se alquila a la vez, operacion "ambas", precio = venta y precio_alquiler = canon mensual; si no, precio_alquiler null.',
-  /* El texto pegado suele traer la firma de otra inmobiliaria: nunca debe llegar a la ficha. */
-  'Reglas: quita cualquier especificación de inmobiliaria o agencia: su nombre, razón social ("C.A.", "S.A."), frases de oferta ("ofrece en venta", "ofrecemos"), contactos (teléfonos, WhatsApp, "contáctanos") y firmas o logos. Describe solo el inmueble.',
-  /* Sin esta regla la IA añadía comodidades y electrodomésticos que el texto no traía. */
-  'Reglas: no inventes datos. Usa solo lo que diga el texto o se vea claramente en las fotos; no añadas comodidades, electrodomésticos, servicios ni espacios que no aparezcan. Si un dato no está, omítelo.',
-].join('\n');
 
 function aNumero(v: unknown): number | null {
   const n = typeof v === 'string' ? Number(v.replace(/[^\d.,-]/g, '').replace(',', '.')) : Number(v);
@@ -131,23 +101,21 @@ function intentarParse(texto: string): Record<string, unknown> | null {
 interface EntradaIA {
   texto: string;
   fotos: string[];
+  /* Inmueble al que pertenece la descripción, si ya existe (liga el respaldo). */
+  inmuebleId?: string;
+  origen?: 'panel' | 'publicar';
   signal?: AbortSignal;
 }
 
-/* Ordena la ficha vía `POST /api/admin/ia/completar`: el backend elige
- * proveedor (activo + fallback) y devuelve el texto del modelo; aquí solo
- * se extrae y normaliza el JSON (ante la duda, campo vacío: nunca inventar). */
-export async function organizarConIA({ texto, fotos, signal }: EntradaIA): Promise<ResultadoIA> {
+/* Ordena la ficha vía `POST /api/admin/ia/ficha`: el backend guarda el
+ * original, aplica el prompt y devuelve el texto del modelo; aquí solo se
+ * extrae y normaliza el JSON (ante la duda, campo vacío: nunca inventar). */
+export async function organizarConIA({ texto, fotos, inmuebleId, origen, signal }: EntradaIA): Promise<ResultadoIA> {
   if (!texto.trim() && fotos.length === 0) {
     return { ok: false, motivo: 'Escribe una descripción o suelta al menos una foto para que la IA tenga algo que ordenar.' };
   }
   if (signal?.aborted) return { ok: false, motivo: 'Petición cancelada.' };
-  const r = await completarIA(
-    SISTEMA,
-    texto.trim() || 'Ordena la ficha de este inmueble a partir de las fotos.',
-    fotos.slice(0, 4),
-    signal,
-  );
+  const r = await completarFichaIA(texto.trim(), fotos.slice(0, 4), { inmuebleId, origen, signal });
   if (!r.ok || !r.texto) {
     return { ok: false, motivo: r.motivos.join(' · ') || 'La IA no pudo ordenar la ficha. Reinténtalo.' };
   }

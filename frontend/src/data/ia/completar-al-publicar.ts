@@ -47,7 +47,7 @@ function faltaAlgo(i: Inmueble): boolean {
  * —ni se toca `updated_at`— para nada). Quien llama publica igual. */
 export async function completarAlPublicar(i: Inmueble, signal?: AbortSignal): Promise<Inmueble | null> {
   if (!faltaAlgo(i)) return null;
-  const r = await organizarConIA({ texto: fichaResumen(i), fotos: [], signal });
+  const r = await organizarConIA({ texto: fichaResumen(i), fotos: [], inmuebleId: i.id, origen: 'publicar', signal });
   if (!r.ok) return null;
   const antes = inmuebleADraft(i);
   const despues = aplicarFichaAlDraft(antes, r.ficha, []);
