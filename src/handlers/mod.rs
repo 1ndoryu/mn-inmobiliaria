@@ -74,6 +74,8 @@ impl utoipa::Modify for SecurityAddon {
         comercial::solicitud::create_solicitud,
         comercial::solicitud::list_solicitudes,
         comercial::solicitud::revisar_solicitud,
+        comercial::solicitud::no_vistas_solicitudes,
+        comercial::solicitud::marcar_vistas_solicitudes,
         comercial::visita::list_visitas,
         comercial::visita::revisar_visita,
         comercial::publicacion_redes::list_publicaciones,

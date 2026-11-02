@@ -9,8 +9,8 @@ use uuid::Uuid;
 use crate::errors::AppError;
 use crate::middleware::AuthUser;
 use crate::models::{
-    CreateSolicitudRequest, FotoSolicitudSubida, PaginatedSolicitudes, Solicitud,
-    SolicitudesAdminParams, UpdateEstadoSolicitud,
+    CreateSolicitudRequest, FotoSolicitudSubida, NoVistasSolicitudes, PaginatedSolicitudes,
+    Solicitud, SolicitudesAdminParams, SolicitudesMarcadas, UpdateEstadoSolicitud,
 };
 use crate::services::SolicitudService;
 use crate::AppState;
@@ -134,6 +134,40 @@ pub async fn revisar_solicitud(
     Ok(Json(solicitud))
 }
 
+/// Solicitudes de producción sin ver por el admin (aviso de la cabecera) [28AE-1]
+#[utoipa::path(
+    get,
+    path = "/api/admin/solicitudes/no-vistas",
+    responses(
+        (status = 200, description = "Número de solicitudes sin ver", body = NoVistasSolicitudes),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn no_vistas_solicitudes(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Result<Json<NoVistasSolicitudes>, AppError> {
+    Ok(Json(SolicitudService::no_vistas(&state.pool).await?))
+}
+
+/// Marca todas las solicitudes como vistas al abrir el aviso (requiere JWT) [28AE-1]
+#[utoipa::path(
+    post,
+    path = "/api/admin/solicitudes/marcar-vistas",
+    responses(
+        (status = 200, description = "Solicitudes marcadas como vistas", body = SolicitudesMarcadas),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn marcar_vistas_solicitudes(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Result<Json<SolicitudesMarcadas>, AppError> {
+    Ok(Json(SolicitudService::marcar_vistas(&state.pool).await?))
+}
+
 pub fn public_routes() -> Router<AppState> {
     /* Sin el límite por defecto de 2 MB: el servicio impone 10 MiB con 413 */
     Router::new()
@@ -147,5 +181,7 @@ pub fn public_routes() -> Router<AppState> {
 pub fn admin_routes() -> Router<AppState> {
     Router::new()
         .route("/solicitudes", get(list_solicitudes))
+        .route("/solicitudes/no-vistas", get(no_vistas_solicitudes))
+        .route("/solicitudes/marcar-vistas", post(marcar_vistas_solicitudes))
         .route("/solicitudes/:id", patch(revisar_solicitud))
 }

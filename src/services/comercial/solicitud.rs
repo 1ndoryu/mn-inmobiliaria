@@ -6,9 +6,9 @@ use validator::Validate;
 
 use crate::errors::AppError;
 use crate::models::{
-    CreateSolicitudRequest, FotoSolicitudSubida, PaginatedSolicitudes, Solicitud,
-    SolicitudesAdminParams, UpdateEstadoSolicitud, ESTADOS_SOLICITUD, OPERACIONES_SOLICITUD,
-    ORIGENES_CONTACTO,
+    CreateSolicitudRequest, FotoSolicitudSubida, NoVistasSolicitudes, PaginatedSolicitudes,
+    Solicitud, SolicitudesAdminParams, SolicitudesMarcadas, UpdateEstadoSolicitud,
+    ESTADOS_SOLICITUD, OPERACIONES_SOLICITUD, ORIGENES_CONTACTO,
 };
 use crate::repositories::{NuevaSolicitud, SolicitudRepository};
 
@@ -135,5 +135,17 @@ impl SolicitudService {
         let row = SolicitudRepository::update_estado(pool, id, &req.estado).await?;
         row.map(Solicitud::from_row)
             .ok_or_else(|| AppError::NotFound("Solicitud no encontrada".into()))
+    }
+
+    /// Aviso de la cabecera: cuántas solicitudes llegadas de producción no se han visto [28AE-1]
+    pub async fn no_vistas(pool: &PgPool) -> Result<NoVistasSolicitudes, AppError> {
+        let total = SolicitudRepository::contar_no_vistas(pool).await?;
+        Ok(NoVistasSolicitudes { total })
+    }
+
+    /// El admin ya ha visto el aviso: marca todas las solicitudes como vistas [28AE-1]
+    pub async fn marcar_vistas(pool: &PgPool) -> Result<SolicitudesMarcadas, AppError> {
+        let marcadas = SolicitudRepository::marcar_vistas(pool).await?;
+        Ok(SolicitudesMarcadas { marcadas })
     }
 }
