@@ -17,6 +17,7 @@ import { useInmuebles } from '../hooks/inmuebles/use-inmuebles';
 import { completarAlPublicar } from '../data/ia/completar-al-publicar';
 import { useConfigIA } from '../hooks/ia/use-config-ia';
 import { useSesion } from '../hooks/sesion/use-sesion';
+import { useSolicitudesNoVistas } from '../hooks/solicitudes/use-solicitudes-no-vistas';
 import { useTema } from '../hooks/app/use-tema';
 import { useFotosMejora } from '../hooks/mejora/use-fotos-mejora';
 import { useColaMejora } from '../hooks/mejora/use-cola-mejora';
@@ -81,6 +82,8 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
   const { fotos, config, guardar, marcar, aviso: avisoFotos, borrarDeInmueble, historial, registrar, vaciarHistorial } =
     useFotosMejora(inmuebles);
   const cola = useColaMejora(fotos, config, marcar, registrar);
+  /* Aviso de solicitudes de producción sin ver [28AE-1] */
+  const solicitudesNoVistas = useSolicitudesNoVistas(vista === 'solicitudes');
 
   /* La búsqueda y el filtro actúan sobre la lista entera; la paginación
    * solo recorta el resultado, así que encuentra cualquier inmueble. */
@@ -165,6 +168,7 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
       temaExterno={temaApp.tema}
       alCiclarTemaExterno={temaApp.ciclar}
       iaResumen={resumirConexionIA(ia.estado, ia.error, montadoEn)}
+      solicitudesNoVistas={solicitudesNoVistas}
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div>

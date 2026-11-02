@@ -58,6 +58,16 @@ export async function listarSolicitudes(opciones: {
   return { items: r.items.map(aSolicitud), total: r.total, page: r.page, perPage: r.per_page };
 }
 
+/* [28AE-1] Aviso de solicitudes de producción sin ver. */
+export async function contarSolicitudesNoVistas(): Promise<number> {
+  const r = await apiFetch<{ total: number }>('/api/admin/solicitudes/no-vistas');
+  return r.total;
+}
+
+export async function marcarSolicitudesVistas(): Promise<void> {
+  await apiFetch<{ marcadas: number }>('/api/admin/solicitudes/marcar-vistas', { method: 'POST' });
+}
+
 export async function cambiarEstadoSolicitud(id: string, estado: EstadoSolicitud): Promise<void> {
   await apiFetch<SolicitudApi>(`/api/admin/solicitudes/${encodeURIComponent(id)}`, {
     method: 'PATCH',

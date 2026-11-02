@@ -1,53 +1,14 @@
 import type { ReactNode } from 'react';
 import { Building2, CalendarClock, CalendarDays, ChevronsLeft, ChevronsRight, ImageIcon, Inbox, Megaphone, MessageCircle, Monitor, Moon, Settings2, Sun, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button, ButtonPlano } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { useTema } from '@/hooks/app/use-tema';
 import { useAside } from '@/hooks/app/use-aside';
 import type { Tema } from '@/app/tema';
 import type { ResumenConexionIA } from '@/domain/ia';
 import { cn } from '@/lib/utils';
 import { IndicadorIA } from './indicador-ia';
-
-function ItemNav({
-  icono,
-  texto,
-  activo = false,
-  pronto = false,
-  contraido = false,
-  onClick,
-}: {
-  icono: ReactNode;
-  texto: string;
-  activo?: boolean;
-  pronto?: boolean;
-  contraido?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <ButtonPlano
-      type="button"
-      disabled={pronto || !onClick}
-      onClick={onClick}
-      title={texto}
-      aria-label={texto}
-      className={cn(
-        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium',
-        contraido && 'justify-center px-2',
-        activo ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
-        pronto ? 'cursor-default opacity-60' : 'hover:bg-muted',
-      )}
-    >
-      {icono}
-      {!contraido && texto}
-      {!contraido && pronto && (
-        <Badge variant="secondary" className="ml-auto text-[10px]">
-          Pronto
-        </Badge>
-      )}
-    </ButtonPlano>
-  );
-}
+import { ItemNav, BotonTab } from './layout-nav';
 
 const ICONO_TEMA = { sistema: Monitor, claro: Sun, oscuro: Moon } as const;
 const TEXTO_TEMA: Record<Tema, string> = {
@@ -71,36 +32,6 @@ function BotonTema({ tema, alCambiar }: { tema: Tema; alCambiar: () => void }) {
   );
 }
 
-/* Pestaña del menú inferior móvil (259A-2): icono + etiqueta, como las
- * apps nativas. Solo móvil (`md:hidden` en el `nav` padre); el `aside`
- * de escritorio no cambia. */
-function BotonTab({
-  icono,
-  texto,
-  activo = false,
-  onClick,
-}: {
-  icono: ReactNode;
-  texto: string;
-  activo?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <ButtonPlano
-      type="button"
-      onClick={onClick}
-      aria-current={activo ? 'page' : undefined}
-      className={cn(
-        'flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-md py-1.5 text-[10px] font-medium',
-        activo ? 'text-primary' : 'text-muted-foreground',
-      )}
-    >
-      {icono}
-      {texto}
-    </ButtonPlano>
-  );
-}
-
 // Layout con menú lateral en escritorio y cabecera compacta en móvil.
 // `mensajes` (169A-5) es la bandeja del chat con IA + su configuración.
 // `publicidad` es la galería de imágenes para redes (plantilla Post I).
@@ -116,6 +47,7 @@ export function Layout({
   temaExterno,
   alCiclarTemaExterno,
   iaResumen,
+  solicitudesNoVistas = 0,
 }: {
   children: ReactNode;
   vista?: VistaApp;
@@ -124,6 +56,8 @@ export function Layout({
   temaExterno?: Tema;
   alCiclarTemaExterno?: () => void;
   iaResumen?: ResumenConexionIA;
+  /* Solicitudes de producción sin ver, para el aviso del menú [28AE-1] */
+  solicitudesNoVistas?: number;
 }) {
   const interno = useTema();
   const tema = temaExterno ?? interno.tema;
@@ -193,6 +127,7 @@ export function Layout({
             icono={<Inbox className="h-4 w-4" />}
             texto="Solicitudes"
             activo={vista === 'solicitudes'}
+            aviso={solicitudesNoVistas}
             contraido={contraido}
             onClick={alCambiarVista ? () => alCambiarVista('solicitudes') : undefined}
           />
@@ -287,6 +222,7 @@ export function Layout({
                 icono={<Inbox className="h-5 w-5" />}
                 texto="Solicitudes"
                 activo={vista === 'solicitudes'}
+                aviso={solicitudesNoVistas}
                 onClick={() => alCambiarVista('solicitudes')}
               />
               <BotonTab
