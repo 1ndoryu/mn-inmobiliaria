@@ -12,6 +12,8 @@
 
 ## Bloqueos
 
+- Ninguno.
 
 ## Planes activos
 
+- Ninguno.
