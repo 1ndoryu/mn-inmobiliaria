@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use sqlx::{PgExecutor, PgPool};
 use uuid::Uuid;
 
-use crate::models::{PiezaRow, PublicadaRow, PublicacionRow};
+use crate::models::{PiezaRow, PublicadaRow, PublicacionRow, UltimaPublicacion};
 
 /* [28AA-2] Persistencia del calendario de redes. Aquí solo hay SQL: qué
  * estado sigue a qué lo decide el servicio. La cola de inmuebles (regla 1
@@ -194,6 +194,20 @@ impl PublicacionRepository {
                ORDER BY p.inmueble_id, p.publicada_en DESC"#
         )
         .fetch_all(executor)
+        .await
+    }
+
+    /// Última publicación real de cada inmueble que ya salió al menos una vez.
+    /// `!` en el alias: el WHERE garantiza que el MAX nunca es NULL.
+    pub async fn ultimas_publicadas(pool: &PgPool) -> Result<Vec<UltimaPublicacion>, sqlx::Error> {
+        sqlx::query_as!(
+            UltimaPublicacion,
+            r#"SELECT inmueble_id, MAX(publicada_en) AS "ultima_publicada_en!"
+               FROM publicaciones_redes
+               WHERE estado = 'publicada' AND publicada_en IS NOT NULL
+               GROUP BY inmueble_id"#
+        )
+        .fetch_all(pool)
         .await
     }
 

@@ -13,7 +13,7 @@ pub use cliente::{Cliente, ClienteRow, CreateClienteRequest};
 pub use publicacion_redes::{
     formato_de_proporcion, normalizar_tags, ActualizarPublicacionRequest, CrearPublicacionRequest,
     Destinos, Pieza, PiezaRow, Propuesta, ProponerRequest, Publicacion, PublicacionRow,
-    PublicadaRow, PublicidadPublica, SaltarPropuestaRequest, DESTINOS, ESTADOS_PUBLICACION,
+    PublicadaRow, PublicidadPublica, SaltarPropuestaRequest, UltimaPublicacion, DESTINOS, ESTADOS_PUBLICACION,
     FORMATOS_PIEZA, MAX_DESCRIPCION, MAX_TAGS, MAX_TAG_LEN,
 };
 pub use inmueble::{

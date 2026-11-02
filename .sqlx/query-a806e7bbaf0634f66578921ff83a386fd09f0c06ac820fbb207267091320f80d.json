@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT inmueble_id, MAX(publicada_en) AS \"ultima_publicada_en!\"\n               FROM publicaciones_redes\n               WHERE estado = 'publicada' AND publicada_en IS NOT NULL\n               GROUP BY inmueble_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "inmueble_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "ultima_publicada_en!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "a806e7bbaf0634f66578921ff83a386fd09f0c06ac820fbb207267091320f80d"
+}

@@ -16,7 +16,7 @@ use crate::middleware::AuthUser;
 use crate::models::{
     formato_de_proporcion, normalizar_tags, ActualizarPublicacionRequest, CrearPublicacionRequest,
     Destinos, Pieza, PiezaRow, Propuesta, ProponerRequest, Publicacion, PublicacionRow,
-    SaltarPropuestaRequest,
+    SaltarPropuestaRequest, UltimaPublicacion,
 };
 use crate::repositories::{NuevaPieza, PublicacionRepository};
 use crate::services::InmuebleService;
@@ -88,6 +88,23 @@ pub async fn proponer_siguiente(
         .ok_or_else(|| AppError::NotFound("No quedan inmuebles publicables".into()))?;
     let titulo = titulo_de(&state.pool, inmueble_id).await?;
     Ok(Json(Propuesta { inmueble_id, titulo }))
+}
+
+/// Última publicación de cada inmueble que ya salió: la lista de «Publicar hoy» la muestra
+#[utoipa::path(
+    get,
+    path = "/api/admin/publicaciones/ultimas",
+    responses(
+        (status = 200, description = "Última publicación por inmueble", body = [UltimaPublicacion]),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn ultimas_publicadas(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Result<Json<Vec<UltimaPublicacion>>, AppError> {
+    Ok(Json(PublicacionRepository::ultimas_publicadas(&state.pool).await?))
 }
 
 /// Crear el borrador de un inmueble propuesto (requiere JWT)
@@ -361,6 +378,7 @@ pub fn admin_routes() -> Router<AppState> {
     Router::new()
         .route("/publicaciones", get(list_publicaciones).post(crear_publicacion))
         .route("/publicaciones/siguiente", post(proponer_siguiente))
+        .route("/publicaciones/ultimas", get(ultimas_publicadas))
         .route("/publicaciones/saltar", post(saltar_propuesta))
         .route("/publicaciones/historial/:inmueble_id", get(historial))
         .route(

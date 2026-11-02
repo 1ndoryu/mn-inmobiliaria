@@ -189,6 +189,13 @@ pub struct Propuesta {
     pub titulo: String,
 }
 
+/// Última vez que un inmueble salió publicado; «Publicar hoy» la muestra junto a cada uno
+#[derive(Debug, Clone, Serialize, ToSchema, FromRow)]
+pub struct UltimaPublicacion {
+    pub inmueble_id: Uuid,
+    pub ultima_publicada_en: DateTime<Utc>,
+}
+
 /// Cuerpo para crear un borrador de publicación de un inmueble propuesto
 #[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct CrearPublicacionRequest {

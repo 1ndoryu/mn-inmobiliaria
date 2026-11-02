@@ -1,13 +1,13 @@
-/* [28AA-6] Vista del calendario de publicidad: cola del día («Publicar hoy»),
- * rejilla mensual y editor de cada publicación. */
+/* [28AA-6] Vista del calendario de publicidad: «Publicar hoy» (elegir un inmueble de la
+ * lista), rejilla mensual y editor de cada publicación. */
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { crearPublicacion, proponerSiguiente, saltarPropuesta } from '@/data/publicaciones/api';
 import type { Inmueble } from '@/domain/inmueble';
-import type { Propuesta, Publicacion } from '@/domain/redes/publicacion-redes';
+import type { Publicacion } from '@/domain/redes/publicacion-redes';
 import { aIso, useCalendario } from '@/hooks/publicaciones/use-calendario';
-import { DialogoPropuesta } from './dialogo-propuesta';
+import { useEleccionHoy } from '@/hooks/publicaciones/use-eleccion-hoy';
+import { DialogoEleccion } from './dialogo-eleccion';
 import { EditorPublicacion } from './editor-publicacion';
 import { RejillaMes } from './rejilla-mes';
 
@@ -17,43 +17,14 @@ interface VistaCalendarioProps {
 
 export function VistaCalendario({ inmuebles }: VistaCalendarioProps) {
   const cal = useCalendario();
-  const [propuesta, setPropuesta] = useState<Propuesta | null>(null);
   const [editando, setEditando] = useState<Publicacion | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const eleccion = useEleccionHoy(cal, setEditando);
 
-  /* `undefined` = falló (ya mostrado por `operar`); `null` = la cola está vacía. */
-  async function avanzar(excluir?: string) {
-    const siguiente = await cal.operar(() => proponerSiguiente(excluir), 'No se pudo buscar el siguiente inmueble.');
-    if (siguiente === undefined) return;
-    setAviso(siguiente ? null : 'No queda ningún inmueble publicable.');
-    setPropuesta(siguiente);
-  }
-
-  async function publicarPropuesta() {
-    if (!propuesta) return;
-    /* El borrador nace con la fecha de hoy: así sale en la rejilla del día. */
-    const creada = await cal.operar(
-      () => crearPublicacion(propuesta.inmuebleId, aIso(new Date())),
-      'No se pudo crear la publicación.',
-    );
-    if (!creada) return;
-    setPropuesta(null);
-    setEditando(creada);
-  }
-
-  async function saltarActual() {
-    if (!propuesta) return;
-    const id = propuesta.inmuebleId;
-    const saltada = await cal.operar(
-      async () => {
-        await saltarPropuesta(id);
-        return true;
-      },
-      'No se pudo saltar el inmueble.',
-    );
-    /* Se excluye el saltado: la cola lo volvería a proponer. */
-    if (saltada) await avanzar(id);
-  }
+  /* Publicables (mismo criterio que la cola del servidor), de mayor a menor precio. */
+  const candidatos = useMemo(
+    () => inmuebles.filter((i) => i.publicado && i.estado === 'disponible').sort((a, b) => b.precio - a.precio),
+    [inmuebles],
+  );
 
   const titulo = cal.mes.toLocaleString('es', { month: 'long', year: 'numeric' });
   const hoy = aIso(new Date());
@@ -73,7 +44,7 @@ export function VistaCalendario({ inmuebles }: VistaCalendarioProps) {
             Hoy
           </Button>
         </div>
-        <Button onClick={() => void avanzar()} disabled={cal.cargando}>
+        <Button onClick={() => void eleccion.abrir()} disabled={cal.cargando}>
           Publicar hoy
         </Button>
       </div>
@@ -83,17 +54,16 @@ export function VistaCalendario({ inmuebles }: VistaCalendarioProps) {
           {cal.error}
         </p>
       )}
-      {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
 
       <RejillaMes mes={cal.mes} publicaciones={cal.publicaciones} hoy={hoy} alElegir={(p) => setEditando(p)} />
 
-      {propuesta && (
-        <DialogoPropuesta
-          propuesta={propuesta}
-          ocupado={cal.cargando}
-          alPublicar={() => void publicarPropuesta()}
-          alSaltar={() => void saltarActual()}
-          alCerrar={() => setPropuesta(null)}
+      {eleccion.eligiendo && (
+        <DialogoEleccion
+          inmuebles={candidatos}
+          ultimas={eleccion.ultimas}
+          ocupado={eleccion.creando}
+          alElegir={(id) => void eleccion.elegir(id)}
+          alCerrar={eleccion.cerrar}
         />
       )}
 

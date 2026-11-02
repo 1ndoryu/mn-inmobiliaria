@@ -6,10 +6,9 @@ import {
   type EstadoPublicacion,
   type FormatoPieza,
   type Pieza,
-  type Propuesta,
   type Publicacion,
 } from '../../domain/redes/publicacion-redes';
-import { apiFetch, ErrorApi } from '../inmuebles/api';
+import { apiFetch } from '../inmuebles/api';
 
 interface DestinosApi {
   ig_post: boolean;
@@ -42,9 +41,9 @@ interface PublicacionApi {
   creada_en: string;
 }
 
-interface PropuestaApi {
+interface UltimaPublicacionApi {
   inmueble_id: string;
-  titulo: string;
+  ultima_publicada_en: string;
 }
 
 /* Cambios parciales: lo que no se pasa no se toca en el servidor. */
@@ -114,18 +113,10 @@ export async function listarPublicaciones(desde: string, hasta: string): Promise
   return lista.map(aPublicacion);
 }
 
-/* Siguiente inmueble de la cola. Devuelve `null` si ya no queda ninguno publicable (404 del servidor). */
-export async function proponerSiguiente(excluir?: string): Promise<Propuesta | null> {
-  try {
-    const p = await apiFetch<PropuestaApi>('/api/admin/publicaciones/siguiente', {
-      method: 'POST',
-      body: JSON.stringify({ excluir: excluir ?? null }),
-    });
-    return { inmuebleId: p.inmueble_id, titulo: p.titulo };
-  } catch (e) {
-    if (e instanceof ErrorApi && e.estado === 404) return null;
-    throw e;
-  }
+/* Última salida de cada inmueble que ya salió al menos una vez, por id de inmueble. */
+export async function ultimasPublicaciones(): Promise<Record<string, string>> {
+  const lista = await apiFetch<UltimaPublicacionApi[]>('/api/admin/publicaciones/ultimas');
+  return Object.fromEntries(lista.map((u) => [u.inmueble_id, u.ultima_publicada_en]));
 }
 
 export async function crearPublicacion(inmuebleId: string, programadaPara?: string | null): Promise<Publicacion> {
@@ -134,14 +125,6 @@ export async function crearPublicacion(inmuebleId: string, programadaPara?: stri
     body: JSON.stringify({ inmueble_id: inmuebleId, programada_para: programadaPara ?? null }),
   });
   return aPublicacion(r);
-}
-
-/* Saltar: queda registrado como visto, no cuenta como publicado. */
-export async function saltarPropuesta(inmuebleId: string): Promise<void> {
-  await apiFetch<void>('/api/admin/publicaciones/saltar', {
-    method: 'POST',
-    body: JSON.stringify({ inmueble_id: inmuebleId }),
-  });
 }
 
 export async function actualizarPublicacion(id: string, cambios: CambiosPublicacion): Promise<Publicacion> {

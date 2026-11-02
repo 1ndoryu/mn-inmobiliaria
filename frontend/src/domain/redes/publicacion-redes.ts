@@ -57,12 +57,6 @@ export interface Publicacion {
   creadaEn: string;
 }
 
-/* Propuesta de la cola: el siguiente inmueble que toca publicar. */
-export interface Propuesta {
-  inmuebleId: string;
-  titulo: string;
-}
-
 /* Todos los destinos marcados: único requisito para pasar a `publicada`. */
 export function destinosCompletos(d: Destinos): boolean {
   return DESTINOS_PUBLICACION.every((k) => d[k]);
