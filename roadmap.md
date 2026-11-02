@@ -19,7 +19,6 @@
 ## Bloqueos
 
 - Bloqueo `03AA-5` — detector de captación en Marketplace sobre glory-web (decidido «Hacer» 2026-10-25; plan `Agente/planes/plan-detector-captacion-2026-10-03.md`). C0.1 entregada el 2026-10-24. Hecho cuando el corpus de 5 avisos + 2 perfiles + 1 búsqueda, sacado con la usuaria, alimenta el clasificador. Se desbloquea con ese corpus. La captación por chat (`E14`, `registrar_captacion`) ya está cerrada.
-- Bloqueo `19AA-9` — Sentinel: contador de líneas de Rust arreglado en `glory-sentinel` `4d63473`, sin propagar. Decisión de la usuaria (2026-10-16): entra con ese release cuando ella lo decida. Entonces se sube el pin y este proyecto gana un hallazgo (`ia/rutas.rs`) que hay que corregir. Detalle: `Agente/documentacion/integraciones/revision-ia-atencion-cliente-2026-10-16.md:§13`.
 - Bloqueo `13AA-13` — clave de chat estable: código en `main` desde el 2026-10-13; falta la prueba viva con dos chats del mismo nombre, que es de la usuaria.
 - Bloqueo `299A-3` — notas de voz: falta la prueba viva con notas reales (`GROQ_LIVE_TEST=1`, clave de Groq y gateway con WhatsApp vinculado).
 - Bloqueo `15AA-6` — WhatsApp del taller, número C: falta que el gateway corra y que el número C esté configurado (`agent_config wa_numero_c` o `WA_NUMERO_C`). Prueba viva del webhook fail-closed (`09AA-8`, hecho en código): sin secreto el webhook responde 401; con él, 200. Antes del próximo deploy, `WA_WEBHOOK_SECRETO` debe estar en producción (VPS 66) o el canal de WhatsApp deja de recibir mensajes.
