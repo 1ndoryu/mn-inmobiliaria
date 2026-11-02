@@ -8,7 +8,6 @@
 
 ## Pendientes
 
-- [ ] `25AA-5` — **Operación «ambas» (venta y alquiler) — datos y búsqueda.** Decidido «dos precios»: `precio` = venta, `precio_alquiler` = canon mensual; lo existente no cambia. Hecho cuando la migración `20261027000045_inmueble_ambas` (escrita y aditiva), `OPERACIONES` con `ambas` (las solicitudes siguen con venta|alquiler), el DTO/repositorio con `precio_alquiler`, los filtros (`venta` y `alquiler` incluyen `ambas`) y el chat/SEO la entienden, con tests en la 89.
 - [ ] `25AA-6` — **«Ambas» en el sync sin romper nada.** Hecho cuando la huella y el PUT llevan `precio_alquiler`, y empujar un «ambas» a una API de producción sin la migración falla solo esa fila con un aviso claro (el deploy es de la usuaria, antes de empujar).
 - [ ] `25AA-11` — **Desplegar a producción lo de 25AA-1..10.** La usuaria autorizó el deploy (2026-10-27) al terminar estas tareas. Hecho cuando `coolify-manager-rs` despliega (con `WA_WEBHOOK_SECRETO` ya en producción, ver `15AA-6`), la migración `20261027000045` está aplicada, `/publicar` carga y «ambas» funciona; los inmuebles «ambas» se empujan solo después.
 - [ ] `28AB-3` — **Rehacer la página pública `/publicidad` desde cero.** Hecho cuando hay una página nueva con el diseño del front público, `noindex` y sin enlace en el menú, consumiendo `GET /api/public/publicidad` (lógica conservada). Se retiró el diseño anterior por decisión de la usuaria (2026-10-28); la prueba viva de piezas, descargas y teléfono se hace sobre la página nueva. Plan original: `plan-calendario-publicidad-redes-2026-10-28.md`.
