@@ -109,6 +109,8 @@ export function cargarImagen(url: string): Promise<HTMLImageElement> {
       }
     })();
     imagenes.set(url, pendiente);
+    // Un fallo (red corta, 5xx) no se queda cacheado: el siguiente intento vuelve a pedirla.
+    pendiente.catch(() => imagenes.delete(url));
   }
   return pendiente;
 }

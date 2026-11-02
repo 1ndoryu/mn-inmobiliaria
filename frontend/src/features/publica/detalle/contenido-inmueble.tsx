@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bath, BedDouble, CarFront, ChevronLeft, ChevronRight, Link2, MapPin, MessageCircle, Ruler } from 'lucide-react';
 import type { InmueblePublico } from '../../../domain/inmueble';
 import { fotosVisiblesDe } from '../../../domain/inmueble';
@@ -13,6 +13,7 @@ import { CLASE_ACENTO, CLASE_ACTIVO, CLASE_BORDE, CLASE_MINIATURA_ACTIVA, CLASE_
 import { formatearPrecio } from '../formato';
 import { enlaceInmueble } from '../inmueble/ruta-inmueble';
 import { ButtonPlano } from '@/components/ui/button';
+import { FotoMarcada } from '../foto-marcada';
 
 /* Contenido del detalle de un inmueble: galería, datos, precio, WhatsApp y
  * enlace compartible. Lo usan el modal de la lista (`tituloComo="dialogo"`,
@@ -53,6 +54,16 @@ export function ContenidoInmueble({ inmueble: i, tituloComo }: { inmueble: Inmue
   const actual = total === 0 ? null : galeria[((indice % total) + total) % total];
   const irA = (n: number) => setIndice(((n % total) + total) % total);
 
+  /* La tira sigue a la foto activa: al cambiar de foto (flechas o miniatura)
+   * se desplaza para dejar la miniatura activa centrada dentro del marco. */
+  const tiraRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const tira = tiraRef.current;
+    const activa = tira?.children[((indice % total) + total) % total] as HTMLElement | undefined;
+    if (!tira || !activa) return;
+    tira.scrollTo({ left: activa.offsetLeft - (tira.clientWidth - activa.offsetWidth) / 2, behavior: 'smooth' });
+  }, [indice, total]);
+
   /* Enlace compartible: el texto confirma 2 s y vuelve a "Copiar enlace". */
   const [copiado, setCopiado] = useState<boolean | null>(null);
   useEffect(() => {
@@ -69,7 +80,7 @@ export function ContenidoInmueble({ inmueble: i, tituloComo }: { inmueble: Inmue
         className={`group relative h-72 w-full shrink-0 border-b sm:h-auto sm:w-[500px] sm:border-r sm:border-b-0 ${aspectoSm} ${CLASE_BORDE} ${CLASE_RELLENO_SUAVE}`}
       >
         {actual ? (
-          <img src={actual} alt={i.titulo} className="absolute inset-0 h-full w-full object-contain" />
+          <FotoMarcada src={actual} alt={i.titulo} fit="contain" marca={actual !== publi} className="absolute inset-0 h-full w-full" />
         ) : (
           <span className="absolute inset-0 flex items-center justify-center text-sm text-black/60">Sin foto</span>
         )}
@@ -91,19 +102,20 @@ export function ContenidoInmueble({ inmueble: i, tituloComo }: { inmueble: Inmue
             >
               <ChevronRight className={`h-5 w-5 ${CLASE_ACENTO}`} />
             </ButtonPlano>
-            <div className="absolute inset-x-2 bottom-2 flex justify-center gap-1 opacity-0 transition group-hover:opacity-100">
+            {/* La tira no se sale del marco: con muchas fotos se desplaza en horizontal, sin barra visible. */}
+            <div ref={tiraRef} className="absolute inset-x-2 bottom-2 flex gap-1 overflow-x-auto opacity-0 transition group-hover:opacity-100 [scrollbar-width:none]">
               {galeria.map((f, idx) => (
                 <ButtonPlano
                   key={`${idx}-${f.length}-${f.slice(-16)}`}
                   type="button"
                   aria-label={`Ver foto ${idx + 1}`}
                   onClick={() => irA(idx)}
-                  className={`rounded-none p-0 ${idx === ((indice % total) + total) % total ? CLASE_MINIATURA_ACTIVA : CLASE_MINIATURA_REPOSO}`}
+                  className={`shrink-0 rounded-none p-0 ${idx === ((indice % total) + total) % total ? CLASE_MINIATURA_ACTIVA : CLASE_MINIATURA_REPOSO}`}
                 >
                 {/* [249A-1] La tira carga miniaturas en diferido: la foto a
                   * máxima resolución solo se pide al verla en grande (la
                   * principal al abrir, las demás al navegar). */}
-                  <img src={f} alt="" loading="lazy" decoding="async" className="h-12 w-16 rounded-none object-cover" />
+                  <FotoMarcada src={f} alt="" loading="lazy" decoding="async" marca={f !== publi} className="h-12 w-16 rounded-none" />
                 </ButtonPlano>
               ))}
             </div>

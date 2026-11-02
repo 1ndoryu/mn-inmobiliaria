@@ -1,19 +1,20 @@
 import { API_URL, ErrorApi, remotoADominio, type InmuebleRemoto } from './api';
 import type { InmueblePublico } from '../../domain/inmueble';
 
-/* Web pública de solo lectura (sin JWT): la visibilidad la decide el
- * backend (`publicado = TRUE`). La paginación se pide amplia y el
- * buscador filtra en cliente (la API pública no tiene parámetro `q`). */
+/* Web pública (sin JWT): la visibilidad la decide el backend (`publicado = TRUE`).
+ * La paginación se pide amplia y el buscador filtra en cliente (la API pública
+ * no tiene parámetro `q`). Solo lectura: la receta de `/publicidad` se guarda en
+ * el navegador (`platform/receta-publicidad-local.ts`). */
 
 function publicoADominio(r: InmuebleRemoto): InmueblePublico {
   return { ...remotoADominio(r), slug: r.slug };
 }
 
 /* Exportado para reusar la misma lectura pública (sin JWT) en otras páginas. */
-export async function publicaFetch<T>(ruta: string): Promise<T> {
+export async function publicaFetch<T>(ruta: string, init?: RequestInit): Promise<T> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${API_URL}${ruta}`);
+    respuesta = await fetch(`${API_URL}${ruta}`, init);
   } catch {
     throw new ErrorApi('Servidor no disponible.', 0);
   }

@@ -44,7 +44,8 @@ export function CabeceraPublica({
 
   return (
     <header className={`${CABECERA_FIJA} ${ANCHO_PAGINA} flex items-center justify-between rounded-none border ${CLASE_BORDE} ${CLASE_FONDO} px-4 py-3`}>
-      <div className="flex items-center gap-2">
+      {/* Logo y nombre llevan al inicio (`/`); el enlace va en el bloque entero para ampliar la zona de clic. */}
+      <a href="/" aria-label="Ir al inicio" className="flex items-center gap-2 no-underline">
         <img
           src="/img/logo-mn.svg"
           alt=""
@@ -52,7 +53,7 @@ export function CabeceraPublica({
           className="h-[30px] w-[30px]"
         />
         <p className={`m-0 ${SOLO_ESCRITORIO_BLOQUE} ${CLASE_TEXTO}`}>MN Inmobiliaria</p>
-      </div>
+      </a>
       <div className={`shrink-0 gap-2 ${SOLO_ESCRITORIO_FLEX}`}>
         <ButtonPlano
           type="button"

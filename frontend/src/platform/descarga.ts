@@ -11,6 +11,14 @@ export function descargarDataUrl(url: string, nombre: string): void {
   a.remove();
 }
 
+/* Descarga un Blob por URL temporal. La URL se libera con retraso: algunos
+ * navegadores cancelan la descarga si se revoca justo tras el clic. */
+export function descargarBlob(blob: Blob, nombre: string): void {
+  const url = URL.createObjectURL(blob);
+  descargarDataUrl(url, nombre);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 /* Descarga una URL http(s) como archivo (vía blob temporal): el atributo
  * `download` se ignora entre orígenes, así que no basta el anchor directo. */
 export async function descargarUrl(url: string, nombre: string): Promise<void> {

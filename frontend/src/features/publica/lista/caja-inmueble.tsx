@@ -16,6 +16,7 @@ import {
   TAMANO_IMAGEN_CAJA,
 } from '../disenno';
 import { formatearPrecio } from '../formato';
+import { FotoMarcada } from '../foto-marcada';
 
 function CeldaSpec({ icono, valor, etiqueta, ancho = ANCHO_SPEC }: { icono: ReactNode; valor: string | null; etiqueta: string; ancho?: string }) {
   return (
@@ -47,7 +48,7 @@ export function CajaInmueble({ inmueble: i, alElegir, prioritaria = false }: { i
       className={`flex ${ALTO_CAJA} cursor-pointer items-center rounded-none ${CLASE_HOVER_CAJA}`}
     >
       {portada ? (
-        <img src={portada} alt={i.titulo} loading={prioritaria ? 'eager' : 'lazy'} fetchPriority={prioritaria ? 'high' : 'auto'} className={`${MARGEN_IMAGEN_CAJA} ${TAMANO_IMAGEN_CAJA} shrink-0 object-cover`} />
+        <FotoMarcada src={portada} alt={i.titulo} loading={prioritaria ? 'eager' : 'lazy'} fetchPriority={prioritaria ? 'high' : 'auto'} className={`${MARGEN_IMAGEN_CAJA} ${TAMANO_IMAGEN_CAJA} shrink-0`} />
       ) : (
         <div className={`${MARGEN_IMAGEN_CAJA} ${TAMANO_IMAGEN_CAJA} shrink-0 ${CLASE_RELLENO_SUAVE}`} aria-hidden />
       )}
