@@ -60,10 +60,9 @@ export interface ConfigMejora {
 const PROMPT_ANTERIOR =
   'Mejora esta foto inmobiliaria a fotografia profesional: sube nitidez y resolucion, corrige luz y color de forma natural, limpia suciedad leve en paredes, telas u objetos y retira personas y distracciones menores. Haz la imagen ultra HD, mas grande, con mas definicion: maxima resolucion y detalle que puedas devolver. No cambies la estructura, geometria, muebles ni elementos fijos; no inventes nada que no exista en la foto original.';
 
-/* [15AA-11] Base del prompt actual: exposicion y nada mas, con la prohibicion
- * explicita de filtros y tonos calidos. Mismo texto (a mano) en
- * `scripts/datos/inmueble/mejorar.mjs`, que no puede importar TypeScript. */
-const PROMPT_SIN_ANGULO = [
+/* [28AF-1] Retirado: pedia CONSERVAR el color del original y las fotos seguian
+ * saliendo amarillentas. El actual pide quitar la dominante y blanquear. */
+const PROMPT_COLOR_CONSERVADO_SIN_ANGULO = [
   'Mejora esta foto inmobiliaria a fotografia profesional:',
   'sube nitidez y resolucion, arregla la exposicion (sombras y altas luces)',
   'sin tocar el color, limpia suciedad leve en paredes, telas u objetos y',
@@ -74,6 +73,25 @@ const PROMPT_SIN_ANGULO = [
   'temperatura de color; no apliques filtros ni tonos calidos, ambar, dorados',
   'o amarillentos, ni vinetas ni degradados. Los blancos y los grises siguen',
   'siendo neutros y las paredes, del mismo color que en la original.',
+  'No cambies la estructura, geometria, muebles ni elementos fijos;',
+  'no inventes nada que no exista en la foto original.',
+].join(' ');
+
+/* [15AA-11] Base del prompt actual: quita la dominante amarilla y deja los
+ * blancos neutros, sin filtros ni tonos calidos. Mismo texto (a mano) en
+ * `scripts/datos/inmueble/mejorar.mjs`, que no puede importar TypeScript. */
+const PROMPT_SIN_ANGULO = [
+  'Mejora esta foto inmobiliaria a fotografia profesional:',
+  'sube nitidez y resolucion, arregla la exposicion (sombras y altas luces)',
+  'sin tocar la forma, limpia suciedad leve en paredes, telas u objetos y',
+  'retira personas y distracciones menores.',
+  'Haz la imagen ultra HD, mas grande, con mas definicion:',
+  'maxima resolucion y detalle que puedas devolver.',
+  'QUITA todo tono amarillento, ambar o calido de la imagen y lleva el balance',
+  'de blancos a un blanco neutro: los blancos y los grises deben verse blancos',
+  'y grises neutros, sin velo ni dominante de color. No apliques filtros calidos,',
+  'vinetas ni degradados. Conserva los colores propios de los objetos y de las',
+  'paredes: solo se retira la dominante de la luz.',
   'No cambies la estructura, geometria, muebles ni elementos fijos;',
   'no inventes nada que no exista en la foto original.',
 ].join(' ');
@@ -89,7 +107,11 @@ export const PROMPT_DEFECTO = `${PROMPT_SIN_ANGULO} ${CORRECCION_ANGULO}`;
 
 /* Prompts por defecto ya retirados: quien los tenga guardados tal cual recibe
  * el actual. Un prompt escrito a mano por la usuaria se respeta siempre. */
-const PROMPTS_RETIRADOS = [PROMPT_ANTERIOR, PROMPT_SIN_ANGULO];
+const PROMPTS_RETIRADOS = [
+  PROMPT_ANTERIOR,
+  PROMPT_COLOR_CONSERVADO_SIN_ANGULO,
+  `${PROMPT_COLOR_CONSERVADO_SIN_ANGULO} ${CORRECCION_ANGULO}`,
+];
 
 export const CONFIG_DEFECTO: ConfigMejora = {
   intervaloSeg: 120,
