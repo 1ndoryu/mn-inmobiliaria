@@ -58,7 +58,7 @@ pub(super) async fn ping_glory(base: &str, key: &str) -> Result<String, String> 
 
 pub(super) async fn ping_opencode(key: &str) -> Result<String, String> {
     let cliente = cliente_http(30).map_err(|e| e.to_string())?;
-    let config = glory_agent::providers::ProviderConfig::opencode_go(key.to_string());
+    let config = crate::config::ia::opencode_go(key);
     let cuerpo = glory_agent::providers::build_responses_body(
         &config.model,
         &[serde_json::json!({"role": "user", "content": "Responde exactamente: OK"})],
@@ -327,7 +327,7 @@ pub(crate) async fn completar_opencode_con_uso(
     if key.is_empty() {
         return Err("Sin OPENCODE_GO_API_KEY en .env".to_string());
     }
-    let config = glory_agent::providers::ProviderConfig::opencode_go(key.clone());
+    let config = crate::config::ia::opencode_go(key);
     let entrada = entrada_borrador(system, texto, fotos);
     let cliente = cliente_http(120).map_err(|e| e.to_string())?;
     let mut respuesta =

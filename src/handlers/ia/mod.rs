@@ -6,6 +6,7 @@
 //! descendientes, asi que lo privado de este modulo les es visible.
 
 pub mod ask;
+mod ficha;
 mod ia_admin;
 mod ia_borrador;
 mod ia_estado;

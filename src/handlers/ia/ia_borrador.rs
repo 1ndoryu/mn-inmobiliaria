@@ -124,7 +124,7 @@ pub(crate) async fn completar_opencode_rapido(
     if key.is_empty() {
         return Err("Sin OPENCODE_GO_API_KEY en .env".to_string());
     }
-    let config = glory_agent::providers::ProviderConfig::opencode_go(key);
+    let config = crate::config::ia::opencode_go(key);
     let entrada = entrada_borrador(system, texto, fotos);
     let intento = |tope: u32, segs: u64| intento_borrador(&config, &entrada, sesion, tope, segs);
     /* [09AA-5] Cada intento deja su rastro en la tab de Logs (el WARN de

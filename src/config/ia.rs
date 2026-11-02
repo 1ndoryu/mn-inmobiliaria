@@ -1,11 +1,11 @@
 /* [16AA-9 F2] Un solo sitio para lo que decide la IA en MN: los nombres de
  * modelo y el prompt del motor conversacional (web y WhatsApp).
  *
- * El modelo del chat NO se elige aqui: lo pone `ProviderConfig::opencode_go`
- * del crate `glory-agent` (`src/providers/mod.rs`, pin de `Cargo.toml`). Si
- * algun dia MN necesita otro, se asigna `config.model` justo despues de
- * construir el proveedor, en los sitios que lo construyen
- * (`handlers/chat.rs` y `handlers/ia/ia_proveedores.rs:60,278,412`).
+ * El modelo de OpenCode Go es `MODELO_OPENCODE` ([28AE-2]): el default del
+ * crate `glory-agent` (`ProviderConfig::opencode_go`) se pisa asignando
+ * `config.model` justo despues de construir el proveedor, en los sitios que lo
+ * construyen (`handlers/chat.rs`, `handlers/ia/ia_proveedores.rs` y
+ * `handlers/ia/ia_borrador.rs`).
  *
  * Los prompts que interpolan valores de runtime siguen junto a su `format!`:
  * llevarse el texto a una constante perderia la comprobacion de placeholders
@@ -20,12 +20,51 @@ use glory_agent::prompts::PromptConfig;
 /// Modelo de STT (Groq Whisper).
 pub const MODELO_STT: &str = "whisper-large-v3-turbo";
 
-/// GloryAPI elige su modelo: se le manda `auto`.
+/// `GloryAPI` elige su modelo: se le manda `auto`.
 pub const MODELO_GLORYAPI: &str = "auto";
 
-/// Modelo que el panel muestra para el proveedor OpenCode Go. Debe coincidir
-/// con el del crate `glory-agent`; si alli cambia, cambia aqui.
-pub const MODELO_OPENCODE: &str = "muse-spark-1.3-contributor";
+/// Modelo de `OpenCode` Go para TODO el texto de MN (chat, fichas, borrador):
+/// `DeepSeek` Flash [28AE-2]. Se asigna a `config.model` en cada sitio que
+/// construye el proveedor; el panel muestra esta misma constante.
+pub const MODELO_OPENCODE: &str = "deepseek-v4.1-flash";
+
+/// `OpenCode` Go con el modelo de MN: único sitio que pisa el default del crate
+/// (`muse-spark…`), para que ningún camino se quede con el modelo viejo.
+pub fn opencode_go(key: impl Into<String>) -> glory_agent::providers::ProviderConfig {
+    let mut config = glory_agent::providers::ProviderConfig::opencode_go(key.into());
+    config.model = MODELO_OPENCODE.to_string();
+    config
+}
+
+/// [28AE-2] Prompt ÚNICO de la ficha: lo usan el panel, «completar al
+/// publicar» y el CLI (`inmueble.mjs publicar`) vía `POST /ia/ficha`, así que
+/// toda descripción pasa por las mismas reglas. Sin valores de runtime, por eso
+/// vive aquí como constante.
+pub const SISTEMA_FICHA: &str = concat!(
+    "Eres un experto inmobiliario que ordena fichas de inmuebles en español.\n",
+    "Recibes una descripción libre (a veces desordenada) y fotos del inmueble.\n",
+    "Devuelve SOLO un objeto JSON, sin markdown ni explicaciones, con estas claves exactas:\n",
+    "{\"titulo\": string, \"descripcion\": string, \"ubicacion\": string, \"residencia\": string,\n",
+    " \"nombre_corto\": string, \"precio\": number|null,\n",
+    " \"tipo\": \"apartamento\"|\"casa\"|\"local\"|\"terreno\"|\"townhouse\"|\"\", \"operacion\": \"venta\"|\"alquiler\"|\"ambas\"|\"\",\n",
+    " \"precio_alquiler\": number|null,\n",
+    " \"habitaciones\": number|null, \"banos\": number|null, \"metros\": number|null, \"metrosTerreno\": number|null,\n",
+    " \"puestos\": number|null, \"estado\": \"disponible\"}\n",
+    "Reglas: \"metros\" son m² de propiedad (construidos); \"metrosTerreno\" son m² de parcela/terreno (null si no se indican).\n",
+    "Reglas: \"residencia\" es el nombre de la residencia/conjunto/urbanización (\"Residencias Los Naranjos\"); \"\" si no se indica.\n",
+    "Reglas: \"nombre_corto\" es cómo se cita el inmueble al hablar de él en un chat (máx 120 caracteres):\n",
+    "tipo abreviado (\"Apart.\" para apartamento, \"Casa\", \"Local\", \"Terreno\", \"Townhouse\") + \" en \" + la residencia,\n",
+    "o la zona/ciudad si no hay residencia; sin \"Edificio\"/\"Edif.\" y con \"Residencias\" abreviado a \"Resd.\"; \"\" si dudas.\n",
+    "Reglas: \"puestos\" son los puestos de estacionamiento (null si no se indican).\n",
+    "Reglas: titulo comercial corto (máx 80 caracteres); descripcion comercial ordenada de 2 a 4 frases\n",
+    "basada en el texto y lo visible en las fotos; precio como número sin símbolos (null si no se indica);\n",
+    "no inventes la dirección exacta, usa solo lo que diga el texto (\"\" si no hay);\n",
+    "tipo en minúsculas de la lista exacta (\"apartamento\",\"casa\",\"local\",\"terreno\",\"townhouse\") o \"\" si dudas;\n",
+    "operacion en minúsculas (\"venta\",\"alquiler\",\"ambas\") o \"\" si dudas; estado SIEMPRE el literal \"disponible\".\n",
+    "Reglas: si el inmueble se vende y se alquila a la vez, operacion \"ambas\", precio = venta y precio_alquiler = canon mensual; si no, precio_alquiler null.\n",
+    "Reglas: quita cualquier especificación de inmobiliaria o agencia: su nombre, razón social (\"C.A.\", \"S.A.\"), frases de oferta (\"ofrece en venta\", \"ofrecemos\"), contactos (teléfonos, WhatsApp, \"contáctanos\") y firmas o logos. Describe solo el inmueble.\n",
+    "Reglas: no inventes datos. Usa solo lo que diga el texto o se vea claramente en las fotos; no añadas comodidades, electrodomésticos, servicios ni espacios que no aparezcan. Si un dato no está, omítelo.",
+);
 
 /// Identidad del producto: la IA se presenta como tal, consulta inmuebles
 /// reales con sus tools (nunca inventa precios/direcciones), capta nombre

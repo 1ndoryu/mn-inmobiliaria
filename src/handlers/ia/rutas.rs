@@ -150,6 +150,11 @@ pub fn routes() -> Router<AppState> {
             "/ia/completar",
             post(completar).route_layer(DefaultBodyLimit::disable()),
         )
+        /* [28AE-2] Ficha: guarda el original y aplica el prompt unico (fotos base64). */
+        .route(
+            "/ia/ficha",
+            post(super::ficha::ficha).route_layer(DefaultBodyLimit::disable()),
+        )
 }
 
 #[cfg(test)]

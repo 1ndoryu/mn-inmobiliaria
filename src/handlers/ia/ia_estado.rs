@@ -157,11 +157,11 @@ mod pruebas {
     /* [199A-1] El diagnostico `ok|epoch|ms|modelo` se rehidrata; el error no. */
     #[test]
     fn parsear_diagnostico_redondea() {
-        let d = parsear_diagnostico(Some("ok|1726233600|420|muse-spark-1.3".to_string()));
+        let d = parsear_diagnostico(Some("ok|1726233600|420|deepseek-v4.1-flash".to_string()));
         assert_eq!(d.estado, "ok");
         assert_eq!(d.comprobado_en, Some(1_726_233_600));
         assert_eq!(d.latencia_ms, Some(420));
-        assert_eq!(d.ultimo_modelo.as_deref(), Some("muse-spark-1.3"));
+        assert_eq!(d.ultimo_modelo.as_deref(), Some("deepseek-v4.1-flash"));
         let e = parsear_diagnostico(Some("error|1726233600|sin clave".to_string()));
         assert_eq!(e.estado, "error");
         assert_eq!(

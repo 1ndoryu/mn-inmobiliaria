@@ -77,7 +77,7 @@ fn linea_hora_venezuela() -> String {
 /// Router del chat con estado propio (`AgentState`), listo para anidar.
 /// Comparte `hub` con las rutas staff para el realtime humano→visitante.
 pub fn agent_router(pool: sqlx::PgPool, hub: ChatHub) -> Router<()> {
-    let provider = glory_agent::providers::ProviderConfig::opencode_go(
+    let provider = crate::config::ia::opencode_go(
         std::env::var("OPENCODE_GO_API_KEY").unwrap_or_default(),
     );
     let mut registro = glory_agent::tools::ToolRegistry::new();
