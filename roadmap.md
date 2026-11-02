@@ -10,7 +10,6 @@
 
 - [ ] `25AA-6` — **«Ambas» en el sync sin romper nada.** Hecho cuando la huella y el PUT llevan `precio_alquiler`, y empujar un «ambas» a una API de producción sin la migración falla solo esa fila con un aviso claro (el deploy es de la usuaria, antes de empujar).
 - [ ] `25AA-11` — **Desplegar a producción lo de 25AA-1..10.** La usuaria autorizó el deploy (2026-10-27) al terminar estas tareas. Hecho cuando `coolify-manager-rs` despliega (con `WA_WEBHOOK_SECRETO` ya en producción, ver `15AA-6`), la migración `20261027000045` está aplicada, `/publicar` carga y «ambas» funciona; los inmuebles «ambas» se empujan solo después.
-- [ ] `28AB-3` — **Rehacer la página pública `/publicidad` desde cero.** Hecho cuando hay una página nueva con el diseño del front público, `noindex` y sin enlace en el menú, consumiendo `GET /api/public/publicidad` (lógica conservada). Se retiró el diseño anterior por decisión de la usuaria (2026-10-28); la prueba viva de piezas, descargas y teléfono se hace sobre la página nueva. Plan original: `plan-calendario-publicidad-redes-2026-10-28.md`.
 - [ ] `08AA-10` — **Texto final con precio.** Pendiente; el proveedor IA devuelve vacío (`/ia/probar` cuelga).
 - [ ] `08AA-11` — y `08AA-15` — **Verificación visual y viva del borrador.** Mismo proveedor IA.
 
@@ -35,7 +34,6 @@
 
 ## Planes activos
 
-- `Agente/planes/plan-calendario-publicidad-redes-2026-10-28.md` — `28AB-3` — calendario de publicaciones en redes (admin, hecho en `main`, `e99d23c0`) y rehacer la página pública `/publicidad` (diseño retirado el 2026-10-28, lógica conservada).
 - `Agente/planes/plan-chat-tiempo-real-2026-10-10.md` — `10AA-24/25/26` — chats en tiempo real, continuación automática y dos opciones en la burbuja; código hecho, falta la prueba viva de la usuaria (chat visible en menos de 2 s).
 - `Agente/planes/plan-clave-chat-estable-2026-10-13.md` — `13AA-13` — clave de chat estable por conversación (Marketplace).
 - `Agente/planes/plan-whatsapp-2026-09-27.md` — `12AA-1` (cerrada el 2026-10-21); cubre los restos abiertos del gateway (`09AA-8`, `15AA-6`) — dos modos, delegación, clientes y observabilidad.
