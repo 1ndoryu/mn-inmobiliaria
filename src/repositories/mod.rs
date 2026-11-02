@@ -1,5 +1,6 @@
 pub(crate) mod chat;
 mod cliente;
+mod descripcion_original;
 mod inmueble;
 pub(crate) mod marketplace;
 mod note;
@@ -11,6 +12,7 @@ mod user;
 mod visita;
 
 pub use cliente::ClienteRepository;
+pub use descripcion_original::DescripcionOriginalRepository;
 pub use inmueble::{InmuebleRepository, NuevoInmueble};
 pub use note::NoteRepository;
 pub use publicacion_redes::{NuevaPieza, PublicacionRepository};
