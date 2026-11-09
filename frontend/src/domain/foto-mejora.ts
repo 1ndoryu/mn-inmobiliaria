@@ -52,6 +52,11 @@ export interface ConfigMejora {
   modo: ModoMejora;
   /** Plantilla de prompt enviada al worker junto a cada foto. */
   prompt: string;
+  /* [30AA-1] Prompt de las FOTOS VARIANTE (v2): se le pasa a la imagen ya
+   * mejorada para que la repita desde otro ángulo sin cambiar la realidad.
+   * Es independiente de `prompt` para poder ajustarlo sin rehacer las
+   * mejoradas normales. */
+  promptVariante: string;
 }
 
 /* [15AA-11] Texto por defecto retirado: el "corrige luz y color de forma
@@ -105,6 +110,24 @@ const CORRECCION_ANGULO =
 
 export const PROMPT_DEFECTO = `${PROMPT_SIN_ANGULO} ${CORRECCION_ANGULO}`;
 
+/* [30AA-1] Variante de una foto YA mejorada, para publicar el mismo inmueble
+ * en otra cuenta de Facebook. El encargo es delicado: la foto tiene que
+ * parecer OTRA toma (ángulo, altura, encuadre) sin que cambie nada de lo que
+ * se ve (estancias, muebles, número de vanos, materiales, colores). Los
+ * mismos límites que la mejora normal más el cambio de punto de vista. */
+export const PROMPT_VARIANTE = [
+  'Toma esta misma fotografia inmobiliaria desde un angulo distinto:',
+  'desplaza el punto de vista unos pasos a un lado y cambia ligeramente la',
+  'altura de la camara, corrigiendo la perspectiva (verticales y horizontales).',
+  'La estancia, los muebles, los materiales, los colores y TODOS los elementos',
+  'deben ser exactamente los mismos: no anadas, quites, muevas ni sustituyas',
+  'nada; no cambies el numero de ventanas, puertas, habitaciones ni su tamano.',
+  'Conserva la luz natural y el balance de blancos neutro, sin tonos amarillos',
+  'ni filtros. Manten la nitidez y la resolucion de la imagen original.',
+  'El resultado debe parecer una foto nueva hecha por otra persona en el mismo',
+  'momento, nunca una imagen retocada ni una vista distinta del inmueble.',
+].join(' ');
+
 /* Prompts por defecto ya retirados: quien los tenga guardados tal cual recibe
  * el actual. Un prompt escrito a mano por la usuaria se respeta siempre. */
 const PROMPTS_RETIRADOS = [
@@ -119,6 +142,7 @@ export const CONFIG_DEFECTO: ConfigMejora = {
   maxPorDia: 40,
   modo: 'manual',
   prompt: PROMPT_DEFECTO,
+  promptVariante: PROMPT_VARIANTE,
 };
 
 export const CLAVE_CONFIG_MEJORA = 'inmobiliaria:mejora-config:v1';
@@ -141,6 +165,8 @@ export function normalizarConfig(datos: unknown): ConfigMejora {
   const d = (typeof datos === 'object' && datos !== null ? datos : {}) as Partial<ConfigMejora> & { auto?: unknown };
   const guardado = typeof d.prompt === 'string' ? d.prompt.trim() : '';
   const prompt = !guardado || PROMPTS_RETIRADOS.includes(guardado) ? PROMPT_DEFECTO : guardado.slice(0, 2000);
+  const varianteGuardada = typeof d.promptVariante === 'string' ? d.promptVariante.trim() : '';
+  const promptVariante = varianteGuardada ? varianteGuardada.slice(0, 2000) : PROMPT_VARIANTE;
   const modo: ModoMejora =
     d.modo === 'automatico' || d.modo === 'manual' ? d.modo : d.auto === true ? 'automatico' : 'manual';
   return {
@@ -149,6 +175,7 @@ export function normalizarConfig(datos: unknown): ConfigMejora {
     maxPorDia: saneaEntero(d.maxPorDia, CONFIG_DEFECTO.maxPorDia, 1, 200),
     modo,
     prompt,
+    promptVariante,
   };
 }
 

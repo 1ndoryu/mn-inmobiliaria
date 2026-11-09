@@ -61,7 +61,7 @@ export function borrarSesion(): void {
 
 /* 401 = token ausente/caducado: se limpia la sesión y se avisa a la app
  * para que vuelva al login (el hook `useSesion` escucha el evento). */
-function avisarSesionExpirada(): void {
+export function avisarSesionExpirada(): void {
   borrarSesion();
   try {
     /* [08AA-23] Emisión vía plataforma (sin `window` directo aquí). */
@@ -455,7 +455,7 @@ function extensionPorMagia(bytes: Uint8Array): string | null {
   return null;
 }
 
-function dataUrlABytes(dataUrl: string): { bytes: ArrayBuffer; extension: string } {
+export function dataUrlABytes(dataUrl: string): { bytes: ArrayBuffer; extension: string } {
   const coma = dataUrl.indexOf(',');
   const bin = atob(dataUrl.slice(coma + 1));
   const bytes = new Uint8Array(bin.length);
