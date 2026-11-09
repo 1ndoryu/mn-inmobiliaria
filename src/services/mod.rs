@@ -1,5 +1,7 @@
 mod auth;
 mod comercial;
+pub mod exportacion;
+pub mod facebook;
 mod inmueble;
 pub mod jwt;
 pub mod marketplace;
@@ -10,13 +12,17 @@ pub mod sesion;
 pub mod sync;
 mod tope_uso;
 pub mod triage;
+pub mod versiones;
 pub mod turno;
 
 pub use auth::{AuthService, Claims};
 pub use comercial::note::NoteService;
 pub use comercial::solicitud::SolicitudService;
 pub use comercial::suscriptor::SuscriptorService;
-pub use inmueble::InmuebleService;
+pub use exportacion::ExportService;
+pub use facebook::FacebookService;
+pub use inmueble::{InmuebleService, RecetaVariante};
+pub use versiones::VersionService;
 pub use publicidad::PublicidadService;
 pub use mensajeria::alerta_whatsapp::vigilar as vigilar_alertas_whatsapp;
 pub use mensajeria::canal_resolver::{modo_por_canal, CanalResolver};

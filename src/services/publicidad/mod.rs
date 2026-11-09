@@ -17,7 +17,8 @@ impl PublicidadService {
     /// Lista para la página pública, la publicación más reciente primero
     pub async fn listar(pool: &PgPool) -> Result<Vec<PublicidadPublica>, AppError> {
         let mut filas = PublicacionRepository::listar_publicadas(pool).await?;
-        filas.sort_by(|a, b| b.publicada_en.cmp(&a.publicada_en));
+        // Más reciente primero; `Reverse` conserva el orden que pide la página.
+        filas.sort_by_key(|f| std::cmp::Reverse(f.publicada_en));
 
         let inmuebles: Vec<Uuid> = filas.iter().map(|f| f.inmueble_id).collect();
         let fotos = InmuebleRepository::fotos_por_inmuebles(pool, &inmuebles).await?;

@@ -16,6 +16,7 @@ pub(crate) mod alias;
 mod fotos;
 pub(crate) mod slug;
 pub(crate) mod vinculo;
+pub use fotos::RecetaVariante;
 
 /* [159A-1] Lógica del catálogo: normalización de enums, slug único con
  * reintento ante carrera (UNIQUE 23505) y ensamblado fila+fotos sin N+1.

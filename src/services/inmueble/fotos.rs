@@ -15,6 +15,14 @@ use crate::services::sync::vigilancia::notificar;
 
 use super::InmuebleService;
 
+/// Lo que describe una variante IA de foto, además de sus bytes: la posición
+/// del original al que acompaña, el modelo y el prompt (para poder repetirla).
+pub struct RecetaVariante<'a> {
+    pub orden: i32,
+    pub modelo: &'a str,
+    pub prompt_usado: &'a str,
+}
+
 impl InmuebleService {
     pub async fn add_foto(
         pool: &PgPool,
@@ -127,7 +135,79 @@ impl InmuebleService {
     }
 
     /// Guarda bytes subidos en `UPLOAD_DIR/<inmueble>/<uuid>.<ext>` y registra la foto.
-    /// Valida extensión + magic-bytes (jpeg/png/webp); el tope lo impone el extractor.
+    /// Borra un archivo del volumen por su clave (limpieza fuera de una
+    /// transacción: si el archivo no existe, no pasa nada).
+    pub async fn borrar_archivo_clave(upload_dir: &Path, storage_key: &str) {
+        Self::borrar_archivo(upload_dir, storage_key).await;
+    }
+
+    /* [30AA-1] Variante IA de una foto (v2): MISMA foto contada de otra
+     * manera, por eso hereda el `orden` de su original y vive en
+     * `fotos_variantes` (no en `fotos`, para no alterar ninguna consulta
+     * existente). Guarda también el modelo y el prompt para poder repetirlo. */
+    pub async fn subir_foto_variante(
+        pool: &PgPool,
+        upload_dir: &Path,
+        inmueble_id: Uuid,
+        filename: &str,
+        receta: &RecetaVariante<'_>,
+        bytes: &[u8],
+    ) -> Result<crate::models::FotoVariante, AppError> {
+        let RecetaVariante {
+            orden,
+            modelo,
+            prompt_usado,
+        } = *receta;
+        if InmuebleRepository::find_by_id(pool, inmueble_id)
+            .await?
+            .is_none()
+        {
+            return Err(AppError::NotFound("Inmueble no encontrado".into()));
+        }
+        /* El `orden` debe existir: una variante huérfana no se puede enseñar
+         * junto a su original en el modal. */
+        let fotos = InmuebleRepository::fotos_por_inmuebles(pool, &[inmueble_id]).await?;
+        if !fotos
+            .get(&inmueble_id)
+            .is_some_and(|fs| fs.iter().any(|f| f.orden == orden && f.origen == "original"))
+        {
+            return Err(AppError::Validation(
+                "La posición no corresponde a una foto original del inmueble".into(),
+            ));
+        }
+        let storage_key =
+            Self::guardar_archivo(upload_dir, &inmueble_id.to_string(), filename, bytes).await?;
+        let anterior = match crate::repositories::VersionRepository::upsert_foto(
+            pool,
+            inmueble_id,
+            orden,
+            2,
+            &storage_key,
+            modelo,
+            prompt_usado,
+        )
+        .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                Self::borrar_archivo(upload_dir, &storage_key).await;
+                return Err(e.into());
+            }
+        };
+        /* La variante anterior de ese hueco se retira del disco: si no, cada
+         * regeneración deja un archivo muerto. */
+        if let Some(clave) = anterior {
+            Self::borrar_archivo(upload_dir, &clave).await;
+        }
+        notificar();
+        let filas = crate::repositories::VersionRepository::fotos_de(pool, inmueble_id).await?;
+        filas
+            .into_iter()
+            .find(|f| f.orden == orden && f.version == 2)
+            .map(Into::into)
+            .ok_or_else(|| AppError::Internal("La variante no se guardó".into()))
+    }
+
     pub async fn subir_foto(
         pool: &PgPool,
         upload_dir: &Path,
@@ -327,7 +407,7 @@ impl InmuebleService {
     }
 
     /// Borra un archivo del volumen; los fallos se registran pero no rompen la operación
-    pub(super) async fn borrar_archivo(upload_dir: &Path, storage_key: &str) {
+    pub(crate) async fn borrar_archivo(upload_dir: &Path, storage_key: &str) {
         let ruta = upload_dir.join(storage_key);
         if let Err(e) = tokio::fs::remove_file(&ruta).await {
             tracing::warn!("No se pudo borrar {ruta:?}: {e}");

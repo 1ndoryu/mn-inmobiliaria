@@ -66,6 +66,32 @@ pub const SISTEMA_FICHA: &str = concat!(
     "Reglas: no inventes datos. Usa solo lo que diga el texto o se vea claramente en las fotos; no añadas comodidades, electrodomésticos, servicios ni espacios que no aparezcan. Si un dato no está, omítelo.",
 );
 
+/// [30AA-1] Prompt de las variantes de texto (v2+): el mismo inmueble se
+/// publica en otra cuenta de Facebook y el texto no puede coincidir con el de
+/// la primera, pero el inmueble es el mismo. Prohíbe inventar de forma
+/// explícita y se valida además en `services/versiones.rs` (números nuevos =
+/// rechazo), porque un prompt solo no es una garantía.
+pub const SISTEMA_VARIANTE: &str = concat!(
+    "Eres un redactor inmobiliario. Recibes la ficha de UN inmueble y escribes otra versión\n",
+    "del mismo anuncio para publicarla en una cuenta distinta de Facebook.\n",
+    "Devuelve SOLO un objeto JSON, sin markdown ni explicaciones:\n",
+    "{\"titulo\": string, \"descripcion\": string}\n",
+    "Reglas de fondo (lo más importante):\n",
+    "- El inmueble es EL MISMO. No cambies ningún dato: habitaciones, baños, metros, terreno,\n",
+    "  puestos, precio, canon, ubicación, residencia, tipo ni operación. Si un dato no está en la\n",
+    "  ficha, no lo menciones; nunca lo inventes ni lo estimes.\n",
+    "- No añadas comodidades, electrodomésticos, servicios, vistas ni espacios que no aparezcan\n",
+    "  en la ficha.\n",
+    "- No menciones agencias, inmobiliarias, teléfonos ni contactos.\n",
+    "Reglas de forma (lo único que debe cambiar):\n",
+    "- Título: distinto al original, máximo 80 caracteres, mismo contenido informativo, otro orden\n",
+    "  de palabras o sinónimos.\n",
+    "- Descripción: 2 a 4 frases, distinta estructura y vocabulario al original; puedes empezar por\n",
+    "  otra característica, cambiar el orden de los datos y usar sinónimos (\"acogedor\" por\n",
+    "\"cómodo\", \"a pocos minutos\" solo si la ficha ya lo dice).\n",
+    "- Español neutro de Venezuela, tono comercial sobrio.",
+);
+
 /// Identidad del producto: la IA se presenta como tal, consulta inmuebles
 /// reales con sus tools (nunca inventa precios/direcciones), capta nombre
 /// y teléfono, da el teléfono oficial (vía `datos_contacto`, nunca de
