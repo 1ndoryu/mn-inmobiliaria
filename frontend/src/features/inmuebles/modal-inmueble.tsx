@@ -16,6 +16,7 @@ import { useFichaInmueble } from '@/hooks/inmuebles/use-ficha-inmueble';
 import { FotosFormulario } from './formulario/fotos-formulario';
 import { PieModalInmueble } from './formulario/pie-modal-inmueble';
 import { ModalIA } from './modal-ia';
+import { SeccionVersionado } from './versionado/seccion-versionado';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -281,6 +282,10 @@ export function ModalInmueble(props: Props) {
             />
           </div>
         </div>
+
+        {/* [30AA-1] Solo al editar un inmueble guardado: las versiones
+            necesitan su id. */}
+        {props.editando && <SeccionVersionado inmueble={props.editando} />}
 
         <PieModalInmueble
           esEdicion={esEdicion}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bot, Hand, ImageIcon, Loader2, Megaphone, Monitor, Moon, Settings2, Sun, WandSparkles } from 'lucide-react';
+import { Bot, Hand, ImageIcon, Layers, Loader2, Megaphone, Monitor, Moon, Settings2, Sun, WandSparkles } from 'lucide-react';
 import type { Tema } from '@/app/tema';
 import { Button, ButtonPlano } from '@/components/ui/button';
 import {
@@ -15,17 +15,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { leerSalud } from '@/data/mejora/cliente-mejora';
 import { PestanaCopy } from './pestana-copy';
 import { PestanaIA } from './pestana-ia';
+import { PestanaVersiones } from './pestana-versiones';
 import type { ConfigMejora, ModoMejora } from '@/domain/foto-mejora';
 import type { ConfigCopy } from '@/domain/copy';
 import { cn } from '@/lib/utils';
 
-type Pestana = 'general' | 'mejora' | 'copy' | 'ia';
+type Pestana = 'general' | 'mejora' | 'copy' | 'ia' | 'versiones';
 
 const PESTANAS: { valor: Pestana; texto: string; Icono?: typeof Sun }[] = [
   { valor: 'general', texto: 'General' },
   { valor: 'mejora', texto: 'Mejora', Icono: ImageIcon },
   { valor: 'copy', texto: 'Copy', Icono: Megaphone },
   { valor: 'ia', texto: 'IA', Icono: Bot },
+  { valor: 'versiones', texto: 'Versiones', Icono: Layers },
 ];
 
 const TEMAS: { valor: Tema; texto: string; Icono: typeof Sun }[] = [
@@ -119,6 +121,9 @@ export function ModalConfig({
       maxPorDia: Math.min(200, Math.max(1, Math.floor(formMejora.maxPorDia))),
       modo: formMejora.modo,
       prompt: formMejora.prompt.trim() ? formMejora.prompt.trim().slice(0, 2000) : formMejora.prompt,
+      promptVariante: formMejora.promptVariante.trim()
+        ? formMejora.promptVariante.trim().slice(0, 2000)
+        : formMejora.promptVariante,
     });
     alCambiarCopy(copyTrim);
     alCambiarAbierto(false);
@@ -131,10 +136,10 @@ export function ModalConfig({
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-4 w-4" /> Configuración
           </DialogTitle>
-          <DialogDescription>Aspecto, mejora de fotos, copy para redes e IA de texto.</DialogDescription>
+          <DialogDescription>Aspecto, mejora de fotos, copy para redes, IA de texto y versiones por inmueble.</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 gap-1 rounded-lg border p-1">
+        <div className="grid grid-cols-5 gap-1 rounded-lg border p-1">
           {PESTANAS.map(({ valor, texto, Icono }) => (
             <Button
               key={valor}
@@ -236,6 +241,17 @@ export function ModalConfig({
                 onChange={(e) => setFormMejora({ ...formMejora, prompt: e.target.value })}
               />
             </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Prompt de foto variante (versión 2)
+              <span className="text-xs font-normal text-muted-foreground">
+                Se aplica sobre la foto YA mejorada para repetirla desde otro ángulo sin cambiar nada de lo que se ve.
+              </span>
+              <Textarea
+                rows={5}
+                value={formMejora.promptVariante}
+                onChange={(e) => setFormMejora({ ...formMejora, promptVariante: e.target.value })}
+              />
+            </label>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={probar} disabled={probando}>
                 {probando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Probar conexión
@@ -250,6 +266,8 @@ export function ModalConfig({
         )}
 
         {pestana === 'ia' && <PestanaIA />}
+
+        {pestana === 'versiones' && <PestanaVersiones />}
 
         {/* El pie solo guarda en mejora/copy (estado local). General aplica
           al instante e IA guarda sola contra el backend (`PestanaIA`). */}

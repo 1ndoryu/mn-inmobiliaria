@@ -80,6 +80,9 @@ export function ModalConfigMejora(props: {
       maxPorDia: Math.min(200, Math.max(1, Math.floor(form.maxPorDia))),
       modo: form.modo,
       prompt: form.prompt.trim() ? form.prompt.trim().slice(0, 2000) : form.prompt,
+      promptVariante: form.promptVariante.trim()
+        ? form.promptVariante.trim().slice(0, 2000)
+        : form.promptVariante,
     });
     alCambiarAbierto(false);
   }
@@ -164,6 +167,18 @@ export function ModalConfigMejora(props: {
               rows={5}
               value={form.prompt}
               onChange={(e) => setForm({ ...form, prompt: e.target.value })}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Prompt de foto variante (versión 2)
+            <span className="text-xs font-normal text-muted-foreground">
+              Se aplica sobre la foto YA mejorada para repetirla desde otro ángulo sin cambiar nada de lo que se ve.
+            </span>
+            <Textarea
+              rows={5}
+              value={form.promptVariante}
+              onChange={(e) => setForm({ ...form, promptVariante: e.target.value })}
             />
           </label>
 
