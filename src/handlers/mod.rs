@@ -363,6 +363,11 @@ fn api_routes() -> Router<AppState> {
 fn admin_routes() -> Router<AppState> {
     Router::new()
         .merge(inmobiliario::inmuebles::routes())
+        /* [30AA-1] Cuentas de Facebook y vínculo por inmueble. */
+        .merge(inmobiliario::facebook::routes())
+        /* [30AA-1] Versiones de texto, fotos variante y exportación. */
+        .merge(inmobiliario::versiones::routes())
+        .merge(inmobiliario::exportacion::routes())
         /* [279A-3] Ficha /ask de la dueña (rutas bajo /api/admin/...). */
         .merge(ia::ask::routes())
         .merge(comercial::solicitud::admin_routes())
