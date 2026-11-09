@@ -1,6 +1,7 @@
 pub(crate) mod chat;
 mod cliente;
 mod descripcion_original;
+mod facebook;
 mod inmueble;
 pub(crate) mod marketplace;
 mod note;
@@ -9,14 +10,17 @@ mod solicitud;
 mod suscriptor;
 pub(crate) mod sync;
 mod user;
+mod versiones;
 mod visita;
 
 pub use cliente::ClienteRepository;
 pub use descripcion_original::DescripcionOriginalRepository;
+pub use facebook::FacebookRepository;
 pub use inmueble::{InmuebleRepository, NuevoInmueble};
 pub use note::NoteRepository;
 pub use publicacion_redes::{NuevaPieza, PublicacionRepository};
 pub use solicitud::{NuevaSolicitud, SolicitudRepository, SolicitudSincronizada};
 pub use suscriptor::{NuevoSuscriptor, SuscriptorRepository};
 pub use user::UserRepository;
+pub use versiones::{EntradaHistorial, VersionRepository, CLAVE_VERSIONES, VERSIONES_DEFECTO};
 pub use visita::{NuevaVisita, VisitaRepository};

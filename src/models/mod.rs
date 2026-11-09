@@ -1,4 +1,5 @@
 mod cliente;
+mod facebook;
 mod inmueble;
 mod inmueble_alias;
 mod inmueble_paginacion;
@@ -7,7 +8,16 @@ mod publicacion_redes;
 mod solicitud;
 mod suscriptor;
 mod user;
+mod version_texto;
 mod visita;
+
+pub use facebook::{
+    Facebook, FacebookRequest, FacebookRow, VinculoFacebook, VincularFacebookRequest,
+};
+pub use version_texto::{
+    EditarVersionRequest, FotoVariante, FotoVarianteRow, GenerarVersionRequest,
+    GenerarVersionSalida, InmuebleVersion, TextoHistorial, VersionesInmueble, ESTADOS_VERSION,
+};
 
 pub use cliente::{Cliente, ClienteRow, CreateClienteRequest};
 pub use publicacion_redes::{
