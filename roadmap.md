@@ -8,7 +8,10 @@
 
 ## Pendientes
 
-- Ninguno.
+- [ ] `30AA-3` — **Extender `push` a versiones y variantes.** Hecho cuando `inmueble.mjs push --slug`
+  suba la v2 (`inmueble_versiones`) y sus `fotos_variantes` a prod con el mismo `orden` de su
+  original, `--dry-run` informe el diff de ambas y `verificar` las compare por sha256. Antes hay
+  que desplegar la 30AA-1 (hoy prod da 404 en `/versiones` y `/configuracion/versiones`).
 
 ## Bloqueos
 
