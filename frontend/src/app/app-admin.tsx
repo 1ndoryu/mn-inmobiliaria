@@ -5,6 +5,7 @@ import { FiltrosInmuebles, PaginacionInmuebles } from './controles-inmuebles-adm
 import { ModalesApp } from './modales-app';
 import { PantallaLogin } from '../features/sesion/pantalla-login';
 import { TablaInmuebles } from '../features/inmuebles/tabla-inmuebles';
+import { ExportarEscritorio } from '../features/inmuebles/exportar-escritorio';
 import { VistaImagenes } from '../features/imagenes/vista-imagenes';
 import { VistaMensajes } from '../features/chat/vista-mensajes';
 import { VistaPublicidad } from '../features/publicidad/vista-publicidad';
@@ -226,6 +227,10 @@ function ContenidoApp({ email, alSalir }: { email: string; alSalir: () => void }
         <VistaCalendario inmuebles={inmuebles} />
       ) : vista === 'inmuebles' ? (
         <>
+          {/* [30AA-1] Solo dentro de MN-Escritorio: ahí existe `/__exportar`. */}
+          <div className="mb-4">
+            <ExportarEscritorio />
+          </div>
           <FiltrosInmuebles
             busqueda={busqueda}
             alCambiarBusqueda={(valor) => {
