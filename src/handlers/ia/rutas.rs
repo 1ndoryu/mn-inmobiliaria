@@ -78,6 +78,24 @@ fn validar_entrada(input: &CompletarEntrada) -> Result<(), AppError> {
 /* [08AA-8] `texto_glory`→`describir_foto` movidos a `ia_proveedores.rs`
  * (re-export arriba para `completar`, tests y `marketplace`/`turno`). */
 
+/// [30AA-1] Completar texto sin ruta HTTP propia: lo usa el servicio de
+/// versiones (lado servidor), así que no hace falta un handler ni JWT aquí.
+/// Reintenta con el otro proveedor si el primero falla, igual que la ruta
+/// HTTP, para que las versiones no se queden sin texto por un corte puntual.
+pub(crate) async fn completar_texto(
+    system: &str,
+    texto: &str,
+    fotos: &[String],
+) -> Result<(String, String), String> {
+    match completar_opencode(system, texto, fotos, "versiones").await {
+        Ok(v) => Ok(v),
+        Err(primero) => match completar_glory(system, texto, fotos).await {
+            Ok(v) => Ok(v),
+            Err(segundo) => Err(format!("{primero}; {segundo}")),
+        },
+    }
+}
+
 async fn completar(
     _auth: AuthUser,
     State(state): State<AppState>,
