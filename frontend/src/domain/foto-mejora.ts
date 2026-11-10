@@ -114,16 +114,27 @@ export const PROMPT_DEFECTO = `${PROMPT_SIN_ANGULO} ${CORRECCION_ANGULO}`;
  * en otra cuenta de Facebook. El encargo es delicado: la foto tiene que
  * parecer OTRA toma (ángulo, altura, encuadre) sin que cambie nada de lo que
  * se ve (estancias, muebles, número de vanos, materiales, colores). Los
- * mismos límites que la mejora normal más el cambio de punto de vista. */
+ * mismos límites que la mejora normal más el cambio de punto de vista.
+ *
+ * [30AA-2] El texto anterior pedía «unos pasos a un lado» y el modelo devolvía
+ * la MISMA toma retocada: medido con SSIM sobre 36 pares, 8 salieron ≥ 85 % de
+ * parecido y en todas ellas el desplazamiento de encuadre medido era 0. Ahora
+ * el encuadre se pide de forma explícita y no negociable, con el cambio mínimo
+ * en grados y la prohibición de repetir el original. */
 export const PROMPT_VARIANTE = [
-  'Toma esta misma fotografia inmobiliaria desde un angulo distinto:',
-  'desplaza el punto de vista unos pasos a un lado y cambia ligeramente la',
-  'altura de la camara, corrigiendo la perspectiva (verticales y horizontales).',
-  'La estancia, los muebles, los materiales, los colores y TODOS los elementos',
-  'deben ser exactamente los mismos: no anadas, quites, muevas ni sustituyas',
-  'nada; no cambies el numero de ventanas, puertas, habitaciones ni su tamano.',
-  'Conserva la luz natural y el balance de blancos neutro, sin tonos amarillos',
-  'ni filtros. Manten la nitidez y la resolucion de la imagen original.',
+  'Rehaz esta fotografia inmobiliaria como si te hubieras movido de sitio:',
+  'el ENCUADRE TIENE QUE SER DISTINTO al de la foto original. Situate en otra',
+  'esquina de la estancia, gira la camara al menos 30 grados respecto a la toma',
+  'original y sube o baja la altura del objetivo entre 40 y 60 centimetros.',
+  'Se tienen que ver paredes u objetos que en el original quedaban fuera del',
+  'borde, y dejar de verse parte de lo que el original encuadraba. Repetir el',
+  'mismo encuadre con otro recorte NO vale: la composicion debe cambiar.',
+  'Lo que NO cambia: la estancia, los muebles, los materiales, los colores y',
+  'TODOS los elementos deben ser exactamente los mismos; no anadas, quites,',
+  'muevas ni sustituyas nada, y no cambies el numero de ventanas, puertas,',
+  'habitaciones ni su tamano. Corrige la perspectiva (verticales y',
+  'horizontales). Conserva la luz natural y el balance de blancos neutro, sin',
+  'tonos amarillos ni filtros; manten la nitidez y la resolucion originales.',
   'El resultado debe parecer una foto nueva hecha por otra persona en el mismo',
   'momento, nunca una imagen retocada ni una vista distinta del inmueble.',
 ].join(' ');
