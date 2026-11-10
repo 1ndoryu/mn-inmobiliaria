@@ -8,6 +8,10 @@
 
 ## Pendientes
 
+- [ ] `30AA-5` — **Pestaña propia por versión en el modal de inmueble.** Hoy todas las pestañas
+  v2+ comparten `PestanaFotos`: cambiar de pestaña no cambia lo que ya se generó y no hay forma de
+  decir «esta foto tiene v2 y v3» desde la UI del modal. Hecho cuando cada versión tenga su propio
+  estado y el botón de generar sepa a cuál escribe.
 - [ ] `30AA-3` — **Extender `push` a versiones y variantes.** Hecho cuando `inmueble.mjs push --slug`
   suba la v2 (`inmueble_versiones`) y sus `fotos_variantes` a prod con el mismo `orden` de su
   original, `--dry-run` informe el diff de ambas y `verificar` las compare por sha256. Antes hay

@@ -190,25 +190,30 @@ impl VersionRepository {
         Ok(())
     }
 
-    /// Variantes de texto de varios inmuebles, indexadas por inmueble (export).
+    /// Variantes de texto de varios inmuebles, indexadas por inmueble Y versión
+    /// (export). Va por versión y no solo por inmueble: el export ya saca una
+    /// carpeta por versión (v2, v3…), no solo la primera.
     pub async fn variantes_por_inmuebles(
         pool: &PgPool,
         ids: &[Uuid],
-    ) -> Result<std::collections::HashMap<Uuid, InmuebleVersion>, sqlx::Error> {
+    ) -> Result<std::collections::HashMap<(Uuid, i16), InmuebleVersion>, sqlx::Error> {
         let mut mapa = std::collections::HashMap::new();
         if ids.is_empty() {
             return Ok(mapa);
         }
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
         let filas = sqlx::query_as::<_, InmuebleVersion>(
-            "SELECT id, inmueble_id, version, titulo, descripcion, estado, modelo,                     prompt_usado, creada_en, actualizada_en              FROM inmueble_versiones              WHERE inmueble_id = ANY($1) AND version >= 2              ORDER BY inmueble_id, version ASC",
+            "SELECT id, inmueble_id, version, titulo, descripcion, estado, modelo, \
+                    prompt_usado, creada_en, actualizada_en \
+             FROM inmueble_versiones \
+             WHERE inmueble_id = ANY($1) AND version >= 2 \
+             ORDER BY inmueble_id, version ASC",
         )
         .bind(ids)
         .fetch_all(pool)
         .await?;
-        /* La primera (v2) es la que se publica como variante. */
         for fila in filas {
-            mapa.entry(fila.inmueble_id).or_insert(fila);
+            mapa.insert((fila.inmueble_id, fila.version), fila);
         }
         Ok(mapa)
     }

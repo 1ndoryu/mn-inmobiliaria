@@ -19,6 +19,9 @@ use super::InmuebleService;
 /// del original al que acompaña, el modelo y el prompt (para poder repetirla).
 pub struct RecetaVariante<'a> {
     pub orden: i32,
+    /* [30AA-4] Versión a la que pertenece la variante (2, 3…). Antes estaba
+     * fija en 2 en el servicio y en el handler. */
+    pub version: i16,
     pub modelo: &'a str,
     pub prompt_usado: &'a str,
 }
@@ -155,6 +158,7 @@ impl InmuebleService {
     ) -> Result<crate::models::FotoVariante, AppError> {
         let RecetaVariante {
             orden,
+            version,
             modelo,
             prompt_usado,
         } = *receta;
@@ -163,6 +167,14 @@ impl InmuebleService {
             .is_none()
         {
             return Err(AppError::NotFound("Inmueble no encontrado".into()));
+        }
+        /* Solo las versiones que la configuración admite (v2..vN): una v7
+         * suelta no la enseñaría ningún sitio y quedaría como archivo muerto. */
+        let configuradas = crate::repositories::VersionRepository::configuradas(pool).await?;
+        if version < 2 || version > configuradas {
+            return Err(AppError::Validation(format!(
+                "Versión {version} fuera de rango: la configuración admite hasta {configuradas}"
+            )));
         }
         /* El `orden` debe existir: una variante huérfana no se puede enseñar
          * junto a su original en el modal. */
@@ -181,7 +193,7 @@ impl InmuebleService {
             pool,
             inmueble_id,
             orden,
-            2,
+            version,
             &storage_key,
             modelo,
             prompt_usado,
@@ -203,7 +215,7 @@ impl InmuebleService {
         let filas = crate::repositories::VersionRepository::fotos_de(pool, inmueble_id).await?;
         filas
             .into_iter()
-            .find(|f| f.orden == orden && f.version == 2)
+            .find(|f| f.orden == orden && f.version == version)
             .map(Into::into)
             .ok_or_else(|| AppError::Internal("La variante no se guardó".into()))
     }

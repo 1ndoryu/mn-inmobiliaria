@@ -117,10 +117,18 @@ pub struct VarianteParams {
     pub orden: i32,
     /// Extensión del archivo (`foto.jpg`)
     pub filename: String,
+    /* [30AA-4] Versión de la variante (2 por defecto: las llamadas antiguas
+     * siguen pidiendo la v2 sin tocar nada). */
+    #[serde(default = "version_por_defecto")]
+    pub version: i16,
     #[serde(default)]
     pub modelo: Option<String>,
     #[serde(default)]
     pub prompt_usado: Option<String>,
+}
+
+fn version_por_defecto() -> i16 {
+    2
 }
 
 /// Subir la variante IA de una foto (bytes crudos, como `/fotos/upload`)
@@ -131,6 +139,7 @@ pub struct VarianteParams {
         ("id" = Uuid, Path, description = "Inmueble"),
         ("orden" = i32, Query, description = "Posición del original"),
         ("filename" = String, Query, description = "Nombre (vale la extensión)"),
+        ("version" = Option<i16>, Query, description = "Versión de la variante (2 por defecto)"),
         ("modelo" = Option<String>, Query, description = "Modelo que generó la variante"),
         ("prompt_usado" = Option<String>, Query, description = "Prompt usado")
     ),
@@ -155,6 +164,7 @@ pub async fn subir_variante(
         &params.filename,
         &crate::services::RecetaVariante {
             orden: params.orden,
+            version: params.version,
             modelo: params.modelo.as_deref().unwrap_or("gemini"),
             prompt_usado: params.prompt_usado.as_deref().unwrap_or(""),
         },
@@ -164,13 +174,21 @@ pub async fn subir_variante(
     Ok((StatusCode::CREATED, Json(foto)))
 }
 
+/// Qué versión borrar (por defecto la 2)
+#[derive(Debug, Deserialize)]
+pub struct VarianteBorradoParams {
+    #[serde(default = "version_por_defecto")]
+    pub version: i16,
+}
+
 /// Borrar la variante de una foto (queda solo el original)
 #[utoipa::path(
     delete,
     path = "/api/admin/inmuebles/{id}/fotos/variante/{orden}",
     params(
         ("id" = Uuid, Path, description = "Inmueble"),
-        ("orden" = i32, Path, description = "Posición del original")
+        ("orden" = i32, Path, description = "Posición del original"),
+        ("version" = Option<i16>, Query, description = "Versión a borrar (2 por defecto)")
     ),
     responses(
         (status = 204, description = "Borrada"),
@@ -182,8 +200,9 @@ pub async fn borrar_variante(
     State(state): State<AppState>,
     _auth: AuthUser,
     Path((id, orden)): Path<(Uuid, i32)>,
+    Query(params): Query<VarianteBorradoParams>,
 ) -> Result<StatusCode, AppError> {
-    let clave = VersionRepository::borrar_foto(&state.pool, id, orden, 2)
+    let clave = VersionRepository::borrar_foto(&state.pool, id, orden, params.version)
         .await?
         .ok_or_else(|| AppError::NotFound("No había variante en esa posición".into()))?;
     crate::services::InmuebleService::borrar_archivo_clave(&state.upload_dir, &clave).await;

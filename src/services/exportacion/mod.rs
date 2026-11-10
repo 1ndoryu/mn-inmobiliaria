@@ -51,7 +51,8 @@ pub struct ManifiestoExport {
     pub cuenta: Uuid,
     pub cuenta_nombre: String,
     pub generado_en: DateTime<Utc>,
-    /// Solo las versiones con contenido: v1 siempre, v2 si hay variantes.
+    /// Solo las versiones con contenido: v1 siempre, y cada v2, v3… que tenga
+    /// fotos variantes o texto.
     pub grupos: Vec<GrupoExport>,
 }
 
@@ -87,7 +88,7 @@ impl ExportService {
         let ids: Vec<Uuid> = inmuebles.iter().map(|i| i.id).collect();
         let fotos = fotos_de(pool, &ids).await?;
 
-        let mut grupos = Vec::with_capacity(2);
+        let mut grupos = Vec::with_capacity(5);
         let incluir = |v: i16| solo_version.is_none_or(|s| s == v);
 
         if incluir(1) {
@@ -115,23 +116,35 @@ impl ExportService {
             });
         }
 
-        if incluir(2) {
-            let variantes = VersionRepository::fotos_por_inmuebles(pool, &ids, Some(2)).await?;
-            let textos = VersionRepository::variantes_por_inmuebles(pool, &ids).await?;
+        /* Una carpeta por cada versión que tenga contenido (fotos o texto), no
+         * solo la 2: si alguien crea la 3, el export la tiene que ver. Las
+         * versiones salen de los datos, así que no hay lista que mantener. */
+        let mut variantes = VersionRepository::fotos_por_inmuebles(pool, &ids, None).await?;
+        variantes.retain(|v| v.version >= 2);
+        let textos = VersionRepository::variantes_por_inmuebles(pool, &ids).await?;
+        let mut numeros: Vec<i16> = variantes
+            .iter()
+            .map(|v| v.version)
+            .chain(textos.values().map(|t| t.version))
+            .collect();
+        numeros.sort_unstable();
+        numeros.dedup();
+
+        for numero in numeros.into_iter().filter(|v| incluir(*v)) {
             let filas: Vec<InmuebleExport> = inmuebles
                 .iter()
                 .filter_map(|i| {
                     let propias: Vec<FotoExport> = variantes
                         .iter()
-                        .filter(|v| v.inmueble_id == i.id)
+                        .filter(|v| v.inmueble_id == i.id && v.version == numero)
                         .map(|v| FotoExport {
                             orden: v.orden,
                             url: url_publica_de_foto(&v.storage_key),
                             origen: "variante".to_string(),
                         })
                         .collect();
-                    let texto = textos.get(&i.id);
-                    /* Sin fotos ni texto de v2 no hay carpeta que crear. */
+                    let texto = textos.get(&(i.id, numero));
+                    /* Sin fotos ni texto en esta versión no hay carpeta que crear. */
                     if propias.is_empty() && texto.is_none() {
                         return None;
                     }
@@ -148,7 +161,7 @@ impl ExportService {
                 })
                 .collect();
             grupos.push(GrupoExport {
-                version: 2,
+                version: numero,
                 inmuebles: filas,
             });
         }

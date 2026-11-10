@@ -9,7 +9,7 @@ use crate::models::{
     InmuebleRow, PaginatedInmuebles, UpdateInmuebleRequest, ESTADOS, FORMATOS_RECETA, OPERACIONES,
     TIPOS,
 };
-use crate::repositories::InmuebleRepository;
+use crate::repositories::{InmuebleRepository, VersionRepository};
 use crate::services::sync::vigilancia::notificar;
 
 pub(crate) mod alias;
@@ -58,6 +58,27 @@ impl InmuebleService {
                 Inmueble::from_row(row, fotos)
             })
             .collect())
+    }
+
+    /* [30AA-4] Igual que `con_fotos` pero con las variantes (v2, v3…) de cada
+     * foto. Solo lo usan los caminos de admin: son fotos que aún no se han
+     * publicado y no deben salir en la API pública. */
+    async fn con_fotos_y_variantes(
+        pool: &PgPool,
+        rows: Vec<InmuebleRow>,
+    ) -> Result<Vec<Inmueble>, AppError> {
+        let ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        let variantes = VersionRepository::fotos_por_inmuebles(pool, &ids, None).await?;
+        let mut inmuebles = Self::con_fotos(pool, rows).await?;
+        for inmueble in &mut inmuebles {
+            inmueble.variantes = variantes
+                .iter()
+                .filter(|v| v.inmueble_id == inmueble.id)
+                .cloned()
+                .map(crate::models::FotoVariante::from)
+                .collect();
+        }
+        Ok(inmuebles)
     }
 
     fn paginacion(page: i64, per_page: i64) -> (i64, i64) {
@@ -162,7 +183,7 @@ impl InmuebleService {
         let row = InmuebleRepository::find_by_id(pool, id)
             .await?
             .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
-        Self::con_fotos(pool, vec![row])
+        Self::con_fotos_y_variantes(pool, vec![row])
             .await?
             .pop()
             .ok_or_else(|| AppError::Internal("con_fotos devolvio vacio para una fila".into()))
@@ -172,7 +193,7 @@ impl InmuebleService {
         let row = InmuebleRepository::find_public_by_slug(pool, slug)
             .await?
             .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
-        Self::con_fotos(pool, vec![row])
+        Self::con_fotos_y_variantes(pool, vec![row])
             .await?
             .pop()
             .ok_or_else(|| AppError::Internal("con_fotos devolvio vacio para una fila".into()))
@@ -186,7 +207,7 @@ impl InmuebleService {
         let (page, per_page) = Self::paginacion(page, per_page);
         let (rows, total) = InmuebleRepository::list_admin(pool, page, per_page).await?;
         Ok(PaginatedInmuebles {
-            items: Self::con_fotos(pool, rows).await?,
+            items: Self::con_fotos_y_variantes(pool, rows).await?,
             total,
             page,
             per_page,
@@ -290,7 +311,7 @@ impl InmuebleService {
         }
         .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
         notificar();
-        Self::con_fotos(pool, vec![row])
+        Self::con_fotos_y_variantes(pool, vec![row])
             .await?
             .pop()
             .ok_or_else(|| AppError::Internal("con_fotos devolvio vacio para una fila".into()))
@@ -305,7 +326,7 @@ impl InmuebleService {
             .await?
             .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
         notificar();
-        Self::con_fotos(pool, vec![row])
+        Self::con_fotos_y_variantes(pool, vec![row])
             .await?
             .pop()
             .ok_or_else(|| AppError::Internal("con_fotos devolvio vacio para una fila".into()))
@@ -320,7 +341,7 @@ impl InmuebleService {
             .await?
             .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
         notificar();
-        Self::con_fotos(pool, vec![row])
+        Self::con_fotos_y_variantes(pool, vec![row])
             .await?
             .pop()
             .ok_or_else(|| AppError::Internal("con_fotos devolvio vacio para una fila".into()))

@@ -5,6 +5,8 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
+use crate::models::FotoVariante;
+
 mod dto;
 
 pub use dto::*;
@@ -162,6 +164,10 @@ pub struct Inmueble {
      * puntúa; en público solo informan (son nombres ya publicados). */
     pub alias_titulos: Vec<String>,
     pub fotos: Vec<FotoPublica>,
+    /* [30AA-4] Fotos variante (v2, v3…) por `orden`. Solo lo rellena el
+     * admin: la web pública sigue viendo la v1 y no debe filtrar variantes
+     * que aún no se han publicado en ninguna cuenta. */
+    pub variantes: Vec<FotoVariante>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -268,6 +274,9 @@ impl Inmueble {
             marketplace_id: row.marketplace_id,
             alias_titulos: row.alias_titulos,
             fotos: fotos.into_iter().map(FotoPublica::from).collect(),
+            /* Vacío aquí: las variantes se cargan aparte y solo en admin
+             * (`con_fotos` con `con_variantes`). */
+            variantes: Vec::new(),
             created_at: row.created_at,
             updated_at: row.updated_at,
         }
