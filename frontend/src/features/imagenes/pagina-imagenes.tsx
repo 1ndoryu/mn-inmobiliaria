@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
-import type { Inmueble } from '@/domain/inmueble';
+import type { Inmueble, VarianteServidor } from '@/domain/inmueble';
 import type { FotoMejora } from '@/domain/foto-mejora';
 import type { InfoReintento } from '@/hooks/mejora/use-cola-mejora';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,9 @@ interface FilaFoto {
   idOriginal: string | null;
   /** ID de fila de la mejorada en la API (null si aún no hay). */
   idMejorada: string | null;
+  /* [30AA-4] Variantes v2, v3… de esta foto, ordenadas por versión; vacío
+   * cuando no hay ninguna generada. */
+  variantes: VarianteServidor[];
 }
 
 /* Grupos de inmuebles por página: 4 tarjetas de grupo caben sin scroll
@@ -87,6 +90,9 @@ export function PaginaImagenes(props: {
         const mejorada = inmueble.mejoradasServidor.find((m) => m.orden === orden) ?? null;
         const mejoradaServidor = mejorada?.url ?? null;
         const idOriginal = inmueble.idsFotos[orden] ?? null;
+        const variantes = inmueble.variantesServidor
+          .filter((v) => v.orden === orden)
+          .sort((a, b) => a.version - b.version);
         const entrada =
           entradas.find((e) => e.orden === orden && mismaRuta(e.original, original)) ??
           entradas.find((e) => e.orden === orden) ??
@@ -99,6 +105,7 @@ export function PaginaImagenes(props: {
             sinEntrada: false,
             idOriginal,
             idMejorada: mejorada?.id ?? null,
+            variantes,
           };
         }
         return {
@@ -120,6 +127,7 @@ export function PaginaImagenes(props: {
           sinEntrada: true,
           idOriginal,
           idMejorada: mejorada?.id ?? null,
+          variantes,
         };
       });
       grupos.push({ inmueble, filas });
@@ -163,6 +171,7 @@ export function PaginaImagenes(props: {
                 foto={fila.foto}
                 idOriginal={fila.idOriginal}
                 idServidor={fila.idMejorada}
+                variantes={fila.variantes}
                 alReintentar={alReintentar}
                 alCancelar={alCancelar}
                 alRestaurar={fila.idMejorada ? () => alRestaurar(inmueble.id, fila.orden) : null}

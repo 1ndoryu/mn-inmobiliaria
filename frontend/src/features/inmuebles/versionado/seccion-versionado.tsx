@@ -3,7 +3,7 @@
  * modal para que ese archivo no crezca con una sección que solo aplica al
  * editar un inmueble ya guardado. */
 import { leerConfig } from '@/data/mejora/repositorio-fotos';
-import { paresDeFotos, useVersionado } from '@/hooks/inmuebles/use-versionado';
+import { useVersionado } from '@/hooks/inmuebles/use-versionado';
 import { urlDescargaDe } from '@/hooks/inmuebles/use-modal-descargar-fotos';
 import type { Inmueble } from '@/domain/inmueble';
 import { PanelVersiones } from './panel-versiones';
@@ -27,12 +27,12 @@ export function SeccionVersionado({ inmueble }: { inmueble: Inmueble }) {
       aviso={versionado.aviso}
       error={versionado.error}
       progreso={versionado.progreso}
-      pares={paresDeFotos(fotosParaVariante, versionado.datos?.fotos ?? [])}
+      fotosParaVariante={fotosParaVariante}
       alGenerarTexto={(v, i) => void versionado.generar(v, i)}
       alGuardarTexto={(v, t, d, e) => void versionado.guardarTexto(v, t, d, e)}
       alBorrarTexto={(v) => void versionado.borrarTexto(v)}
-      alGenerarFotos={() => void versionado.generarFotos()}
-      alBorrarFoto={(orden) => void versionado.borrarFoto(orden)}
+      alGenerarFotos={(version) => void versionado.generarFotos(version)}
+      alBorrarFoto={(orden, version) => void versionado.borrarFoto(orden, version)}
       alVincular={(c, m) => void versionado.vincular(c, m)}
       alDesvincular={(c) => void versionado.desvincular(c)}
       alCrearCuenta={(n, u) => void versionado.crear(n, u)}

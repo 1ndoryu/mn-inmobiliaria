@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FotoMejora } from '@/domain/foto-mejora';
+import type { VarianteServidor } from '@/domain/inmueble';
 import type { InfoReintento } from '@/hooks/mejora/use-cola-mejora';
 import { descargarUrl } from '@/platform/descarga';
 import { confirmar } from '@/platform/ventana';
@@ -17,14 +18,20 @@ function nombreArchivo(url: string, defecto: string): string {
   return limpio || `${defecto}.jpg`;
 }
 
+/* Qué imagen está ampliada. Las variantes se identifican por su versión
+ * (`variante-3`), así puede haber varias en la misma tarjeta sin claves que
+ * choquen. */
+export type ImagenAmpliada = 'original' | 'mejorada' | `variante-${number}`;
+
 export function useTarjetaFotoMejora(params: {
   foto: FotoMejora;
   alRestaurar: (() => Promise<void>) | null;
   idServidor: string | null;
+  variantes?: VarianteServidor[];
   reintento?: InfoReintento | null;
 }) {
-  const { foto, alRestaurar, idServidor, reintento } = params;
-  const [ampliada, setAmpliada] = useState<'original' | 'mejorada' | null>(null);
+  const { foto, alRestaurar, idServidor, variantes = [], reintento } = params;
+  const [ampliada, setAmpliada] = useState<ImagenAmpliada | null>(null);
   const [restaura, setRestaura] = useState<{ enCurso: boolean; error: string | null }>({
     enCurso: false,
     error: null,
@@ -39,7 +46,17 @@ export function useTarjetaFotoMejora(params: {
     foto.estado === 'procesando' && reintento && (reintento.motivo || (reintento.enSeg ?? 0) > 0)
       ? reintento
       : null;
-  const urlAmpliada = ampliada === 'mejorada' ? (foto.mejorada ?? foto.original) : foto.original;
+  /* [30AA-4] La ampliación resuelve a la imagen que toca: original, mejorada
+   * o la variante cuya versión coincida. Si algo falta, cae al original. */
+  function resolverUrl(cual: ImagenAmpliada): string {
+    if (cual === 'mejorada') return foto.mejorada ?? foto.original;
+    if (cual.startsWith('variante-')) {
+      const version = Number(cual.slice('variante-'.length));
+      return variantes.find((v) => v.version === version)?.url ?? foto.original;
+    }
+    return foto.original;
+  }
+  const urlAmpliada = ampliada ? resolverUrl(ampliada) : foto.original;
   const puedeRestaurar = alRestaurar !== null && idServidor !== null && foto.estado !== 'procesando';
 
   /* Restaurar descarta la mejorada del servidor y deja el original
@@ -63,11 +80,11 @@ export function useTarjetaFotoMejora(params: {
     }
   }
 
-  /* Descarga original o mejorada como archivo (vía blob temporal; el
-   * atributo `download` se ignora entre orígenes). El fallo queda visible
-   * en la tarjeta, nunca silenciado. */
-  async function descargar(cual: 'original' | 'mejorada'): Promise<void> {
-    const url = cual === 'mejorada' ? foto.mejorada : foto.original;
+  /* Descarga original, mejorada o una variante como archivo (vía blob
+   * temporal; el atributo `download` se ignora entre orígenes). El fallo queda
+   * visible en la tarjeta, nunca silenciado. */
+  async function descargar(cual: ImagenAmpliada): Promise<void> {
+    const url = resolverUrl(cual);
     if (!url || descarga.enCurso) return;
     setDescarga({ enCurso: true, error: null });
     try {

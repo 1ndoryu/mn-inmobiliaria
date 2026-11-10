@@ -132,12 +132,13 @@ export function useVersionado({ inmuebleId, fotosParaVariante, promptVariante }:
   /* ---- Fotos variante ---- */
 
   /* Genera la variante de TODAS las fotos del inmueble (o solo las que
-   * falten). Secuencial a propósito: el backend de mejora ya espacia las
-   * peticiones y así se ve el avance foto a foto. */
-  const generarFotos = useCallback(async () => {
+   * falten) para la versión pedida. Secuencial a propósito: el backend de
+   * mejora ya espacia las peticiones y así se ve el avance foto a foto.
+   * [30AA-4] La versión ya no es fija: la pestaña decide cuál se genera. */
+  const generarFotos = useCallback(async (version: number) => {
     if (!inmuebleId || fotosParaVariante.length === 0 || variantesEnCurso.current) return;
     variantesEnCurso.current = true;
-    const yaHechas = new Set((datos?.fotos ?? []).filter((f) => f.version === 2).map((f) => f.orden));
+    const yaHechas = new Set((datos?.fotos ?? []).filter((f) => f.version === version).map((f) => f.orden));
     const pendientes = fotosParaVariante.map((_, i) => i).filter((i) => !yaHechas.has(i));
     setProgreso({ total: pendientes.length, hechas: 0, actual: null, detalle: null });
     setAviso(null);
@@ -147,7 +148,11 @@ export function useVersionado({ inmuebleId, fotosParaVariante, promptVariante }:
       for (const orden of pendientes) {
         setProgreso({ total: pendientes.length, hechas, actual: orden, detalle: null });
         const url = fotosParaVariante[orden]!;
-        const envio = await enviarFoto(`variante-${inmuebleId}-${orden}-${nuevoId()}`, url, promptVariante);
+        const envio = await enviarFoto(
+          `variante-${inmuebleId}-v${version}-${orden}-${nuevoId()}`,
+          url,
+          promptVariante,
+        );
         if (!envio.ok || !envio.jobId) {
           setProgreso({
             total: pendientes.length,
@@ -170,12 +175,12 @@ export function useVersionado({ inmuebleId, fotosParaVariante, promptVariante }:
         /* DataURL → bytes → subida. La variante se guarda en el servidor
          * para que el escritorio la exporte igual que la v1. */
         const { bytes, extension } = dataUrlABytes(imagen.imagen);
-        await subirFotoVariante(inmuebleId, orden, bytes, extension, 'gemini', promptVariante);
+        await subirFotoVariante(inmuebleId, orden, version, bytes, extension, 'gemini', promptVariante);
         hechas += 1;
         setProgreso({ total: pendientes.length, hechas, actual: null, detalle: null });
       }
       await recargar();
-      setAviso(`Variantes de foto listas: ${hechas} de ${pendientes.length}.`);
+      setAviso(`Variantes de la versión ${version} listas: ${hechas} de ${pendientes.length}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falló la generación de fotos variante.');
     } finally {
@@ -185,7 +190,8 @@ export function useVersionado({ inmuebleId, fotosParaVariante, promptVariante }:
   }, [datos, fotosParaVariante, inmuebleId, promptVariante, recargar]);
 
   const borrarFoto = useCallback(
-    async (orden: number) => mutar(() => borrarFotoVariante(inmuebleId!, orden)),
+    async (orden: number, version: number) =>
+      mutar(() => borrarFotoVariante(inmuebleId!, orden, version)),
     [inmuebleId, mutar],
   );
 
@@ -314,10 +320,13 @@ export function filasHistorial(historial: EntradaHistorial[]): EntradaHistorial[
 }
 
 /* Pares (original, variante) por `orden` para pintar lado a lado. Pura. */
+/* [30AA-4] Empareja cada original con su variante DE LA VERSIÓN pedida: la
+ * misma foto puede tener v2 y v3 a la vez y cada pestaña enseña la suya. */
 export function paresDeFotos(
   fotos: string[],
   variantes: FotoVariante[],
+  version = 2,
 ): { orden: number; original: string; variante: FotoVariante | null }[] {
-  const porOrden = new Map(variantes.filter((v) => v.version === 2).map((v) => [v.orden, v]));
+  const porOrden = new Map(variantes.filter((v) => v.version === version).map((v) => [v.orden, v]));
   return fotos.map((original, orden) => ({ orden, original, variante: porOrden.get(orden) ?? null }));
 }

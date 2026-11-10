@@ -7,8 +7,8 @@ import { useState } from 'react';
 import { AlertTriangle, History, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { hayVersion, versionNumero, type FotoVariante, type VersionesInmueble } from '@/domain/versiones';
-import type { ProgresoVariantes } from '@/hooks/inmuebles/use-versionado';
+import { hayVersion, versionNumero, type VersionesInmueble } from '@/domain/versiones';
+import { paresDeFotos, type ProgresoVariantes } from '@/hooks/inmuebles/use-versionado';
 import type { EstadoVersion } from '@/domain/versiones';
 import { PestanaFotos } from './pestana-fotos';
 import { PestanaHistorial } from './pestana-historial';
@@ -26,12 +26,14 @@ interface Props {
   aviso: string | null;
   error: string | null;
   progreso: ProgresoVariantes | null;
-  pares: { orden: number; original: string; variante: FotoVariante | null }[];
+  /* Fotos del inmueble en orden, para emparejar con la variante de cada
+   * versión (la misma foto puede tener v2 y v3 a la vez). */
+  fotosParaVariante: string[];
   alGenerarTexto: (version: number, instruccion: string) => void;
   alGuardarTexto: (version: number, titulo: string, descripcion: string, estado?: EstadoVersion) => void;
   alBorrarTexto: (version: number) => void;
-  alGenerarFotos: () => void;
-  alBorrarFoto: (orden: number) => void;
+  alGenerarFotos: (version: number) => void;
+  alBorrarFoto: (orden: number, version: number) => void;
   alVincular: (cuentaId: string, marketplaceId: string | null) => void;
   alDesvincular: (cuentaId: string) => void;
   alCrearCuenta: (nombre: string, url: string) => void;
@@ -125,11 +127,11 @@ export function PanelVersiones(props: Props) {
               alBorrar={props.alBorrarTexto}
             />
             <PestanaFotos
-              pares={props.pares}
+              pares={paresDeFotos(props.fotosParaVariante, datos.fotos, version)}
               progreso={props.progreso}
               ocupado={props.ocupado}
-              alGenerar={props.alGenerarFotos}
-              alBorrar={props.alBorrarFoto}
+              alGenerar={() => props.alGenerarFotos(version)}
+              alBorrar={(orden) => props.alBorrarFoto(orden, version)}
             />
           </div>
         )}

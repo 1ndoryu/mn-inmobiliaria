@@ -67,6 +67,9 @@ export interface MultimediaInmueble {
   /* Mejora IA ya guardada en el servidor (`origen=mejorada`), emparejada
    * con su original por `orden`. Vacío = aún sin mejorar. */
   mejoradasServidor: MejoraServidor[];
+  /* [30AA-4] Variantes v2, v3… de cada foto (emparejadas por `orden`).
+   * Vacío fuera de admin o cuando no hay ninguna generada. */
+  variantesServidor: VarianteServidor[];
   copy: CopyInmueble | null;
   /* Receta publicitaria elegida en admin, persistida en el servidor
    * (`inmuebles.receta`); `null` = automática. Es la que usa el frente
@@ -170,6 +173,15 @@ export function estaVerificado(i: Pick<Inmueble, 'marketplaceId' | 'avisoConocid
 export interface MejoraServidor {
   id: string;
   orden: number;
+  url: string;
+}
+
+/* [30AA-4] Foto variante (v2, v3…) guardada en `fotos_variantes`, emparejada
+ * con su original por `orden`. Solo la trae el listado de admin. */
+export interface VarianteServidor {
+  id: string;
+  orden: number;
+  version: number;
   url: string;
 }
 
@@ -372,6 +384,8 @@ export function draftAInmueble(d: InmuebleDraft, base?: Inmueble): Inmueble {
     idsFotos: base?.idsFotos ?? [],
     // Las mejoradas del servidor no se editan en el formulario: se conservan.
     mejoradasServidor: base?.mejoradasServidor ?? [],
+    /* Las variantes tampoco se editan aquí: se conservan tal cual. */
+    variantesServidor: base?.variantesServidor ?? [],
     estado: d.estado,
     /* [09AA-19 F7c] El vínculo se normaliza (URL → dígitos); vacío = `null`.
      * `avisoConocido` no se edita en el formulario: lo dirá el backend. */

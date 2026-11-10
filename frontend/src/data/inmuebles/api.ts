@@ -151,6 +151,13 @@ interface FotoRemota {
   origen: string;
 }
 
+interface VarianteRemota {
+  id: string;
+  orden: number;
+  version: number;
+  url: string;
+}
+
 interface CopyRemoto {
   corta: string;
   larga: string;
@@ -204,6 +211,8 @@ export interface RecetaRemota {
 interface RemotoMedia {
   copy: CopyRemoto | null;
   fotos: FotoRemota[];
+  /* [30AA-4] Variantes v2, v3… (solo las manda el listado de admin). */
+  variantes?: VarianteRemota[] | null;
   receta?: RecetaRemota | null;
 }
 
@@ -303,6 +312,13 @@ export function remotoADominio(r: InmuebleRemoto): Inmueble {
     mejoradasServidor: ordenadas
       .filter((f) => f.origen === 'mejorada')
       .map((f) => ({ id: f.id, orden: f.orden, url: urlAbsoluta(f.url) })),
+    /* Ausente en la API pública y en respuestas viejas = sin variantes. */
+    variantesServidor: (r.variantes ?? []).map((v) => ({
+      id: v.id,
+      orden: v.orden,
+      version: v.version,
+      url: urlAbsoluta(v.url),
+    })),
     estado: r.estado as Inmueble['estado'],
     publicado: r.publicado,
     copy: r.copy ? { corta: r.copy.corta, larga: r.copy.larga, modelo: r.copy.modelo, actualizadaEn: r.copy.actualizada_en } : null,

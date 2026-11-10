@@ -110,6 +110,7 @@ export function borrarVersion(inmuebleId: string, version: number): Promise<void
 export async function subirFotoVariante(
   inmuebleId: string,
   orden: number,
+  version: number,
   bytes: ArrayBuffer,
   extension: string,
   modelo: string,
@@ -117,6 +118,7 @@ export async function subirFotoVariante(
 ): Promise<FotoVariante> {
   const consulta = new URLSearchParams({
     orden: String(orden),
+    version: String(version),
     filename: `variante-${orden + 1}.${extension}`,
     modelo,
     prompt_usado: promptUsado.slice(0, 2000),
@@ -148,9 +150,9 @@ export async function subirFotoVariante(
   return (await respuesta.json()) as FotoVariante;
 }
 
-export function borrarFotoVariante(inmuebleId: string, orden: number): Promise<void> {
+export function borrarFotoVariante(inmuebleId: string, orden: number, version = 2): Promise<void> {
   return apiFetch<void>(
-    `/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/fotos/variante/${orden}`,
+    `/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/fotos/variante/${orden}?version=${version}`,
     { method: 'DELETE' },
   );
 }
