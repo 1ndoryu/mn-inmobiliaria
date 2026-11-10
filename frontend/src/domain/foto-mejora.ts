@@ -121,23 +121,51 @@ export const PROMPT_DEFECTO = `${PROMPT_SIN_ANGULO} ${CORRECCION_ANGULO}`;
  * parecido y en todas ellas el desplazamiento de encuadre medido era 0. Ahora
  * el encuadre se pide de forma explícita y no negociable, con el cambio mínimo
  * en grados y la prohibición de repetir el original. */
+/* [30AA-6] Antes exigia girar >=30 grados y ensenar paredes que quedaban fuera
+ * del encuadre. Gemini no sabe que hay ahi y lo INVENTABA (una ventana y un
+ * radiador que no existen, una puerta abierta, la cocina recolocada). Ahora el
+ * cambio es pequeno y solo dentro de lo que ya se ve: lo que no esta en la
+ * foto no se imagina, se deja como estaba. */
 export const PROMPT_VARIANTE = [
-  'Rehaz esta fotografia inmobiliaria como si te hubieras movido de sitio:',
-  'el ENCUADRE TIENE QUE SER DISTINTO al de la foto original. Situate en otra',
-  'esquina de la estancia, gira la camara al menos 30 grados respecto a la toma',
-  'original y sube o baja la altura del objetivo entre 40 y 60 centimetros.',
-  'Se tienen que ver paredes u objetos que en el original quedaban fuera del',
-  'borde, y dejar de verse parte de lo que el original encuadraba. Repetir el',
-  'mismo encuadre con otro recorte NO vale: la composicion debe cambiar.',
-  'Lo que NO cambia: la estancia, los muebles, los materiales, los colores y',
-  'TODOS los elementos deben ser exactamente los mismos; no anadas, quites,',
-  'muevas ni sustituyas nada, y no cambies el numero de ventanas, puertas,',
-  'habitaciones ni su tamano. Corrige la perspectiva (verticales y',
-  'horizontales). Conserva la luz natural y el balance de blancos neutro, sin',
-  'tonos amarillos ni filtros; manten la nitidez y la resolucion originales.',
-  'El resultado debe parecer una foto nueva hecha por otra persona en el mismo',
-  'momento, nunca una imagen retocada ni una vista distinta del inmueble.',
+  'Rehaz esta fotografia inmobiliaria como si te hubieras movido un poco de',
+  'sitio: un paso a un lado y la camara entre 15 y 20 grados girada, con la',
+  'altura del objetivo subida o bajada apenas 20 centimetros. El cambio de',
+  'punto de vista tiene que notarse, pero la foto sigue siendo de lo mismo:',
+  'los mismos muebles, en el mismo sitio, con la misma luz.',
+  'REGLA DE ORO: no inventes NADA. Solo puede aparecer lo que ya se ve en la',
+  'foto original. No anadas muebles, puertas, ventanas, radiadores, cuadros,',
+  'electrodomesticos, plantas ni objetos que no esten a la vista, y no',
+  'supongas como es lo que queda fuera del encuadre: si no se ve, no existe.',
+  'No muevas, quites ni sustituyas nada de lo que si se ve, ni cambies su',
+  'forma, su color, su numero ni su tamano. Donde dudes, deja lo que hay en',
+  'la original exactamente igual.',
+  'Corrige la perspectiva (verticales y horizontales) y conserva la luz, el',
+  'balance de blancos neutro y la nitidez originales, sin tonos amarillos ni',
+  'filtros. El resultado debe parecer la misma estancia fotografiada desde',
+  'otro punto, nunca una estancia distinta ni una imagen retocada.',
 ].join(' ');
+
+/* [30AA-6] El prompt de variante tambien se migra: quien lo tenga guardado con
+ * el texto viejo recibe el actual (el que hay escrito a mano se respeta). */
+const PROMPTS_VARIANTE_RETIRADOS = [
+  [
+    'Rehaz esta fotografia inmobiliaria como si te hubieras movido de sitio:',
+    'el ENCUADRE TIENE QUE SER DISTINTO al de la foto original. Situate en otra',
+    'esquina de la estancia, gira la camara al menos 30 grados respecto a la toma',
+    'original y sube o baja la altura del objetivo entre 40 y 60 centimetros.',
+    'Se tienen que ver paredes u objetos que en el original quedaban fuera del',
+    'borde, y dejar de verse parte de lo que el original encuadraba. Repetir el',
+    'mismo encuadre con otro recorte NO vale: la composicion debe cambiar.',
+    'Lo que NO cambia: la estancia, los muebles, los materiales, los colores y',
+    'TODOS los elementos deben ser exactamente los mismos; no anadas, quites,',
+    'muevas ni sustituyas nada, y no cambies el numero de ventanas, puertas,',
+    'habitaciones ni su tamano. Corrige la perspectiva (verticales y',
+    'horizontales). Conserva la luz natural y el balance de blancos neutro, sin',
+    'tonos amarillos ni filtros; manten la nitidez y la resolucion originales.',
+    'El resultado debe parecer una foto nueva hecha por otra persona en el mismo',
+    'momento, nunca una imagen retocada ni una vista distinta del inmueble.',
+  ].join(' '),
+];
 
 /* Prompts por defecto ya retirados: quien los tenga guardados tal cual recibe
  * el actual. Un prompt escrito a mano por la usuaria se respeta siempre. */
@@ -177,7 +205,11 @@ export function normalizarConfig(datos: unknown): ConfigMejora {
   const guardado = typeof d.prompt === 'string' ? d.prompt.trim() : '';
   const prompt = !guardado || PROMPTS_RETIRADOS.includes(guardado) ? PROMPT_DEFECTO : guardado.slice(0, 2000);
   const varianteGuardada = typeof d.promptVariante === 'string' ? d.promptVariante.trim() : '';
-  const promptVariante = varianteGuardada ? varianteGuardada.slice(0, 2000) : PROMPT_VARIANTE;
+  /* [30AA-6] Vacío o un texto por defecto ya retirado = el actual. */
+  const promptVariante =
+    !varianteGuardada || PROMPTS_VARIANTE_RETIRADOS.includes(varianteGuardada)
+      ? PROMPT_VARIANTE
+      : varianteGuardada.slice(0, 2000);
   const modo: ModoMejora =
     d.modo === 'automatico' || d.modo === 'manual' ? d.modo : d.auto === true ? 'automatico' : 'manual';
   return {
