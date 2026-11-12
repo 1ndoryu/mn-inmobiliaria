@@ -89,6 +89,8 @@ pub const SISTEMA_VARIANTE: &str = concat!(
     "- Descripción: 2 a 4 frases, distinta estructura y vocabulario al original; puedes empezar por\n",
     "  otra característica, cambiar el orden de los datos y usar sinónimos (\"acogedor\" por\n",
     "\"cómodo\", \"a pocos minutos\" solo si la ficha ya lo dice).\n",
+    "- Si la ficha trae precio o canon, la variante TIENE que mencionarlo, con la misma cifra y la\n",
+    "  misma moneda que la ficha. Omitirlo no es una opción: un anuncio sin precio pierde consultas.\n",
     "- Español neutro de Venezuela, tono comercial sobrio.",
 );
 

@@ -90,10 +90,12 @@ impl VersionService {
             });
         };
 
-        /* Guarda: si la variante introduce un número que la v1 no tiene, es
-         * un dato inventado (más habitaciones, otro precio). Se rechaza. */
-        if let Some(inventado) = numero_inventado(&row.titulo, &row.descripcion, &titulo, &descripcion)
-        {
+        /* Guarda: si la variante introduce un número que la ficha no tiene, es
+         * un dato inventado (más habitaciones, otro precio). Se rechaza.
+         * `numeros_de_la_ficha` incluye las columnas: el precio no vive en el
+         * texto y sin esto se rechazaba un precio verdadero. */
+        let permitidos = numeros_de_la_ficha(&row);
+        if let Some(inventado) = numero_inventado(&permitidos, &titulo, &descripcion) {
             return Ok(GenerarVersionSalida {
                 ok: false,
                 version: None,
@@ -259,24 +261,51 @@ fn parsear(texto: &str) -> Option<(String, String)> {
     Some((titulo, descripcion))
 }
 
+/// Todos los dígitos que la ficha permite citar: el texto **y** las columnas.
+///
+/// El precio, los metros, las habitaciones y los baños viven en columnas, no
+/// en `titulo`/`descripcion`, y son datos tan ciertos como el texto. Mirando
+/// solo el texto se rechazaba un precio verdadero (San Ignacio, 29.000).
+fn numeros_de_la_ficha(row: &crate::models::InmuebleRow) -> String {
+    numeros_permitidos(
+        &row.titulo,
+        &row.descripcion,
+        &[
+            row.precio,
+            row.precio_alquiler,
+            row.metros,
+            row.metros_terreno,
+            f64::from(row.habitaciones),
+            f64::from(row.banos),
+            f64::from(row.puestos),
+        ],
+    )
+}
+
+/// Los dígitos del texto más los de las cifras que no sean 0.
+///
+/// `0` significa «no hay dato» (precio a consultar, sin terreno): permitirlo
+/// dejaría a la IA escribir «precio 0», que es justo un dato falso.
+fn numeros_permitidos(titulo: &str, descripcion: &str, cifras: &[f64]) -> String {
+    let mut s = format!("{titulo} {descripcion}");
+    for valor in cifras.iter().filter(|v| **v > 0.0) {
+        let _ = write!(s, " {valor}");
+    }
+    digitos(&s)
+}
+
 /// Busca en la variante un número que no aparezca en la ficha original.
 /// Devuelve el primero que encuentre. Precios con separadores se comparan por
 /// dígitos, y también cuentan los de una cifra: cambiar «3 habitaciones» por
 /// «4» es justo el error que hay que parar.
-fn numero_inventado(
-    titulo_v1: &str,
-    desc_v1: &str,
-    titulo_v2: &str,
-    desc_v2: &str,
-) -> Option<String> {
+fn numero_inventado(permitidos: &str, titulo_v2: &str, desc_v2: &str) -> Option<String> {
     /* Se compara contra TODOS los dijitos de la v1, no contra cada numero
      * suelto: asi `120.000` y `120000` no se toman por un dato inventado, y
      * `3 habitaciones` → `4 habitaciones` (un solo digito, el cambio que mas
      * importa) si se detecta. */
-    let originales = digitos(&format!("{titulo_v1} {desc_v1}"));
     numeros(&format!("{titulo_v2} {desc_v2}"))
         .into_iter()
-        .find(|n| !originales.contains(n.as_str()))
+        .find(|n| !permitidos.contains(n.as_str()))
 }
 
 /// Todos los digitos del texto, pegados: base de la comparacion anterior.
@@ -297,7 +326,7 @@ fn numeros(texto: &str) -> std::collections::HashSet<String> {
 
 #[cfg(test)]
 mod pruebas {
-    use super::{numero_inventado, parsear};
+    use super::{digitos, numero_inventado, numeros_permitidos, parsear};
 
     #[test]
     fn acepta_json_con_vallas_y_sin_acentos_raros() {
@@ -314,23 +343,44 @@ mod pruebas {
 
     #[test]
     fn detecta_dato_inventado() {
-        let v = numero_inventado(
-            "Apart. 3 habitaciones",
-            "Precio 120000",
-            "Apart. con 4 habitaciones",
-            "Precio 120000",
-        );
+        let permitidos = digitos("Apart. 3 habitaciones Precio 120000");
+        let v = numero_inventado(&permitidos, "Apart. con 4 habitaciones", "Precio 120000");
         assert_eq!(v.as_deref(), Some("4"));
     }
 
     #[test]
     fn respeta_los_numeros_que_ya_estaban() {
+        let permitidos = digitos("Apart. 3 habitaciones 120 m² por 120000");
         let v = numero_inventado(
-            "Apart. 3 habitaciones",
-            "120 m² por 120000",
+            &permitidos,
             "Hermoso apartamento: 3 habitaciones y 120 m²",
             "Se ofrece en 120000",
         );
         assert!(v.is_none());
+    }
+
+    /// El precio vive en `inmuebles.precio`, no en el texto: citarlo es
+    /// correcto y antes se rechazaba (San Ignacio, 2026-11-12).
+    #[test]
+    fn acepta_el_precio_de_la_columna() {
+        let permitidos = numeros_permitidos("Apart. obra gris de 77 m²", "", &[29_000.0]);
+        let v = numero_inventado(&permitidos, "77 m² obra gris", "Se ofrece en venta por 29.000");
+        assert!(v.is_none(), "el precio de la ficha no es inventado: {v:?}");
+    }
+
+    /// Y sigue parando una cifra que no está ni en el texto ni en la columna.
+    #[test]
+    fn sigue_parando_un_precio_inventado() {
+        let permitidos = numeros_permitidos("Apart. obra gris de 77 m²", "", &[29_000.0]);
+        let v = numero_inventado(&permitidos, "77 m² obra gris", "Se ofrece por 35.000");
+        assert!(v.is_some(), "35.000 no está en la ficha y debe rechazarse");
+    }
+
+    /// Una ficha con `precio = 0` («a consultar») no autoriza escribir «0».
+    #[test]
+    fn precio_cero_no_autoriza_ninguna_cifra() {
+        let permitidos = numeros_permitidos("Apart. a consultar", "", &[0.0]);
+        let v = numero_inventado(&permitidos, "Apart. a consultar", "Precio 0");
+        assert_eq!(v.as_deref(), Some("0"));
     }
 }
