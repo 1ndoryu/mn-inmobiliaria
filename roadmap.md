@@ -6,6 +6,14 @@
 
 - Ninguno.
 
+## Siguiente bloque
+
+- [ ] `30AA-6` — **El guard de datos inventados no conoce las columnas de la ficha.**
+  `numero_inventado()` sólo mira los dígitos de `titulo`/`descripcion`, así que un precio real
+  que vive en `inmuebles.precio` se rechaza como inventado (caso: San Ignacio, 29.000, el
+  2026-11-12). Hecho cuando el guard acepte los números de precio, m², habitaciones, baños y
+  puestos, con los separadores de miles normalizados, y la generación pueda citar el precio.
+
 ## Pendientes
 
 - [ ] `30AA-5` — **Pestaña propia por versión en el modal de inmueble.** Hoy todas las pestañas
