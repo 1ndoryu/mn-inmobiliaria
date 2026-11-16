@@ -8,6 +8,11 @@
 
 ## Pendientes
 
+- [ ] `30AA-11` — **Cerrar Lechera y la v2 de los 4 inmuebles pequeños.** Hecho cuando
+  `apartamento-amoblado-en-villa-sol-suites-lechera` (5/19), Villa Tocoma, Vista Hermosa, Coronado
+  Plaza piso 4 y Las Peoñas estén con su v2 completa, medida con `medir.py`, con el texto de cada
+  v2 generado (`POST /versiones` + `estado: lista`) y subido a la carpeta `Downloads\MN Inmobiliaria`
+  por el exe.
 - [ ] `30AA-5` — **Pestaña propia por versión en el modal de inmueble.** Hoy todas las pestañas
   v2+ comparten `PestanaFotos`: cambiar de pestaña no cambia lo que ya se generó y no hay forma de
   decir «esta foto tiene v2 y v3» desde la UI del modal. Hecho cuando cada versión tenga su propio
