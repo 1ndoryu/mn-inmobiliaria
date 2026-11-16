@@ -178,7 +178,8 @@ const PROMPTS_RETIRADOS = [
 export const CONFIG_DEFECTO: ConfigMejora = {
   intervaloSeg: 120,
   jitterPct: 30,
-  maxPorDia: 40,
+  /* [30AA-10] Mismo tope que el servidor: 140/día por defecto. */
+  maxPorDia: 140,
   modo: 'manual',
   prompt: PROMPT_DEFECTO,
   promptVariante: PROMPT_VARIANTE,
@@ -212,10 +213,14 @@ export function normalizarConfig(datos: unknown): ConfigMejora {
       : varianteGuardada.slice(0, 2000);
   const modo: ModoMejora =
     d.modo === 'automatico' || d.modo === 'manual' ? d.modo : d.auto === true ? 'automatico' : 'manual';
+  /* [30AA-10] Migración: el 40 guardado en el navegador es el defecto viejo, no
+   * una elección de la usuaria; si no se migrara, el panel lo reenviaría al
+   * :3122 en cada carga y pisaría el tope nuevo en caliente. */
+  const topeGuardado = d.maxPorDia === 40 ? CONFIG_DEFECTO.maxPorDia : d.maxPorDia;
   return {
     intervaloSeg: saneaEntero(d.intervaloSeg, CONFIG_DEFECTO.intervaloSeg, 30, 3600),
     jitterPct: saneaEntero(d.jitterPct, CONFIG_DEFECTO.jitterPct, 0, 50),
-    maxPorDia: saneaEntero(d.maxPorDia, CONFIG_DEFECTO.maxPorDia, 1, 200),
+    maxPorDia: saneaEntero(topeGuardado, CONFIG_DEFECTO.maxPorDia, 1, 200),
     modo,
     prompt,
     promptVariante,

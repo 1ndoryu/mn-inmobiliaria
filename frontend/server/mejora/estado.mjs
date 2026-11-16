@@ -41,7 +41,9 @@ export const MAX_INTENTOS = entero('MEJORA_MAX_INTENTOS', 5, 1, 20);
 export const ritmo = {
   intervaloSeg: entero('MEJORA_INTERVALO_SEG', 120, 30, 3600),
   jitterPct: entero('MEJORA_JITTER_PCT', 30, 0, 50),
-  maxPorDia: entero('MEJORA_MAX_DIA', 40, 1, 200),
+  /* [30AA-10] Tope por defecto a 140/día (decisión de la usuaria, 2026-11-16):
+   * un lote grande de variantes v2 ya no se corta a mitad. */
+  maxPorDia: entero('MEJORA_MAX_DIA', 140, 1, 200),
 };
 
 /* F18+F19: registro por trabajo. `estado` es encolado|procesando|lista|error|cancelado.
