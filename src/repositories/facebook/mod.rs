@@ -168,11 +168,16 @@ impl FacebookRepository {
         .await
     }
 
-    /// Versiones (de la 1 a `configuradas`) sin ningún aviso vinculado.
+    /// Versiones **que existen en la ficha** sin ningún aviso vinculado.
     ///
     /// Una versión cuenta como cubierta si tiene fila en `inmueble_facebook`,
     /// aunque todavía no tenga el ID del anuncio: el ID se pega después de
     /// publicar y la cuenta ya está decidida.
+    ///
+    /// Solo se echan en falta las versiones que la ficha tiene: la 1 siempre, y
+    /// de la 2 en adelante las que tengan fila en `inmueble_versiones` (con el
+    /// tope de `configuradas`, por si la configuración bajó). Un inmueble sin
+    /// v2 no «debe» v2.
     pub async fn faltan_avisos(
         pool: &PgPool,
         inmueble_id: Uuid,
@@ -185,7 +190,13 @@ impl FacebookRepository {
         .bind(inmueble_id)
         .fetch_all(pool)
         .await?;
-        Ok(sin_aviso(configuradas, &cubiertas))
+        /* sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera */
+        let propias: Vec<(i16,)> =
+            sqlx::query_as("SELECT version FROM inmueble_versiones WHERE inmueble_id = $1")
+                .bind(inmueble_id)
+                .fetch_all(pool)
+                .await?;
+        Ok(sin_aviso(configuradas, &propias, &cubiertas))
     }
 
     /// Lo mismo para muchos inmuebles en una sola query (la tabla los pinta
@@ -201,21 +212,34 @@ impl FacebookRepository {
             return Ok(mapa);
         }
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
-        let filas: Vec<(Uuid, i16)> = sqlx::query_as(
+        let cubiertas_filas: Vec<(Uuid, i16)> = sqlx::query_as(
             "SELECT DISTINCT inmueble_id, version FROM inmueble_facebook \
              WHERE inmueble_id = ANY($1)",
         )
         .bind(ids)
         .fetch_all(pool)
         .await?;
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        let propias_filas: Vec<(Uuid, i16)> = sqlx::query_as(
+            "SELECT inmueble_id, version FROM inmueble_versiones WHERE inmueble_id = ANY($1)",
+        )
+        .bind(ids)
+        .fetch_all(pool)
+        .await?;
         let mut cubiertas: std::collections::HashMap<Uuid, Vec<(i16,)>> =
             std::collections::HashMap::new();
-        for (id, version) in filas {
+        for (id, version) in cubiertas_filas {
             cubiertas.entry(id).or_default().push((version,));
         }
+        let mut propias: std::collections::HashMap<Uuid, Vec<(i16,)>> =
+            std::collections::HashMap::new();
+        for (id, version) in propias_filas {
+            propias.entry(id).or_default().push((version,));
+        }
         for id in ids {
-            let de_este = cubiertas.remove(id).unwrap_or_default();
-            mapa.insert(*id, sin_aviso(configuradas, &de_este));
+            let de_este_cubiertas = cubiertas.remove(id).unwrap_or_default();
+            let de_este_propias = propias.remove(id).unwrap_or_default();
+            mapa.insert(*id, sin_aviso(configuradas, &de_este_propias, &de_este_cubiertas));
         }
         Ok(mapa)
     }
@@ -377,11 +401,20 @@ impl FacebookRepository {
     }
 }
 
-/// Versiones de `1..=configuradas` que no aparecen en `cubiertas` (las filas
-/// que devuelve la query de vínculos como `(version,)`).
-fn sin_aviso(configuradas: i16, cubiertas: &[(i16,)]) -> Vec<i16> {
-    (1..=configuradas)
-        .filter(|v| !cubiertas.iter().any(|(c,)| c == v))
+/// Versiones **que la ficha tiene** y que no aparecen en `cubiertas`.
+///
+/// La 1 siempre cuenta (vive en `inmuebles`); de la 2 en adelante, solo las
+/// que tienen fila en `inmueble_versiones` y no pasan de `configuradas`. Las
+/// versiones que existen pero quedaron fuera de la configuración no se echan
+/// en falta.
+fn sin_aviso(configuradas: i16, propias: &[(i16,)], cubiertas: &[(i16,)]) -> Vec<i16> {
+    let tope = configuradas.max(1);
+    let existe = |v: i16| {
+        v <= tope
+            && (v == 1 || propias.iter().any(|(p,)| *p == v))
+    };
+    (1..=tope)
+        .filter(|v| existe(*v) && !cubiertas.iter().any(|(c,)| c == v))
         .collect()
 }
 
@@ -389,35 +422,36 @@ fn sin_aviso(configuradas: i16, cubiertas: &[(i16,)]) -> Vec<i16> {
 mod tests {
     use super::sin_aviso;
 
-    /* [30AA-7] El cálculo es lo que ve la columna Vínculo: sin filas, todas
-     * las versiones configuradas faltan. */
+    /* [30AA-7] Sin filas, faltan las versiones que la ficha tiene: la 1
+     * siempre, la 2 solo si se generó. Un inmueble sin v2 no «debe» v2. */
     #[test]
-    fn sin_nada_faltan_todas() {
-        assert_eq!(sin_aviso(2, &[]), vec![1, 2]);
-        assert_eq!(sin_aviso(3, &[]), vec![1, 2, 3]);
+    fn sin_nada_faltan_las_propias() {
+        assert_eq!(sin_aviso(2, &[], &[]), vec![1]);
+        assert_eq!(sin_aviso(2, &[(2,)], &[]), vec![1, 2]);
+        assert_eq!(sin_aviso(3, &[(2,), (3,)], &[]), vec![1, 2, 3]);
     }
 
     /* Una versión con fila en CUALQUIER cuenta ya cuenta como cubierta, tenga
      * o no el ID del aviso: el ID se pega después de publicar. */
     #[test]
     fn las_cubiertas_salen_de_la_lista() {
-        assert_eq!(sin_aviso(2, &[(1,)]), vec![2]);
-        assert_eq!(sin_aviso(2, &[(2,)]), vec![1]);
-        assert_eq!(sin_aviso(3, &[(1,), (3,)]), vec![2]);
+        assert_eq!(sin_aviso(2, &[(2,)], &[(1,)]), vec![2]);
+        assert_eq!(sin_aviso(2, &[(2,)], &[(2,)]), vec![1]);
+        assert_eq!(sin_aviso(3, &[(2,), (3,)], &[(1,), (3,)]), vec![2]);
     }
 
     /* Nada que avisar: la tabla pinta «al día». */
     #[test]
     fn todas_cubiertas_no_falta_ninguna() {
-        assert!(sin_aviso(2, &[(1,), (2,)]).is_empty());
-        assert!(sin_aviso(1, &[(1,)]).is_empty());
+        assert!(sin_aviso(2, &[(2,)], &[(1,), (2,)]).is_empty());
+        assert!(sin_aviso(1, &[], &[(1,)]).is_empty());
     }
 
-    /* El tope es la configuración, no la longitud de `cubiertas`: una v3
-     * revocada (configuradas = 2) no se echa en falta. */
+    /* El tope es la configuración: una v3 generada y luego revocada
+     * (configuradas = 2) no se echa en falta. */
     #[test]
     fn manda_la_configuracion() {
-        assert!(sin_aviso(1, &[(1,), (2,), (3,)]).is_empty());
-        assert_eq!(sin_aviso(2, &[(1,), (2,), (3,)]), Vec::<i16>::new());
+        assert!(sin_aviso(1, &[(2,), (3,)], &[(1,)]).is_empty());
+        assert!(sin_aviso(2, &[(2,), (3,)], &[(1,), (2,)]).is_empty());
     }
 }
