@@ -113,17 +113,19 @@ pub async fn vinculos(
     Ok(Json(FacebookService::vinculos(&state.pool, id).await?))
 }
 
-/// Vincular el inmueble a una cuenta, con su aviso de Marketplace
+/// Vincular UNA VERSIÓN del inmueble a una cuenta, con su aviso de Marketplace
 #[utoipa::path(
     put,
-    path = "/api/admin/inmuebles/{id}/facebook/{cuenta}",
+    path = "/api/admin/inmuebles/{id}/facebook/{cuenta}/{version}",
     request_body = VincularFacebookRequest,
     params(
         ("id" = Uuid, Path, description = "Inmueble"),
-        ("cuenta" = Uuid, Path, description = "Cuenta de Facebook")
+        ("cuenta" = Uuid, Path, description = "Cuenta de Facebook"),
+        ("version" = i16, Path, description = "Versión del anuncio (1 = ficha)")
     ),
     responses(
         (status = 200, description = "Vínculos actualizados", body = Vec<VinculoFacebook>),
+        (status = 404, description = "Esa versión aún no se ha generado", body = crate::errors::ErrorResponse),
         (status = 422, description = "Aviso inválido o ya vinculado", body = crate::errors::ErrorResponse)
     ),
     security(("bearer_auth" = []))
@@ -131,26 +133,28 @@ pub async fn vinculos(
 pub async fn vincular(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path((id, cuenta)): Path<(Uuid, Uuid)>,
+    Path((id, cuenta, version)): Path<(Uuid, Uuid, i16)>,
     Json(req): Json<VincularFacebookRequest>,
 ) -> Result<Json<Vec<VinculoFacebook>>, AppError> {
     let v = FacebookService::vincular(
         &state.pool,
         id,
         cuenta,
+        version,
         req.marketplace_id.as_deref(),
     )
     .await?;
     Ok(Json(v))
 }
 
-/// Desvincular el inmueble de una cuenta
+/// Desvincular una versión del inmueble de una cuenta
 #[utoipa::path(
     delete,
-    path = "/api/admin/inmuebles/{id}/facebook/{cuenta}",
+    path = "/api/admin/inmuebles/{id}/facebook/{cuenta}/{version}",
     params(
         ("id" = Uuid, Path, description = "Inmueble"),
-        ("cuenta" = Uuid, Path, description = "Cuenta de Facebook")
+        ("cuenta" = Uuid, Path, description = "Cuenta de Facebook"),
+        ("version" = i16, Path, description = "Versión del anuncio (1 = ficha)")
     ),
     responses(
         (status = 200, description = "Vínculos actualizados", body = Vec<VinculoFacebook>),
@@ -161,10 +165,32 @@ pub async fn vincular(
 pub async fn desvincular(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Path((id, cuenta)): Path<(Uuid, Uuid)>,
+    Path((id, cuenta, version)): Path<(Uuid, Uuid, i16)>,
 ) -> Result<Json<Vec<VinculoFacebook>>, AppError> {
     Ok(Json(
-        FacebookService::desvincular(&state.pool, id, cuenta).await?,
+        FacebookService::desvincular(&state.pool, id, cuenta, version).await?,
+    ))
+}
+
+/// Versiones del inmueble que aún no tienen aviso en ninguna cuenta
+#[utoipa::path(
+    get,
+    path = "/api/admin/inmuebles/{id}/faltan-avisos",
+    params(("id" = Uuid, Path, description = "Inmueble")),
+    responses(
+        (status = 200, description = "Versiones sin aviso", body = crate::models::FaltanAvisos),
+        (status = 401, description = "No autorizado", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn faltan_avisos(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> Result<Json<crate::models::FaltanAvisos>, AppError> {
+    let configuradas = crate::repositories::VersionRepository::configuradas(&state.pool).await?;
+    Ok(Json(
+        FacebookService::faltan_avisos(&state.pool, id, configuradas).await?,
     ))
 }
 
@@ -173,8 +199,9 @@ pub fn routes() -> Router<AppState> {
         .route("/facebook", get(listar).post(crear))
         .route("/facebook/:id", put(actualizar).delete(borrar))
         .route("/inmuebles/:id/facebook", get(vinculos))
+        .route("/inmuebles/:id/faltan-avisos", get(faltan_avisos))
         .route(
-            "/inmuebles/:id/facebook/:cuenta",
+            "/inmuebles/:id/facebook/:cuenta/:version",
             put(vincular).delete(desvincular),
         )
 }

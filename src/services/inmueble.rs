@@ -9,7 +9,7 @@ use crate::models::{
     InmuebleRow, PaginatedInmuebles, UpdateInmuebleRequest, ESTADOS, FORMATOS_RECETA, OPERACIONES,
     TIPOS,
 };
-use crate::repositories::{InmuebleRepository, VersionRepository};
+use crate::repositories::{FacebookRepository, InmuebleRepository, VersionRepository};
 use crate::services::sync::vigilancia::notificar;
 
 pub(crate) mod alias;
@@ -69,6 +69,10 @@ impl InmuebleService {
     ) -> Result<Vec<Inmueble>, AppError> {
         let ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
         let variantes = VersionRepository::fotos_por_inmuebles(pool, &ids, None).await?;
+        /* [30AA-7] Cuántas versiones de cada ficha siguen sin aviso: la columna
+         * Vínculo lo dice sin una petición por fila. */
+        let configuradas = VersionRepository::configuradas(pool).await?;
+        let faltan = FacebookRepository::faltan_avisos_por_inmuebles(pool, &ids, configuradas).await?;
         let mut inmuebles = Self::con_fotos(pool, rows).await?;
         for inmueble in &mut inmuebles {
             inmueble.variantes = variantes
@@ -77,6 +81,11 @@ impl InmuebleService {
                 .cloned()
                 .map(crate::models::FotoVariante::from)
                 .collect();
+            let versiones = faltan.get(&inmueble.id).cloned().unwrap_or_default();
+            inmueble.faltan_avisos = crate::models::FaltanAvisos {
+                total: versiones.len(),
+                versiones,
+            };
         }
         Ok(inmuebles)
     }

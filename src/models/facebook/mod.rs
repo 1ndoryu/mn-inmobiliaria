@@ -82,9 +82,20 @@ pub struct VinculoFacebook {
     pub nombre: String,
     pub url: String,
     pub principal: bool,
+    /// [30AA-7] Versión del anuncio a la que pertenece este aviso (1 = ficha).
+    pub version: i16,
     /// Dígitos del aviso en esa cuenta (`None` = cuenta vinculada sin aviso).
     pub marketplace_id: Option<String>,
     pub publicado_en: Option<DateTime<Utc>>,
+}
+
+/// Versiones de un inmueble que todavía no tienen aviso en ninguna cuenta.
+#[derive(Debug, Clone, Default, Serialize, ToSchema)]
+pub struct FaltanAvisos {
+    /// Números de versión sin ningún aviso vinculado.
+    pub versiones: Vec<i16>,
+    /// Cuántas son (`versiones.len()`, para no contarlas en el front).
+    pub total: usize,
 }
 
 /// Fijar el vínculo de un inmueble con una cuenta

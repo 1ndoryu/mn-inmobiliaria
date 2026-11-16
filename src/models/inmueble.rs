@@ -5,7 +5,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::models::FotoVariante;
+use crate::models::{FaltanAvisos, FotoVariante};
 
 mod dto;
 
@@ -168,6 +168,10 @@ pub struct Inmueble {
      * admin: la web pública sigue viendo la v1 y no debe filtrar variantes
      * que aún no se han publicado en ninguna cuenta. */
     pub variantes: Vec<FotoVariante>,
+    /* [30AA-7] Versiones que aún no tienen aviso de Marketplace en ninguna
+     * cuenta. Solo lo rellena el admin: la columna Vínculo dice cuántas
+     * faltan sin pedir una petición por fila. */
+    pub faltan_avisos: FaltanAvisos,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -274,9 +278,10 @@ impl Inmueble {
             marketplace_id: row.marketplace_id,
             alias_titulos: row.alias_titulos,
             fotos: fotos.into_iter().map(FotoPublica::from).collect(),
-            /* Vacío aquí: las variantes se cargan aparte y solo en admin
-             * (`con_fotos` con `con_variantes`). */
+            /* Vacío aquí: las variantes y el conteo de avisos se cargan aparte
+             * y solo en admin (`con_fotos_y_variantes`). */
             variantes: Vec::new(),
+            faltan_avisos: FaltanAvisos::default(),
             created_at: row.created_at,
             updated_at: row.updated_at,
         }

@@ -17,9 +17,15 @@ type FilaVinculo = (
     String,
     String,
     bool,
+    i16,
     Option<String>,
     Option<chrono::DateTime<chrono::Utc>>,
 );
+
+/// Columnas del JOIN, en el orden de `VinculoFacebook`: una sola lista para
+/// que `vinculos_de` y los dos `vinculos_por_inmuebles` no se desalineen.
+const COLUMNAS_VINCULO: &str = "f.id AS facebook_id, f.nombre, f.url, f.principal, \
+                                v.version, v.marketplace_id, v.publicado_en";
 
 pub struct FacebookRepository;
 
@@ -151,16 +157,67 @@ impl FacebookRepository {
         inmueble_id: Uuid,
     ) -> Result<Vec<VinculoFacebook>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
-        sqlx::query_as::<_, VinculoFacebook>(
-            "SELECT f.id AS facebook_id, f.nombre, f.url, f.principal, \
-                    v.marketplace_id, v.publicado_en \
+        sqlx::query_as::<_, VinculoFacebook>(&format!(
+            "SELECT {COLUMNAS_VINCULO} \
              FROM inmueble_facebook v JOIN facebook f ON f.id = v.facebook_id \
              WHERE v.inmueble_id = $1 \
-             ORDER BY f.principal DESC, f.nombre ASC",
-        )
+             ORDER BY v.version ASC, f.principal DESC, f.nombre ASC"
+        ))
         .bind(inmueble_id)
         .fetch_all(pool)
         .await
+    }
+
+    /// Versiones (de la 1 a `configuradas`) sin ningún aviso vinculado.
+    ///
+    /// Una versión cuenta como cubierta si tiene fila en `inmueble_facebook`,
+    /// aunque todavía no tenga el ID del anuncio: el ID se pega después de
+    /// publicar y la cuenta ya está decidida.
+    pub async fn faltan_avisos(
+        pool: &PgPool,
+        inmueble_id: Uuid,
+        configuradas: i16,
+    ) -> Result<Vec<i16>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        let cubiertas: Vec<(i16,)> = sqlx::query_as(
+            "SELECT DISTINCT version FROM inmueble_facebook WHERE inmueble_id = $1",
+        )
+        .bind(inmueble_id)
+        .fetch_all(pool)
+        .await?;
+        Ok(sin_aviso(configuradas, &cubiertas))
+    }
+
+    /// Lo mismo para muchos inmuebles en una sola query (la tabla los pinta
+    /// todos de golpe; sin esto serían N peticiones).
+    pub async fn faltan_avisos_por_inmuebles(
+        pool: &PgPool,
+        ids: &[Uuid],
+        configuradas: i16,
+    ) -> Result<std::collections::HashMap<Uuid, Vec<i16>>, sqlx::Error> {
+        let mut mapa: std::collections::HashMap<Uuid, Vec<i16>> =
+            std::collections::HashMap::new();
+        if ids.is_empty() {
+            return Ok(mapa);
+        }
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        let filas: Vec<(Uuid, i16)> = sqlx::query_as(
+            "SELECT DISTINCT inmueble_id, version FROM inmueble_facebook \
+             WHERE inmueble_id = ANY($1)",
+        )
+        .bind(ids)
+        .fetch_all(pool)
+        .await?;
+        let mut cubiertas: std::collections::HashMap<Uuid, Vec<(i16,)>> =
+            std::collections::HashMap::new();
+        for (id, version) in filas {
+            cubiertas.entry(id).or_default().push((version,));
+        }
+        for id in ids {
+            let de_este = cubiertas.remove(id).unwrap_or_default();
+            mapa.insert(*id, sin_aviso(configuradas, &de_este));
+        }
+        Ok(mapa)
     }
 
     /// Vínculos de varios inmuebles en una sola query (evita N+1 en la lista).
@@ -176,22 +233,32 @@ impl FacebookRepository {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
         let filas: Vec<FilaVinculo> =
             // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera del módulo
-            sqlx::query_as(
-                "SELECT v.inmueble_id, f.id, f.nombre, f.url, f.principal, v.marketplace_id, v.publicado_en \
+            sqlx::query_as(&format!(
+                "SELECT v.inmueble_id, {COLUMNAS_VINCULO} \
                  FROM inmueble_facebook v JOIN facebook f ON f.id = v.facebook_id \
                  WHERE v.inmueble_id = ANY($1) \
-                 ORDER BY f.principal DESC, f.nombre ASC",
-            )
+                 ORDER BY v.version ASC, f.principal DESC, f.nombre ASC"
+            ))
             .bind(ids)
             .fetch_all(pool)
             .await?;
-        for (inmueble_id, facebook_id, nombre, url, principal, marketplace_id, publicado_en) in filas
+        for (
+            inmueble_id,
+            facebook_id,
+            nombre,
+            url,
+            principal,
+            version,
+            marketplace_id,
+            publicado_en,
+        ) in filas
         {
             mapa.entry(inmueble_id).or_default().push(VinculoFacebook {
                 facebook_id,
                 nombre,
                 url,
                 principal,
+                version,
                 marketplace_id,
                 publicado_en,
             });
@@ -199,43 +266,48 @@ impl FacebookRepository {
         Ok(mapa)
     }
 
-    /// Fija (o quita, con `None`) el aviso de una ficha en una cuenta.
-    /// Devuelve `false` si esa cuenta no estaba vinculada.
+    /// Fija (o quita, con `None`) el aviso de una VERSIÓN en una cuenta.
+    /// Devuelve `false` si esa cuenta no estaba vinculada en esa versión.
     pub async fn fijar_aviso(
         pool: &PgPool,
         inmueble_id: Uuid,
         facebook_id: Uuid,
+        version: i16,
         marketplace_id: Option<&str>,
     ) -> Result<bool, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-sin-macro -- sentencia nueva; ver cabecera del módulo
         let r = sqlx::query(
-            "UPDATE inmueble_facebook SET marketplace_id = $3, \
-                publicado_en = CASE WHEN $3::TEXT IS NULL THEN NULL ELSE COALESCE(publicado_en, NOW()) END \
-             WHERE inmueble_id = $1 AND facebook_id = $2",
+            "UPDATE inmueble_facebook SET marketplace_id = $4, \
+                publicado_en = CASE WHEN $4::TEXT IS NULL THEN NULL ELSE COALESCE(publicado_en, NOW()) END \
+             WHERE inmueble_id = $1 AND facebook_id = $2 AND version = $3",
         )
         .bind(inmueble_id)
         .bind(facebook_id)
+        .bind(version)
         .bind(marketplace_id)
         .execute(pool)
         .await?;
         Ok(r.rows_affected() > 0)
     }
 
-    /// Vincula (idempotente) un inmueble a una cuenta.
+    /// Vincula (idempotente) una versión de un inmueble a una cuenta.
     pub async fn vincular(
         pool: &PgPool,
         inmueble_id: Uuid,
         facebook_id: Uuid,
+        version: i16,
         marketplace_id: Option<&str>,
     ) -> Result<(), sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-sin-macro -- sentencia nueva; ver cabecera del módulo
         sqlx::query(
-            "INSERT INTO inmueble_facebook (inmueble_id, facebook_id, marketplace_id) \
-             VALUES ($1, $2, $3) \
-             ON CONFLICT (inmueble_id, facebook_id) DO UPDATE SET marketplace_id = EXCLUDED.marketplace_id",
+            "INSERT INTO inmueble_facebook (inmueble_id, facebook_id, version, marketplace_id) \
+             VALUES ($1, $2, $3, $4) \
+             ON CONFLICT (inmueble_id, facebook_id, version) \
+             DO UPDATE SET marketplace_id = EXCLUDED.marketplace_id",
         )
         .bind(inmueble_id)
         .bind(facebook_id)
+        .bind(version)
         .bind(marketplace_id)
         .execute(pool)
         .await?;
@@ -246,20 +318,26 @@ impl FacebookRepository {
         pool: &PgPool,
         inmueble_id: Uuid,
         facebook_id: Uuid,
+        version: i16,
     ) -> Result<bool, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-sin-macro -- sentencia nueva; ver cabecera del módulo
         let r = sqlx::query(
-            "DELETE FROM inmueble_facebook WHERE inmueble_id = $1 AND facebook_id = $2",
+            "DELETE FROM inmueble_facebook \
+             WHERE inmueble_id = $1 AND facebook_id = $2 AND version = $3",
         )
         .bind(inmueble_id)
         .bind(facebook_id)
+        .bind(version)
         .execute(pool)
         .await?;
         Ok(r.rows_affected() > 0)
     }
 
-    /// Espeja en `inmuebles.marketplace_id` el aviso de la cuenta principal
-    /// (`NULL` si la ficha no está vinculada a ella o no tiene aviso).
+    /// Espeja en `inmuebles.marketplace_id` el aviso de la **v1** en la cuenta
+    /// principal (`NULL` si no está vinculada o no tiene aviso).
+    ///
+    /// El espejo es de la v1 a propósito: es lo que leen el laboratorio de
+    /// Marketplace y el chat, que emparejan el aviso con la ficha publicada.
     pub async fn sincronizar_espejo_principal(
         pool: &PgPool,
         inmueble_id: Uuid,
@@ -269,7 +347,7 @@ impl FacebookRepository {
             "UPDATE inmuebles i SET marketplace_id = ( \
                 SELECT v.marketplace_id FROM inmueble_facebook v \
                 JOIN facebook f ON f.id = v.facebook_id \
-                WHERE v.inmueble_id = i.id AND f.principal LIMIT 1) \
+                WHERE v.inmueble_id = i.id AND v.version = 1 AND f.principal LIMIT 1) \
              WHERE i.id = $1",
         )
         .bind(inmueble_id)
@@ -278,8 +356,8 @@ impl FacebookRepository {
         Ok(())
     }
 
-    /// Ques es el aviso de esta cuenta el que ocupa `marketplace_id` y lo
-    /// reclama otra ficha (para el 422 previo al INSERT).
+    /// Si el aviso de esta cuenta ya lo ocupa otra ficha (para el 422 previo
+    /// al INSERT). El aviso es único por cuenta, de cualquier versión.
     pub async fn aviso_ocupado(
         pool: &PgPool,
         facebook_id: Uuid,
@@ -296,5 +374,50 @@ impl FacebookRepository {
         .fetch_optional(pool)
         .await?;
         Ok(matches!(fila, Some((id,)) if Some(id) != inmueble_id))
+    }
+}
+
+/// Versiones de `1..=configuradas` que no aparecen en `cubiertas` (las filas
+/// que devuelve la query de vínculos como `(version,)`).
+fn sin_aviso(configuradas: i16, cubiertas: &[(i16,)]) -> Vec<i16> {
+    (1..=configuradas)
+        .filter(|v| !cubiertas.iter().any(|(c,)| c == v))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sin_aviso;
+
+    /* [30AA-7] El cálculo es lo que ve la columna Vínculo: sin filas, todas
+     * las versiones configuradas faltan. */
+    #[test]
+    fn sin_nada_faltan_todas() {
+        assert_eq!(sin_aviso(2, &[]), vec![1, 2]);
+        assert_eq!(sin_aviso(3, &[]), vec![1, 2, 3]);
+    }
+
+    /* Una versión con fila en CUALQUIER cuenta ya cuenta como cubierta, tenga
+     * o no el ID del aviso: el ID se pega después de publicar. */
+    #[test]
+    fn las_cubiertas_salen_de_la_lista() {
+        assert_eq!(sin_aviso(2, &[(1,)]), vec![2]);
+        assert_eq!(sin_aviso(2, &[(2,)]), vec![1]);
+        assert_eq!(sin_aviso(3, &[(1,), (3,)]), vec![2]);
+    }
+
+    /* Nada que avisar: la tabla pinta «al día». */
+    #[test]
+    fn todas_cubiertas_no_falta_ninguna() {
+        assert!(sin_aviso(2, &[(1,), (2,)]).is_empty());
+        assert!(sin_aviso(1, &[(1,)]).is_empty());
+    }
+
+    /* El tope es la configuración, no la longitud de `cubiertas`: una v3
+     * revocada (configuradas = 2) no se echa en falta. */
+    #[test]
+    fn manda_la_configuracion() {
+        assert!(sin_aviso(1, &[(1,), (2,), (3,)]).is_empty());
+        assert_eq!(sin_aviso(2, &[(1,), (2,), (3,)]), Vec::<i16>::new());
     }
 }

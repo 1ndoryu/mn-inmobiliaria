@@ -12,7 +12,8 @@ mod version_texto;
 mod visita;
 
 pub use facebook::{
-    Facebook, FacebookRequest, FacebookRow, VinculoFacebook, VincularFacebookRequest,
+    Facebook, FacebookRequest, FacebookRow, FaltanAvisos, VinculoFacebook,
+    VincularFacebookRequest,
 };
 pub use version_texto::{
     EditarVersionRequest, FotoVariante, FotoVarianteRow, GenerarVersionRequest,
