@@ -73,14 +73,18 @@ export function ModalVinculos({ inmueble, alCerrar, alActualizar }: Props) {
 
   return (
     <Dialog open={abierto} onOpenChange={(siguiente) => !siguiente && void cerrar()}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl">
+      {/* `grid-cols-1` explícito: la columna implícita del `grid` del diálogo
+       * crece con el contenido y el formulario se salía por la derecha. */}
+      <DialogContent className="grid-cols-1 sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="flex min-w-0 items-center gap-2">
-            <Link2 className="h-4 w-4 shrink-0" />
-            <span className="truncate">Vínculos de Marketplace: {inmueble?.titulo || 'Sin título'}</span>
+          <DialogTitle className="flex min-w-0 items-start gap-2">
+            <Link2 className="mt-0.5 h-4 w-4 shrink-0" />
+            {/* Dos líneas como mucho: el título cabe entero en vez de quedar
+             * cortado a media palabra. */}
+            <span className="line-clamp-2">Vínculos de Marketplace: {inmueble?.titulo || 'Sin título'}</span>
           </DialogTitle>
           <DialogDescription>
-            Un aviso por versión y cuenta. Al cerrar, la fila de la tabla se actualiza con lo que falte.
+            Un aviso por versión y cuenta: pon el ID de Marketplace de cada una. Al cerrar, la fila se actualiza.
           </DialogDescription>
         </DialogHeader>
 
@@ -103,6 +107,7 @@ export function ModalVinculos({ inmueble, alCerrar, alActualizar }: Props) {
             vinculos={vinculos}
             versiones={versiones}
             ocupado={ocupado}
+            compacto
             alVincular={(cuentaId, version, marketplaceId) =>
               void conReposicion(() => vincular(cuentaId, version, marketplaceId))
             }
