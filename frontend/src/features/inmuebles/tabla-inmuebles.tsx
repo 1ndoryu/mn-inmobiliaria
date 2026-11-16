@@ -5,6 +5,7 @@ import { recetaVigenteDe, resolverReceta } from '@/domain/plantilla-publicidad';
 import { exportarPublicidad } from '@/platform/canvas-publicidad';
 import { usePublicidades } from '@/hooks/publicidad/use-publicidades';
 import { ModalDescargarFotos } from '@/features/inmuebles/modal-descargar-fotos';
+import { ModalVinculos } from '@/features/inmuebles/modal-vinculos';
 import { ModalEditorPublicidad } from '@/features/publicidad/modal-editor-publicidad';
 import { Badge } from '@/components/ui/badge';
 import { MiniaturaFoto } from '@/components/ui/miniatura-foto';
@@ -16,6 +17,7 @@ import { MenuAcciones } from './tabla/menu-acciones-inmueble';
 import { ButtonPlano } from '@/components/ui/button';
 /* [13AA-12] Columna Sync: estado frente al servidor, en tiempo real. */
 import { useSyncInmuebles } from '@/hooks/sync/use-sync-inmuebles';
+import { useModalVinculos } from './tabla/use-modal-vinculos';
 import { BannerSync, SyncBadge } from './tabla/celda-sync-inmueble';
 
 interface Props {
@@ -36,6 +38,9 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
   const [editandoPubli, setEditandoPubli] = useState<Inmueble | null>(null);
   const [fallo, setFallo] = useState<string | null>(null);
   const [descargandoFotosDe, setDescargandoFotosDe] = useState<Inmueble | null>(null);
+  /* [30AA-9] Badge de Vínculo pulsable: abre el modal de vínculos de esa ficha.
+   * Su estado vive en el hook para no pasar del límite de `useState`. */
+  const vinculos = useModalVinculos((inmueble) => onActualizarInmueble?.(inmueble));
   /* El editor de publicidad trabaja con el objeto fresco de la lista: si la
    * propiedad se editó fuera, la vista previa recarga sola. */
   const editandoPubliFresco = editandoPubli ? (inmuebles.find((i) => i.id === editandoPubli.id) ?? editandoPubli) : null;
@@ -169,7 +174,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
                   <SemaforoFicha inmueble={i} />
                 </TableCell>
                 <TableCell>
-                  <VinculoBadge inmueble={i} />
+                  <VinculoBadge inmueble={i} alAbrir={() => vinculos.abrir(i)} />
                 </TableCell>
                 <TableCell>{badgeSync(i)}</TableCell>
                 <TableCell>
@@ -210,7 +215,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Publico publicado={i.publicado} />
                   <SemaforoFicha inmueble={i} />
-                  <VinculoBadge inmueble={i} />
+                  <VinculoBadge inmueble={i} alAbrir={() => vinculos.abrir(i)} />
                   <Badge variant="secondary" className={cn('capitalize', claseEstadoDe(i.estado))}>
                     {i.estado}
                   </Badge>
@@ -286,6 +291,14 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
         key={descargandoFresco ? `fotos-${descargandoFresco.id}` : 'fotos-cerrado'}
         inmueble={descargandoFresco}
         alCerrar={() => setDescargandoFotosDe(null)}
+      />
+      {/* [30AA-9] `key` por ficha: al cambiar de inmueble el hook relee sus
+       * versiones en vez de arrastrar las del anterior. */}
+      <ModalVinculos
+        key={vinculos.inmueble ? `vinculos-${vinculos.inmueble.id}` : 'vinculos-cerrado'}
+        inmueble={vinculos.inmueble}
+        alCerrar={vinculos.cerrar}
+        alActualizar={vinculos.alActualizar}
       />
     </>
   );

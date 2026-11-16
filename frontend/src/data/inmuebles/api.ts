@@ -396,6 +396,12 @@ async function obtenerRemoto(id: string): Promise<InmuebleRemoto> {
   return apiFetch<InmuebleRemoto>(`/api/admin/inmuebles/${encodeURIComponent(id)}`);
 }
 
+/* Relee UNA ficha del servidor ya mapeada (para repintar la fila tras un
+ * cambio lateral, p. ej. el vínculo de Marketplace). Lanza `ErrorApi`. */
+export async function leerRemoto(id: string): Promise<Inmueble> {
+  return remotoADominio(await obtenerRemoto(id));
+}
+
 export async function crearRemoto(inmueble: Inmueble): Promise<Inmueble> {
   const r = await apiFetch<InmuebleRemoto>('/api/admin/inmuebles', {
     method: 'POST',

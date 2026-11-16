@@ -8,6 +8,9 @@
 
 ## Pendientes
 
+- [ ] `30AA-9` — **Modal de vínculos al pulsar el badge de la columna Vínculo.** Hecho cuando el
+  badge («falta v2», «falta v1», «sin vincular») sea un botón que abra un modal con un campo por
+  versión y cuenta, y al cerrarlo la fila repinte el badge con lo que falte.
 - [ ] `30AA-5` — **Pestaña propia por versión en el modal de inmueble.** Hoy todas las pestañas
   v2+ comparten `PestanaFotos`: cambiar de pestaña no cambia lo que ya se generó y no hay forma de
   decir «esta foto tiene v2 y v3» desde la UI del modal. Hecho cuando cada versión tenga su propio
