@@ -63,10 +63,10 @@ export function VinculoBadge({ inmueble }: { inmueble: Inmueble }) {
   const resumen = resumenVinculos(inmueble.faltanAvisos);
   if (resumen?.incompleto) {
     /* Hay versiones sin aviso: se nombran en el `title` para no ensanchar la
-     * columna. Las versiones cubiertas no se listan (la API las omite). */
+     * columna. Las versiones cubiertas no se listan (la API las omite).
+     * Ámbar sólido, como el resto de badges de la tabla: el translúcido con
+     * borde desentonaba en la fila. */
     return (
-      {/* Mismo patrón sólido que el resto de badges de la tabla (estado,
-       * semáforo): el translúcido con borde desentonaba en la fila. */}
       <Badge
         variant="secondary"
         className="border-transparent bg-amber-100 text-amber-900"
