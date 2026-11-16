@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { AlertTriangle, History, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { hayVersion, versionNumero, type VersionesInmueble } from '@/domain/versiones';
+import { hayVersion, versionNumero, versionesDe, type VersionesInmueble } from '@/domain/versiones';
 import { paresDeFotos, type ProgresoVariantes } from '@/hooks/inmuebles/use-versionado';
 import type { EstadoVersion } from '@/domain/versiones';
 import { PestanaFotos } from './pestana-fotos';
@@ -140,7 +140,7 @@ export function PanelVersiones(props: Props) {
           <SeccionFacebook
             cuentas={props.cuentas}
             vinculos={props.vinculos}
-            configuradas={datos.configuradas}
+            versiones={versionesDe(datos)}
             ocupado={props.ocupado}
             alVincular={props.alVincular}
             alDesvincular={props.alDesvincular}

@@ -132,3 +132,13 @@ export function hayVersion(v: VersionesInmueble, n: number): boolean {
   if (n <= 1) return true;
   return versionNumero(v, n) !== null || fotosDeVersion(v, n).length > 0;
 }
+
+/* [30AA-7] Versiones que ESTA ficha tiene de verdad: la 1 y las generadas
+ * (texto o fotos variante). La configuración global no basta: un inmueble sin
+ * v2 no «debe» un aviso de v2. Pura. */
+export function versionesDe(v: VersionesInmueble): number[] {
+  const propias = new Set<number>([1]);
+  for (const t of v.variantes) propias.add(t.version);
+  for (const f of v.fotos) propias.add(f.version);
+  return [...propias].sort((a, b) => a - b);
+}

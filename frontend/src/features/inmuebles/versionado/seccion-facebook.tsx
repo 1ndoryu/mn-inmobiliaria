@@ -14,8 +14,9 @@ import { normalizarMarketplaceId, esMarketplaceIdValido } from '@/domain/inmuebl
 interface Props {
   cuentas: CuentaFacebook[];
   vinculos: VinculoFacebook[];
-  /** Versiones por inmueble (1..N): una fila de aviso por cada una. */
-  configuradas: number;
+  /** Versiones que ESTE inmueble tiene (1 y las que se generaron): una fila
+   * de aviso por cada una. Un inmueble sin v2 no pide ID de v2. */
+  versiones: number[];
   ocupado: boolean;
   alVincular: (cuentaId: string, version: number, marketplaceId: string | null) => void;
   alDesvincular: (cuentaId: string, version: number) => void;
@@ -25,7 +26,7 @@ interface Props {
 export function SeccionFacebook({
   cuentas,
   vinculos,
-  configuradas,
+  versiones,
   ocupado,
   alVincular,
   alDesvincular,
@@ -34,7 +35,7 @@ export function SeccionFacebook({
   const [nuevaNombre, setNuevaNombre] = useState('');
   const [nuevaUrl, setNuevaUrl] = useState('');
   const [creando, setCreando] = useState(false);
-  const versiones = Array.from({ length: Math.max(1, configuradas) }, (_, i) => i + 1);
+  const lista = versiones.length > 0 ? [...versiones].sort((a, b) => a - b) : [1];
 
   function crear() {
     const nombre = nuevaNombre.trim();
@@ -80,7 +81,7 @@ export function SeccionFacebook({
                 </a>
               )}
               <div className="mt-2 grid gap-1">
-                {versiones.map((version) => (
+                {lista.map((version) => (
                   <CampoAviso
                     /* `key` con la versión: al cambiar el vínculo el campo se
                      * remonta con el valor del servidor. */
@@ -98,7 +99,7 @@ export function SeccionFacebook({
         })}
       </ul>
 
-      {vinculos.length < cuentas.length * versiones.length && cuentas.length > 0 && (
+      {vinculos.length < cuentas.length * lista.length && cuentas.length > 0 && (
         <p className="text-xs text-muted-foreground">
           Para vincular, escribe el ID del aviso de Marketplace de esa versión y pulsa «Vincular».
         </p>
