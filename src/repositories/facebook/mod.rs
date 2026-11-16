@@ -190,8 +190,8 @@ impl FacebookRepository {
         .bind(inmueble_id)
         .fetch_all(pool)
         .await?;
-        /* sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera */
         let propias: Vec<(i16,)> =
+            // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
             sqlx::query_as("SELECT version FROM inmueble_versiones WHERE inmueble_id = $1")
                 .bind(inmueble_id)
                 .fetch_all(pool)
