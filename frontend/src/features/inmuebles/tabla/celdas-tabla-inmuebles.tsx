@@ -65,9 +65,11 @@ export function VinculoBadge({ inmueble }: { inmueble: Inmueble }) {
     /* Hay versiones sin aviso: se nombran en el `title` para no ensanchar la
      * columna. Las versiones cubiertas no se listan (la API las omite). */
     return (
+      {/* Mismo patrón sólido que el resto de badges de la tabla (estado,
+       * semáforo): el translúcido con borde desentonaba en la fila. */}
       <Badge
-        variant="outline"
-        className="border-amber-500/60 bg-amber-500/10 text-amber-900"
+        variant="secondary"
+        className="border-transparent bg-amber-100 text-amber-900"
         title={`Sin aviso en ninguna cuenta: ${resumen.faltan.map((v) => `versión ${v}`).join(', ')}`}
       >
         {resumen.etiqueta}
