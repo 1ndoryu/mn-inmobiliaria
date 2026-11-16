@@ -51,20 +51,27 @@ export function vinculosDe(inmuebleId: string): Promise<VinculoFacebook[]> {
   return apiFetch<VinculoFacebook[]>(`/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/facebook`);
 }
 
+/* [30AA-7] El vínculo es por versión: la v2 se publica como aviso aparte y
+ * necesita su propio ID en la misma cuenta. */
 export function vincularCuenta(
   inmuebleId: string,
   cuentaId: string,
+  version: number,
   marketplaceId: string | null,
 ): Promise<VinculoFacebook[]> {
   return apiFetch<VinculoFacebook[]>(
-    `/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/facebook/${encodeURIComponent(cuentaId)}`,
+    `/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/facebook/${encodeURIComponent(cuentaId)}/${version}`,
     { method: 'PUT', body: JSON.stringify({ marketplace_id: marketplaceId }) },
   );
 }
 
-export function desvincularCuenta(inmuebleId: string, cuentaId: string): Promise<VinculoFacebook[]> {
+export function desvincularCuenta(
+  inmuebleId: string,
+  cuentaId: string,
+  version: number,
+): Promise<VinculoFacebook[]> {
   return apiFetch<VinculoFacebook[]>(
-    `/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/facebook/${encodeURIComponent(cuentaId)}`,
+    `/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/facebook/${encodeURIComponent(cuentaId)}/${version}`,
     { method: 'DELETE' },
   );
 }

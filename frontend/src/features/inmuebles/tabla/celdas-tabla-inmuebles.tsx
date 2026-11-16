@@ -6,6 +6,7 @@
 import { Globe } from 'lucide-react';
 import { estaVerificado, formatearPrecio, type EstadoInmueble, type Inmueble } from '@/domain/inmueble';
 import { calcularCompletitud } from '@/domain/ficha-ask';
+import { resumenVinculos } from '@/domain/versiones';
 import { Badge } from '@/components/ui/badge';
 
 /* Color del badge de estado. Función con mapa interno: el llamador no puede
@@ -55,8 +56,24 @@ export function Publico({ publicado }: { publicado: boolean }) {
 /* [09AA-19 F7c] Badge de vínculo Marketplace: `verificado` con ficha exacta,
  * `sin vincular` sin ella. Fuente de verdad futura: `avisoConocido` del
  * backend (`aviso_conocido`); sin ella se deriva de `marketplaceId`.
+ * [30AA-7] Cada versión se publica como aviso aparte: el backend manda
+ * `faltanAvisos` y el badge dice cuántas versiones quedan sin vínculo.
  * Presentacional puro (la tabla no decide). */
 export function VinculoBadge({ inmueble }: { inmueble: Inmueble }) {
+  const resumen = resumenVinculos(inmueble.faltanAvisos);
+  if (resumen?.incompleto) {
+    /* Hay versiones sin aviso: se nombran en el `title` para no ensanchar la
+     * columna. Las versiones cubiertas no se listan (la API las omite). */
+    return (
+      <Badge
+        variant="outline"
+        className="border-amber-500/60 bg-amber-500/10 text-amber-900"
+        title={`Sin aviso en ninguna cuenta: ${resumen.faltan.map((v) => `versión ${v}`).join(', ')}`}
+      >
+        {resumen.etiqueta}
+      </Badge>
+    );
+  }
   const verificado = estaVerificado(inmueble);
   if (verificado) {
     return (
@@ -65,7 +82,7 @@ export function VinculoBadge({ inmueble }: { inmueble: Inmueble }) {
         className="border-transparent bg-emerald-100 text-emerald-900"
         title={inmueble.marketplaceId ? `Aviso ${inmueble.marketplaceId}` : 'Aviso conocido por el backend'}
       >
-        verificado
+        {resumen ? 'al día' : 'verificado'}
       </Badge>
     );
   }

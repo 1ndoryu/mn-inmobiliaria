@@ -1,6 +1,8 @@
 /* [30AA-1] Cuentas de Facebook del inmueble: a cuál está vinculado y con qué
  * aviso de Marketplace en cada una. La cuenta principal es la que espeja
- * `inmuebles.marketplace_id`, así que su ID se sigue editando en la ficha. */
+ * `inmuebles.marketplace_id`, así que su ID se sigue editando en la ficha.
+ * [30AA-7] El vínculo es POR VERSIÓN: cada versión se publica como aviso
+ * distinto y lleva su propio ID, aunque sea en la misma cuenta. */
 import { useState } from 'react';
 import { Check, Plus, Unlink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -12,15 +14,18 @@ import { normalizarMarketplaceId, esMarketplaceIdValido } from '@/domain/inmuebl
 interface Props {
   cuentas: CuentaFacebook[];
   vinculos: VinculoFacebook[];
+  /** Versiones por inmueble (1..N): una fila de aviso por cada una. */
+  configuradas: number;
   ocupado: boolean;
-  alVincular: (cuentaId: string, marketplaceId: string | null) => void;
-  alDesvincular: (cuentaId: string) => void;
+  alVincular: (cuentaId: string, version: number, marketplaceId: string | null) => void;
+  alDesvincular: (cuentaId: string, version: number) => void;
   alCrearCuenta: (nombre: string, url: string) => void;
 }
 
 export function SeccionFacebook({
   cuentas,
   vinculos,
+  configuradas,
   ocupado,
   alVincular,
   alDesvincular,
@@ -29,7 +34,7 @@ export function SeccionFacebook({
   const [nuevaNombre, setNuevaNombre] = useState('');
   const [nuevaUrl, setNuevaUrl] = useState('');
   const [creando, setCreando] = useState(false);
-  const vinculadas = new Set(vinculos.map((v) => v.facebook_id));
+  const versiones = Array.from({ length: Math.max(1, configuradas) }, (_, i) => i + 1);
 
   function crear() {
     const nombre = nuevaNombre.trim();
@@ -43,7 +48,8 @@ export function SeccionFacebook({
   return (
     <div className="grid gap-4">
       <p className="text-xs text-muted-foreground">
-        Un inmueble puede publicarse en varias cuentas. La cuenta principal es la que usa el ID de aviso de la ficha.
+        Cada versión se publica como un aviso distinto: pon el ID de Marketplace de cada una en su cuenta. La cuenta
+        principal es la que usa el ID de aviso de la ficha.
       </p>
 
       {vinculos.length === 0 && cuentas.length > 0 && (
@@ -54,13 +60,13 @@ export function SeccionFacebook({
 
       <ul className="grid gap-2">
         {cuentas.map((cuenta) => {
-          const vinculo = vinculos.find((v) => v.facebook_id === cuenta.id);
+          const deCuenta = vinculos.filter((v) => v.facebook_id === cuenta.id);
           return (
             <li key={cuenta.id} className="rounded-md border p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{cuenta.nombre}</span>
                 {cuenta.principal && <Badge variant="secondary">Principal</Badge>}
-                {vinculo && <Badge variant="outline">Vinculada</Badge>}
+                {deCuenta.length > 0 && <Badge variant="outline">Vinculada</Badge>}
                 <span className="ml-auto text-xs text-muted-foreground">{cuenta.inmuebles} inmuebles</span>
               </div>
               {cuenta.url && (
@@ -73,20 +79,28 @@ export function SeccionFacebook({
                   {cuenta.url}
                 </a>
               )}
-              <CampoAviso
-                vinculo={vinculo}
-                ocupado={ocupado}
-                alVincular={(id) => alVincular(cuenta.id, id)}
-                alDesvincular={() => alDesvincular(cuenta.id)}
-              />
+              <div className="mt-2 grid gap-1">
+                {versiones.map((version) => (
+                  <CampoAviso
+                    /* `key` con la versión: al cambiar el vínculo el campo se
+                     * remonta con el valor del servidor. */
+                    key={`${cuenta.id}-${version}`}
+                    version={version}
+                    vinculo={deCuenta.find((v) => v.version === version)}
+                    ocupado={ocupado}
+                    alVincular={(id) => alVincular(cuenta.id, version, id)}
+                    alDesvincular={() => alDesvincular(cuenta.id, version)}
+                  />
+                ))}
+              </div>
             </li>
           );
         })}
       </ul>
 
-      {vinculadas.size < cuentas.length && cuentas.length > 0 && (
+      {vinculos.length < cuentas.length * versiones.length && cuentas.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Para vincular, escribe el ID del aviso de Marketplace en esa cuenta y pulsa «Vincular».
+          Para vincular, escribe el ID del aviso de Marketplace de esa versión y pulsa «Vincular».
         </p>
       )}
 
@@ -120,14 +134,16 @@ export function SeccionFacebook({
   );
 }
 
-/* Una cuenta concreta: sin vínculo pide el ID y vincula; con vínculo enseña
- * el ID y permite cambiarlo o desvincular. */
+/* Una versión concreta en una cuenta: sin vínculo pide el ID y vincula; con
+ * vínculo enseña el ID y permite desvincular. */
 function CampoAviso({
+  version,
   vinculo,
   ocupado,
   alVincular,
   alDesvincular,
 }: {
+  version: number;
   vinculo: VinculoFacebook | undefined;
   ocupado: boolean;
   alVincular: (id: string | null) => void;
@@ -136,10 +152,12 @@ function CampoAviso({
   const [valor, setValor] = useState(vinculo?.marketplace_id ?? '');
   const valido = esMarketplaceIdValido(valor);
   const id = normalizarMarketplaceId(valor);
+  const etiqueta = `v${version}`;
 
   if (vinculo) {
     return (
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground">{etiqueta}</span>
         <span className="text-muted-foreground">ID aviso:</span>
         <span className="font-mono">{vinculo.marketplace_id ?? '—'}</span>
         <Button size="sm" variant="ghost" disabled={ocupado} onClick={alDesvincular}>
@@ -150,7 +168,8 @@ function CampoAviso({
   }
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground">{etiqueta}</span>
       <Input
         value={valor}
         onChange={(e) => setValor(e.target.value)}
@@ -158,6 +177,7 @@ function CampoAviso({
         inputMode="numeric"
         className="h-8 max-w-56"
         aria-invalid={!valido}
+        aria-label={`ID del aviso de la versión ${version}`}
       />
       {/* Sin ID también vale: se puede vincular y poner el aviso después. */}
       <Button size="sm" disabled={ocupado || !valido} onClick={() => alVincular(id)}>

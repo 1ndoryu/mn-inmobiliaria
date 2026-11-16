@@ -16,14 +16,50 @@ export interface CuentaFacebook {
   creado_en: string;
 }
 
-/** Vínculo de UN inmueble con UNA cuenta */
+/** Vínculo de UNA versión de un inmueble con UNA cuenta.
+ * [30AA-7] `version` es la del anuncio (1 = ficha): la v2 se publica como
+ * aviso distinto y tiene su propio `marketplace_id`. */
 export interface VinculoFacebook {
   facebook_id: string;
   nombre: string;
   url: string;
   principal: boolean;
+  version: number;
   marketplace_id: string | null;
   publicado_en: string | null;
+}
+
+/** Versiones sin aviso en ninguna cuenta (lo calcula el backend). */
+export interface FaltanAvisos {
+  versiones: number[];
+  total: number;
+}
+
+/** Resumen del vínculo de TODAS las versiones, para la columna de la tabla. */
+export interface ResumenVinculos {
+  faltan: number[];
+  total: number;
+  /** «al día», «falta v1» o «faltan v2, v3». */
+  etiqueta: string;
+  /** Cierto si alguna versión sigue sin aviso. */
+  incompleto: boolean;
+}
+
+/* [30AA-7] Traduce lo que manda el backend a una frase corta. `undefined`
+ * (respuesta vieja o API pública) devuelve `null`: no se sabe, no se avisa.
+ * Pura. */
+export function resumenVinculos(faltan: FaltanAvisos | undefined | null): ResumenVinculos | null {
+  if (!faltan) return null;
+  const versiones = [...faltan.versiones].sort((a, b) => a - b);
+  const total = versiones.length;
+  if (total === 0) return { faltan: versiones, total, etiqueta: 'al día', incompleto: false };
+  const lista = versiones.map((v) => `v${v}`).join(', ');
+  return {
+    faltan: versiones,
+    total,
+    etiqueta: total === 1 ? `falta ${lista}` : `faltan ${lista}`,
+    incompleto: true,
+  };
 }
 
 export type EstadoVersion = 'borrador' | 'lista';

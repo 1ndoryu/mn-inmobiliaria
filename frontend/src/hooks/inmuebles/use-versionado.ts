@@ -231,17 +231,19 @@ export function useVersionado({ inmuebleId, fotosParaVariante, promptVariante }:
     [mutar, regenerarCuentas],
   );
 
+  /* [30AA-7] El vínculo es por versión: la v2 se publica como aviso aparte
+   * en la misma cuenta y necesita su propio ID. */
   const vincular = useCallback(
-    async (cuentaId: string, marketplaceId: string | null) => {
-      const r = await mutar(() => vincularCuenta(inmuebleId!, cuentaId, marketplaceId));
+    async (cuentaId: string, version: number, marketplaceId: string | null) => {
+      const r = await mutar(() => vincularCuenta(inmuebleId!, cuentaId, version, marketplaceId));
       if (r) setVinculos(r);
     },
     [inmuebleId, mutar],
   );
 
   const desvincular = useCallback(
-    async (cuentaId: string) => {
-      const r = await mutar(() => desvincularCuenta(inmuebleId!, cuentaId));
+    async (cuentaId: string, version: number) => {
+      const r = await mutar(() => desvincularCuenta(inmuebleId!, cuentaId, version));
       if (r) setVinculos(r);
     },
     [inmuebleId, mutar],

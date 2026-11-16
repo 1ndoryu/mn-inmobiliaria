@@ -242,6 +242,9 @@ export interface InmuebleRemoto
   /* [09AA-24] Alias del inmueble (otros nombres del aviso). Ausente en
    * registros viejos = sin alias. */
   alias_titulos?: string[] | null;
+  /* [30AA-7] Versiones sin aviso de Marketplace en ninguna cuenta. Solo lo
+   * manda el listado de admin; ausente = desconocido (no se pinta el aviso). */
+  faltan_avisos?: { versiones: number[]; total: number } | null;
 }
 
 export function urlAbsoluta(url: string): string {
@@ -332,6 +335,8 @@ export function remotoADominio(r: InmuebleRemoto): Inmueble {
     marketplaceId: r.marketplace_id ?? null,
     avisoConocido: r.aviso_conocido,
     aliasTitulos: r.alias_titulos ?? [],
+    /* [30AA-7] Ausente en respuestas viejas = no se sabe cuántas faltan. */
+    faltanAvisos: r.faltan_avisos ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

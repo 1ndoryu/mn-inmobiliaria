@@ -2,6 +2,7 @@
 // pensado para reutilizarse tal cual en la futura app móvil (Capacitor).
 // El `import type` de la receta no crea ciclo en ejecución (se borra al compilar).
 import type { RecetaPublicidad } from './plantilla-publicidad';
+import type { FaltanAvisos } from './versiones';
 
 export type TipoInmueble = 'apartamento' | 'casa' | 'local' | 'terreno' | 'townhouse';
 /* [25AA-7] «ambas»: venta (`precio`) + alquiler (`precioAlquiler`, canon mensual). */
@@ -115,6 +116,9 @@ export interface VinculoMarketplace {
   marketplaceId: string | null;
   avisoConocido?: boolean;
   aliasTitulos: string[];
+  /* [30AA-7] Versiones que aún no tienen aviso en ninguna cuenta. Lo calcula
+   * el backend en el listado de admin; ausente = no se sabe (no se avisa). */
+  faltanAvisos?: FaltanAvisos;
 }
 
 /* Un alias por línea → lista saneada (recorte, sin vacíos, sin repetidos

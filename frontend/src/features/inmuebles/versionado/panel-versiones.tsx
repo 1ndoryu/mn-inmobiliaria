@@ -34,8 +34,8 @@ interface Props {
   alBorrarTexto: (version: number) => void;
   alGenerarFotos: (version: number) => void;
   alBorrarFoto: (orden: number, version: number) => void;
-  alVincular: (cuentaId: string, marketplaceId: string | null) => void;
-  alDesvincular: (cuentaId: string) => void;
+  alVincular: (cuentaId: string, version: number, marketplaceId: string | null) => void;
+  alDesvincular: (cuentaId: string, version: number) => void;
   alCrearCuenta: (nombre: string, url: string) => void;
 }
 
@@ -140,6 +140,7 @@ export function PanelVersiones(props: Props) {
           <SeccionFacebook
             cuentas={props.cuentas}
             vinculos={props.vinculos}
+            configuradas={datos.configuradas}
             ocupado={props.ocupado}
             alVincular={props.alVincular}
             alDesvincular={props.alDesvincular}

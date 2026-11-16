@@ -33,8 +33,8 @@ export function SeccionVersionado({ inmueble }: { inmueble: Inmueble }) {
       alBorrarTexto={(v) => void versionado.borrarTexto(v)}
       alGenerarFotos={(version) => void versionado.generarFotos(version)}
       alBorrarFoto={(orden, version) => void versionado.borrarFoto(orden, version)}
-      alVincular={(c, m) => void versionado.vincular(c, m)}
-      alDesvincular={(c) => void versionado.desvincular(c)}
+      alVincular={(c, v, m) => void versionado.vincular(c, v, m)}
+      alDesvincular={(c, v) => void versionado.desvincular(c, v)}
       alCrearCuenta={(n, u) => void versionado.crear(n, u)}
     />
   );
