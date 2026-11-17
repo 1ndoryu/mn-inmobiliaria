@@ -33,8 +33,8 @@ impl FacebookRepository {
     pub async fn listar(pool: &PgPool) -> Result<Vec<FacebookRow>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
         sqlx::query_as::<_, FacebookRow>(
-            "SELECT id, nombre, url, notas, principal, creado_en \
-             FROM facebook ORDER BY principal DESC, nombre ASC",
+            "SELECT id, nombre, url, notas, principal, version, creado_en \
+             FROM facebook ORDER BY version ASC NULLS LAST, nombre ASC",
         )
         .fetch_all(pool)
         .await
@@ -43,7 +43,7 @@ impl FacebookRepository {
     pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<FacebookRow>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
         sqlx::query_as::<_, FacebookRow>(
-            "SELECT id, nombre, url, notas, principal, creado_en FROM facebook WHERE id = $1",
+            "SELECT id, nombre, url, notas, principal, version, creado_en FROM facebook WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(pool)
@@ -69,6 +69,7 @@ impl FacebookRepository {
         url: &str,
         notas: &str,
         principal: bool,
+        version: Option<i16>,
     ) -> Result<FacebookRow, sqlx::Error> {
         let id = Uuid::new_v4();
         let mut tx = pool.begin().await?;
@@ -77,14 +78,16 @@ impl FacebookRepository {
         }
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
         let fila = sqlx::query_as::<_, FacebookRow>(
-            "INSERT INTO facebook (id, nombre, url, notas, principal) VALUES ($1, $2, $3, $4, $5) \
-             RETURNING id, nombre, url, notas, principal, creado_en",
+            "INSERT INTO facebook (id, nombre, url, notas, principal, version) \
+             VALUES ($1, $2, $3, $4, $5, $6) \
+             RETURNING id, nombre, url, notas, principal, version, creado_en",
         )
         .bind(id)
         .bind(nombre)
         .bind(url)
         .bind(notas)
         .bind(principal)
+        .bind(version)
         .fetch_one(&mut *tx)
         .await?;
         tx.commit().await?;
@@ -98,6 +101,7 @@ impl FacebookRepository {
         url: &str,
         notas: &str,
         principal: bool,
+        version: Option<i16>,
     ) -> Result<Option<FacebookRow>, sqlx::Error> {
         let mut tx = pool.begin().await?;
         if principal {
@@ -105,14 +109,16 @@ impl FacebookRepository {
         }
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
         let fila = sqlx::query_as::<_, FacebookRow>(
-            "UPDATE facebook SET nombre = $2, url = $3, notas = $4, principal = $5 WHERE id = $1 \
-             RETURNING id, nombre, url, notas, principal, creado_en",
+            "UPDATE facebook SET nombre = $2, url = $3, notas = $4, principal = $5, version = $6 \
+             WHERE id = $1 \
+             RETURNING id, nombre, url, notas, principal, version, creado_en",
         )
         .bind(id)
         .bind(nombre)
         .bind(url)
         .bind(notas)
         .bind(principal)
+        .bind(version)
         .fetch_optional(&mut *tx)
         .await?;
         tx.commit().await?;
@@ -143,11 +149,65 @@ impl FacebookRepository {
     pub async fn principal(pool: &PgPool) -> Result<Option<FacebookRow>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
         sqlx::query_as::<_, FacebookRow>(
-            "SELECT id, nombre, url, notas, principal, creado_en \
+            "SELECT id, nombre, url, notas, principal, version, creado_en \
              FROM facebook WHERE principal LIMIT 1",
         )
         .fetch_optional(pool)
         .await
+    }
+
+    /// [30AA-13] La cuenta dueña de una versión (`None` = ninguna cuenta la
+    /// tiene asignada, así que esa versión no se exporta).
+    pub async fn cuenta_de_version(
+        pool: &PgPool,
+        version: i16,
+    ) -> Result<Option<FacebookRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        sqlx::query_as::<_, FacebookRow>(
+            "SELECT id, nombre, url, notas, principal, version, creado_en \
+             FROM facebook WHERE version = $1 LIMIT 1",
+        )
+        .bind(version)
+        .fetch_optional(pool)
+        .await
+    }
+
+    /// [30AA-13] Versión → cuenta, de una sola consulta (el export lo usa para
+    /// decidir en qué cuenta se mide cada grupo).
+    pub async fn cuentas_por_version(
+        pool: &PgPool,
+    ) -> Result<std::collections::HashMap<i16, Uuid>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        let filas: Vec<(i16, Uuid)> = sqlx::query_as(
+            "SELECT version, id FROM facebook WHERE version IS NOT NULL",
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(filas.into_iter().collect())
+    }
+
+    /// [30AA-13] ¿Qué versiones tienen aviso en SU cuenta propia? Clave
+    /// `(inmueble, version)`; solo las que tienen fila en la cuenta de esa
+    /// versión con el ID del aviso puesto. Es lo que separa publicados de
+    /// pendientes en el export.
+    pub async fn avisos_en_la_cuenta_de_su_version(
+        pool: &PgPool,
+        ids: &[Uuid],
+    ) -> Result<std::collections::HashSet<(Uuid, i16)>, sqlx::Error> {
+        if ids.is_empty() {
+            return Ok(std::collections::HashSet::new());
+        }
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        let filas: Vec<(Uuid, i16)> = sqlx::query_as(
+            "SELECT v.inmueble_id, v.version FROM inmueble_facebook v \
+             JOIN facebook f ON f.id = v.facebook_id \
+             WHERE v.inmueble_id = ANY($1) AND f.version = v.version \
+               AND v.marketplace_id IS NOT NULL AND btrim(v.marketplace_id) <> ''",
+        )
+        .bind(ids)
+        .fetch_all(pool)
+        .await?;
+        Ok(filas.into_iter().collect())
     }
 
     /* ---- Vínculos inmueble ↔ cuenta ---- */
@@ -184,8 +244,13 @@ impl FacebookRepository {
         configuradas: i16,
     ) -> Result<Vec<i16>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        /* [30AA-13] Solo cubre el vínculo con la cuenta dueña de esa versión:
+         * la v1 va a Maye y la v2 a Wan, así que tener la v2 apuntada a Maye
+         * no publica nada. */
         let cubiertas: Vec<(i16,)> = sqlx::query_as(
-            "SELECT DISTINCT version FROM inmueble_facebook WHERE inmueble_id = $1",
+            "SELECT DISTINCT v.version FROM inmueble_facebook v \
+             JOIN facebook f ON f.id = v.facebook_id \
+             WHERE v.inmueble_id = $1 AND f.version = v.version",
         )
         .bind(inmueble_id)
         .fetch_all(pool)
@@ -212,9 +277,12 @@ impl FacebookRepository {
             return Ok(mapa);
         }
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        /* [30AA-13] Igual que `faltan_avisos`: cubre solo la cuenta dueña de
+         * la propia versión. */
         let cubiertas_filas: Vec<(Uuid, i16)> = sqlx::query_as(
-            "SELECT DISTINCT inmueble_id, version FROM inmueble_facebook \
-             WHERE inmueble_id = ANY($1)",
+            "SELECT DISTINCT v.inmueble_id, v.version FROM inmueble_facebook v \
+             JOIN facebook f ON f.id = v.facebook_id \
+             WHERE v.inmueble_id = ANY($1) AND f.version = v.version",
         )
         .bind(ids)
         .fetch_all(pool)

@@ -22,6 +22,8 @@ pub struct FacebookRow {
     pub url: String,
     pub notas: String,
     pub principal: bool,
+    /// [30AA-13] Versión que se publica en ESTA cuenta (v1 = Maye, v2 = Wan).
+    pub version: Option<i16>,
     pub creado_en: DateTime<Utc>,
 }
 
@@ -35,6 +37,8 @@ pub struct Facebook {
     pub notas: String,
     /// Cuenta por defecto: su aviso es el que refleja `inmuebles.marketplace_id`.
     pub principal: bool,
+    /// [30AA-13] Versión de los avisos de esta cuenta (`None` = sin asignar).
+    pub version: Option<i16>,
     /// Cuántos inmuebles tiene vinculados (lo pinta la lista de cuentas).
     pub inmuebles: i64,
     pub creado_en: DateTime<Utc>,
@@ -49,6 +53,7 @@ impl Facebook {
             url: row.url,
             notas: row.notas,
             principal: row.principal,
+            version: row.version,
             inmuebles,
             creado_en: row.creado_en,
         }
@@ -73,6 +78,10 @@ pub struct FacebookRequest {
     /// Marca la cuenta como principal; desmarca cualquier otra (BD lo impone).
     #[serde(default)]
     pub principal: bool,
+    /// [30AA-13] Versión que se publica aquí (1 = Maye, 2 = Wan). `None` = sin
+    /// asignar; una versión solo puede pertenecer a una cuenta.
+    #[serde(default)]
+    pub version: Option<i16>,
 }
 
 /// Vínculo de un inmueble con una cuenta: lo que pinta el modal

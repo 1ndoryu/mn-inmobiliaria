@@ -35,10 +35,11 @@ pub struct InmuebleExport {
     pub titulo: String,
     pub descripcion: String,
     pub fotos: Vec<FotoExport>,
-    /// [30AA-12] Publicado en ESTA cuenta con ESTA versión: tiene fila en
-    /// `inmueble_facebook` y el ID del aviso puesto. Vincular sin ID no cuenta:
-    /// el aviso todavía no existe en Marketplace. El escritorio lo usa para
-    /// separar `publicados/` de `pendientes/`.
+    /// [30AA-13] Publicado en la cuenta dueña de ESTA versión (v1 = Maye,
+    /// v2 = Wan): tiene fila en `inmueble_facebook` con esa cuenta y el ID del
+    /// aviso puesto. Vincular sin ID no cuenta: el aviso todavía no existe en
+    /// Marketplace. El escritorio lo usa para separar `publicados/` de
+    /// `pendientes/`.
     pub publicado: bool,
 }
 
@@ -92,21 +93,17 @@ impl ExportService {
         let inmuebles = InmuebleRepository::por_facebook(pool, cuenta.id).await?;
         let ids: Vec<Uuid> = inmuebles.iter().map(|i| i.id).collect();
         let fotos = fotos_de(pool, &ids).await?;
-        /* [30AA-12] Qué versiones de qué inmuebles están publicadas en ESTA
-         * cuenta: una sola consulta para las dos ramas (v1 y variantes). */
-        let vinculos = FacebookRepository::vinculos_por_inmuebles(pool, &ids).await?;
-        let publicado = |id: Uuid, version: i16| {
-            vinculos.get(&id).is_some_and(|vs| {
-                vs.iter().any(|v| {
-                    v.facebook_id == cuenta.id
-                        && v.version == version
-                        && v.marketplace_id.as_deref().is_some_and(|m| !m.trim().is_empty())
-                })
-            })
-        };
+        /* [30AA-13] Cada versión se publica en UNA cuenta (v1 = Maye, v2 = Wan):
+         * «publicado» se mide en la cuenta dueña de esa versión, no en la
+         * cuenta que pidió el export. Dos consultas para todo el manifiesto. */
+        let dueno = FacebookRepository::cuentas_por_version(pool).await?;
+        let avisos = FacebookRepository::avisos_en_la_cuenta_de_su_version(pool, &ids).await?;
+        let publicado = |id: Uuid, version: i16| avisos.contains(&(id, version));
 
         let mut grupos = Vec::with_capacity(5);
-        let incluir = |v: i16| solo_version.is_none_or(|s| s == v);
+        /* Sin cuenta dueña no hay dónde publicar: esa versión no se exporta
+         * (y `publicado` sería siempre falso, que es una mentira útil). */
+        let incluir = |v: i16| solo_version.is_none_or(|s| s == v) && dueno.contains_key(&v);
 
         if incluir(1) {
             grupos.push(GrupoExport {

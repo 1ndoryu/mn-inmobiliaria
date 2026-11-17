@@ -28,6 +28,14 @@ fn admin_opts() -> PgConnectOptions {
 
 /// Recrea una BD vacía y la migra. `nombre` es constante del test (no entrada externa).
 async fn recrear_bd(admin: &PgConnectOptions, nombre: &str) -> PgPool {
+    /* Las migraciones se empotran al compilar (sqlx::migrate!): borrar la BD no
+     * basta si el binario es de antes de una migración nueva, y el test falla
+     * con un «ColumnNotFound» que engaña. Se avisa claro. */
+    let migraciones = sqlx::migrate!("./migrations");
+    assert!(
+        migraciones.iter().any(|m| m.version == 20261117000054),
+        "binario de pruebas viejo: recompila con la migración 20261117000054"
+    );
     let mut conn = PgConnection::connect_with(&admin.clone().database("postgres"))
         .await
         .expect("versiones_facebook: no conecta a la BD postgres");
@@ -94,6 +102,14 @@ fn cuenta(nombre: &str, principal: bool) -> FacebookRequest {
         url: String::new(),
         notas: String::new(),
         principal,
+        version: None,
+    }
+}
+
+fn cuenta_en(nombre: &str, principal: bool, version: i16) -> FacebookRequest {
+    FacebookRequest {
+        version: Some(version),
+        ..cuenta(nombre, principal)
     }
 }
 
@@ -208,9 +224,18 @@ async fn el_manifiesto_separa_v1_y_v2() {
     let admin = admin_opts();
     let pool = recrear_bd(&admin, "glory_versiones_c").await;
     let id = sembrar(&pool).await;
-    let maye = FacebookService::crear(&pool, cuenta("Maye", true))
+    /* [30AA-13] Cada versión tiene UN dueño: v1 = Maye, v2 = Wan. Maye ya la
+     * siembra la migración de Facebook, con la v1 asignada. */
+    let maye = FacebookService::listar(&pool)
         .await
-        .expect("cuenta principal");
+        .expect("cuentas")
+        .into_iter()
+        .find(|c| c.principal)
+        .expect("Maye sembrada");
+    assert_eq!(maye.version, Some(1), "la principal nace con la v1");
+    let wan = FacebookService::crear(&pool, cuenta_en("Wan", false, 2))
+        .await
+        .expect("cuenta de la v2");
     FacebookService::vincular(&pool, id, maye.id, 1, None)
         .await
         .expect("vínculo");
@@ -263,15 +288,25 @@ async fn el_manifiesto_separa_v1_y_v2() {
     assert!(variante.fotos[0].url.starts_with("/uploads/"));
     assert!(!variante.publicado);
 
-    /* Poner el aviso en la v2 no publica la v1: cada versión se decide sola. */
+    /* [30AA-13] La v2 se mide en SU cuenta (Wan), no en Maye: un aviso de la
+     * v2 en Maye no publica nada, y el mismo aviso en Wan sí. */
     FacebookService::vincular(&pool, id, maye.id, 2, Some("999888777"))
         .await
-        .expect("aviso de la v2");
+        .expect("aviso de la v2 en la cuenta equivocada");
+    let m = ExportService::manifiesto(&pool, None, None)
+        .await
+        .expect("manifiesto con aviso ajeno");
+    assert!(!m.grupos[0].inmuebles[0].publicado, "la v1 sigue pendiente");
+    assert!(!m.grupos[1].inmuebles[0].publicado, "la v2 apuntada en Maye no cuenta");
+
+    FacebookService::vincular(&pool, id, wan.id, 2, Some("999888777"))
+        .await
+        .expect("aviso de la v2 en su cuenta");
     let m = ExportService::manifiesto(&pool, None, None)
         .await
         .expect("manifiesto con aviso");
     assert!(!m.grupos[0].inmuebles[0].publicado, "la v1 sigue pendiente");
-    assert!(m.grupos[1].inmuebles[0].publicado, "la v2 ya está publicada");
+    assert!(m.grupos[1].inmuebles[0].publicado, "la v2 ya está publicada en Wan");
 
     /* Pedir solo v2 no devuelve el grupo de v1. */
     let solo_v2 = ExportService::manifiesto(&pool, None, Some(2))

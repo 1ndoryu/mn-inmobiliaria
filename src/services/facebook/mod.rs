@@ -43,6 +43,7 @@ impl FacebookService {
             req.url.trim(),
             req.notas.trim(),
             principal,
+            Self::version_valida(pool, None, req.version).await?,
         )
         .await
         .map_err(conflicto)?;
@@ -66,6 +67,7 @@ impl FacebookService {
             req.url.trim(),
             req.notas.trim(),
             req.principal,
+            Self::version_valida(pool, Some(id), req.version).await?,
         )
         .await
         .map_err(conflicto)?
@@ -88,6 +90,28 @@ impl FacebookService {
         Self::resincronizar_todos(pool).await?;
         notificar();
         Ok(())
+    }
+
+    /// [30AA-13] La versión de una cuenta va de 1 a 5 y solo puede tenerla una
+    /// cuenta: dos cuentas publicando «la v2» dejarían el pendiente ambiguo.
+    async fn version_valida(
+        pool: &PgPool,
+        cuenta: Option<Uuid>,
+        version: Option<i16>,
+    ) -> Result<Option<i16>, AppError> {
+        let Some(v) = version else { return Ok(None) };
+        if !(1..=5).contains(&v) {
+            return Err(AppError::Validation(
+                "La versión de la cuenta va de 1 a 5".into(),
+            ));
+        }
+        let ocupada = FacebookRepository::cuenta_de_version(pool, v).await?;
+        if ocupada.is_some_and(|c| Some(c.id) != cuenta) {
+            return Err(AppError::Validation(format!(
+                "La versión {v} ya pertenece a otra cuenta"
+            )));
+        }
+        Ok(Some(v))
     }
 
     pub async fn vinculos(pool: &PgPool, inmueble_id: Uuid) -> Result<Vec<VinculoFacebook>, AppError> {
