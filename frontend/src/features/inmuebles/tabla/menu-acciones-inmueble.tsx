@@ -2,7 +2,7 @@
  * Vive en `tabla/` (no en `tabla-inmuebles.tsx`) por el límite de 300 líneas
  * y para no abarrotar `features/inmuebles/` (máx 10 archivos). Sin cambio
  * de conducta: mismas acciones y orden. */
-import { EllipsisVertical, Eye, EyeOff, Globe, ImageDown, ImagePlus, Images, Megaphone, Pencil, Trash2 } from 'lucide-react';
+import { EllipsisVertical, Eye, EyeOff, Globe, ImageDown, ImagePlus, Images, Layers, Megaphone, Pencil, Trash2 } from 'lucide-react';
 import { fotosVisiblesDe, type Inmueble } from '@/domain/inmueble';
 import { Button } from '@/components/ui/button';
 import { confirmar } from '@/platform/ventana';
@@ -25,6 +25,8 @@ interface PropsMenuAcciones {
   onDescargarPublicidad: () => void;
   onDescargarMejoradas: () => void;
   onEditarPublicidad: () => void;
+  /* [30AA-14] Todas las versiones de las fotos y su diferencia. */
+  onRevisarVersiones: () => void;
 }
 
 /* Menú contextual de 3 puntos: Ver, Editar, Copy, Añadir fotos,
@@ -41,6 +43,7 @@ export function MenuAcciones({
   onDescargarPublicidad,
   onDescargarMejoradas,
   onEditarPublicidad,
+  onRevisarVersiones,
 }: PropsMenuAcciones) {
   const nombre = inmueble.titulo || 'Sin título';
   const conFotos = fotosVisiblesDe(inmueble).length > 0;
@@ -77,6 +80,9 @@ export function MenuAcciones({
         </DropdownMenuItem>
         {conFotos && (
           <>
+            <DropdownMenuItem onClick={onRevisarVersiones}>
+              <Layers /> Revisar versiones
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={onEditarPublicidad}>
               <Pencil /> Editar imagen publicitaria
             </DropdownMenuItem>

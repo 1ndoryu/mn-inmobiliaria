@@ -8,6 +8,7 @@ import type {
   CuentaFacebook,
   EstadoVersion,
   FotoVariante,
+  RevisionFotos,
   SalidaGeneracion,
   VersionesInmueble,
   VinculoFacebook,
@@ -176,4 +177,10 @@ export function guardarConfigVersiones(versiones: number): Promise<{ versiones: 
     method: 'PUT',
     body: JSON.stringify({ versiones }),
   });
+}
+
+/* ---------- [30AA-14] Revisión de fotos ---------- */
+
+export function leerRevisionFotos(inmuebleId: string): Promise<RevisionFotos> {
+  return apiFetch<RevisionFotos>(`/api/admin/inmuebles/${encodeURIComponent(inmuebleId)}/fotos/versiones`);
 }

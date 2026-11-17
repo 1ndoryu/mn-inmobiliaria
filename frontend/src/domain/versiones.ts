@@ -144,3 +144,38 @@ export function versionesDe(v: VersionesInmueble): number[] {
   for (const f of v.fotos) propias.add(f.version);
   return [...propias].sort((a, b) => a - b);
 }
+
+/* ---------- [30AA-14] Revisión de todas las versiones de las fotos ---------- */
+
+/** Una foto de un `orden` en una versión concreta. */
+export interface VersionDeFoto {
+  /** `original`, `mejorada` o `variante:<n>`. */
+  origen: string;
+  /** 0 en original/mejorada; 2, 3… en las variantes. */
+  version: number;
+  url: string;
+  /** % de diferencia de su histograma contra el de la original (`null` en la
+   * original, o si la foto no se pudo leer). */
+  diferencia_pct: number | null;
+}
+
+/** Todas las versiones de una misma foto: la original primero. */
+export interface FotoComparada {
+  orden: number;
+  versiones: VersionDeFoto[];
+}
+
+/** Lo que devuelve `GET /inmuebles/:id/fotos/versiones`. */
+export interface RevisionFotos {
+  inmueble_id: string;
+  titulo: string;
+  fotos: FotoComparada[];
+}
+
+/** Etiqueta corta de una versión de foto: «Original», «Mejorada», «v2»… */
+export function etiquetaDeVersion(v: VersionDeFoto): string {
+  if (v.origen === 'original') return 'Original';
+  if (v.origen === 'mejorada') return 'Mejorada';
+  const n = v.origen.startsWith('variante:') ? v.origen.slice('variante:'.length) : String(v.version);
+  return `v${n}`;
+}

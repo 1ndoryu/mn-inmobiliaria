@@ -6,6 +6,7 @@ import { exportarPublicidad } from '@/platform/canvas-publicidad';
 import { usePublicidades } from '@/hooks/publicidad/use-publicidades';
 import { ModalDescargarFotos } from '@/features/inmuebles/modal-descargar-fotos';
 import { ModalVinculos } from '@/features/inmuebles/modal-vinculos';
+import { ModalRevisionVersiones } from '@/features/inmuebles/versionado/modal-revision-versiones';
 import { ModalEditorPublicidad } from '@/features/publicidad/modal-editor-publicidad';
 import { Badge } from '@/components/ui/badge';
 import { MiniaturaFoto } from '@/components/ui/miniatura-foto';
@@ -18,6 +19,7 @@ import { ButtonPlano } from '@/components/ui/button';
 /* [13AA-12] Columna Sync: estado frente al servidor, en tiempo real. */
 import { useSyncInmuebles } from '@/hooks/sync/use-sync-inmuebles';
 import { useModalVinculos } from './tabla/use-modal-vinculos';
+import { useModalRevision } from './tabla/use-modal-revision';
 import { BannerSync, SyncBadge } from './tabla/celda-sync-inmueble';
 
 interface Props {
@@ -41,6 +43,8 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
   /* [30AA-9] Badge de Vínculo pulsable: abre el modal de vínculos de esa ficha.
    * Su estado vive en el hook para no pasar del límite de `useState`. */
   const vinculos = useModalVinculos((inmueble) => onActualizarInmueble?.(inmueble));
+  /* [30AA-14] Revisión de las versiones de las fotos de una ficha. */
+  const revision = useModalRevision();
   /* El editor de publicidad trabaja con el objeto fresco de la lista: si la
    * propiedad se editó fuera, la vista previa recarga sola. */
   const editandoPubliFresco = editandoPubli ? (inmuebles.find((i) => i.id === editandoPubli.id) ?? editandoPubli) : null;
@@ -85,6 +89,7 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
         setFallo(null);
         setEditandoPubli(inmueble);
       },
+      onRevisarVersiones: () => revision.abrir(inmueble),
     };
   }
 
@@ -299,6 +304,12 @@ export function TablaInmuebles({ inmuebles, onVer, onEditar, onEliminar, onAnadi
         inmueble={vinculos.inmueble}
         alCerrar={vinculos.cerrar}
         alActualizar={vinculos.alActualizar}
+      />
+      {/* [30AA-14] `key` por ficha: las versiones se releen al cambiar de inmueble. */}
+      <ModalRevisionVersiones
+        key={revision.inmueble ? `revision-${revision.inmueble.id}` : 'revision-cerrado'}
+        inmueble={revision.inmueble}
+        alCerrar={revision.cerrar}
       />
     </>
   );
