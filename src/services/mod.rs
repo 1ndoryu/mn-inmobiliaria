@@ -22,7 +22,7 @@ pub use comercial::suscriptor::SuscriptorService;
 pub use exportacion::ExportService;
 pub use facebook::FacebookService;
 pub use inmueble::{InmuebleService, RecetaVariante};
-pub use versiones::VersionService;
+pub use versiones::{RevisionService, VersionService};
 pub use publicidad::PublicidadService;
 pub use mensajeria::alerta_whatsapp::vigilar as vigilar_alertas_whatsapp;
 pub use mensajeria::canal_resolver::{modo_por_canal, CanalResolver};

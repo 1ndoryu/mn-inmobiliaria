@@ -11,6 +11,10 @@ use std::fmt::Write as _;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+/* [30AA-14] Revisión de todas las versiones de las fotos de un inmueble. */
+pub mod comparacion;
+pub use comparacion::RevisionService;
+
 use crate::config::ia::SISTEMA_VARIANTE;
 use crate::errors::AppError;
 use crate::models::{

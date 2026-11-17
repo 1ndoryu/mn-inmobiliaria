@@ -15,8 +15,9 @@ use crate::models::{
     EditarVersionRequest, FotoVariante, GenerarVersionRequest, GenerarVersionSalida,
     InmuebleVersion, VersionesInmueble,
 };
+use crate::services::versiones::comparacion::RevisionFotos;
 use crate::repositories::VersionRepository;
-use crate::services::versiones::VersionService;
+use crate::services::versiones::{RevisionService, VersionService};
 use crate::AppState;
 
 /// Versiones, fotos variante e historial de un inmueble
@@ -258,12 +259,37 @@ pub async fn guardar_config(
     Ok(Json(serde_json::json!({ "versiones": cuerpo.versiones })))
 }
 
+/// [30AA-14] Todas las versiones de las fotos de UN inmueble, con la
+/// diferencia de cada una contra su original. Es lo que pinta el modal de
+/// revisión: se pide al abrirlo y no se paga en la lista.
+#[utoipa::path(
+    get,
+    path = "/api/admin/inmuebles/{id}/fotos/versiones",
+    params(("id" = Uuid, Path, description = "Inmueble")),
+    responses(
+        (status = 200, description = "Versiones cruzadas por foto", body = RevisionFotos),
+        (status = 404, description = "Inmueble no encontrado", body = crate::errors::ErrorResponse)
+    ),
+    security(("bearer_auth" = []))
+)]
+pub async fn revision_fotos(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Path(id): Path<Uuid>,
+) -> Result<Json<RevisionFotos>, AppError> {
+    Ok(Json(
+        RevisionService::comparar(&state.pool, &state.upload_dir, id).await?,
+    ))
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route(
             "/inmuebles/:id/versiones",
             get(detalle).post(generar),
         )
+        /* [30AA-14] Versiones de las FOTOS (no de los textos). */
+        .route("/inmuebles/:id/fotos/versiones", get(revision_fotos))
         .route(
             "/inmuebles/:id/versiones/:n",
             put(editar).delete(borrar),
