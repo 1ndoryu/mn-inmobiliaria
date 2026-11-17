@@ -8,11 +8,6 @@
 
 ## Pendientes
 
-- [ ] `30AA-15` — **La v1 del export incluye los inmuebles sin cuenta.** Hoy
-  `InmuebleRepository::por_facebook` filtraba por `inmueble_facebook` y cuatro inmuebles sin
-  vínculo (Villa Betania, Propiedad Industrial, Calas Suites, Orquídea) desaparecían del
-  manifiesto en vez de caer en `pendientes`. Hecho cuando `version 1/pendientes` del exe los
-  contenga a los cuatro.
 - [ ] `30AA-11` — **Cerrar Lechera y la v2 de los 4 inmuebles pequeños.** Hecho cuando
   `apartamento-amoblado-en-villa-sol-suites-lechera` (5/19), Villa Tocoma, Vista Hermosa, Coronado
   Plaza piso 4 y Las Peoñas estén con su v2 completa, medida con `medir.py`, con el texto de cada
