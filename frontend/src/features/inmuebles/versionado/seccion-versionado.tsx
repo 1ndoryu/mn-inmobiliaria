@@ -36,6 +36,7 @@ export function SeccionVersionado({ inmueble }: { inmueble: Inmueble }) {
       alVincular={(c, v, m) => void versionado.vincular(c, v, m)}
       alDesvincular={(c, v) => void versionado.desvincular(c, v)}
       alCrearCuenta={(n, u) => void versionado.crear(n, u)}
+      alAsignarVersion={(id, v) => void versionado.asignarVersion(id, v)}
     />
   );
 }

@@ -12,6 +12,8 @@ export interface CuentaFacebook {
   url: string;
   notas: string | null;
   principal: boolean;
+  /** [30AA-13] Versión que publica esta cuenta (v1 = Maye, v2 = Wan). */
+  version: number | null;
   inmuebles: number;
   creado_en: string;
 }

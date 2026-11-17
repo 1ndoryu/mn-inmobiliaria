@@ -24,6 +24,7 @@ export function crearCuenta(datos: {
   url?: string;
   notas?: string;
   principal?: boolean;
+  version?: number | null;
 }): Promise<CuentaFacebook> {
   return apiFetch<CuentaFacebook>('/api/admin/facebook', {
     method: 'POST',
@@ -33,7 +34,7 @@ export function crearCuenta(datos: {
 
 export function actualizarCuenta(
   id: string,
-  datos: { nombre: string; url?: string; notas?: string; principal?: boolean },
+  datos: { nombre: string; url?: string; notas?: string; principal?: boolean; version?: number | null },
 ): Promise<CuentaFacebook> {
   return apiFetch<CuentaFacebook>(`/api/admin/facebook/${encodeURIComponent(id)}`, {
     method: 'PUT',

@@ -33,7 +33,8 @@ export function ModalVinculos({ inmueble, alCerrar, alActualizar }: Props) {
     fotosParaVariante: [],
     promptVariante: '',
   });
-  const { recargar, datos, cuentas, vinculos, ocupado, aviso, error, vincular, desvincular, crear } = versionado;
+  const { recargar, datos, cuentas, vinculos, ocupado, aviso, error, vincular, desvincular, crear, asignarVersion } =
+    versionado;
 
   /* Se recuerda el id abierto para releerlo al cerrar aunque el padre ya
    * haya vaciado la selección. */
@@ -116,6 +117,9 @@ export function ModalVinculos({ inmueble, alCerrar, alActualizar }: Props) {
               void conReposicion(async () => {
                 await crear(nombre, url);
               })
+            }
+            alAsignarVersion={(cuentaId, version) =>
+              void conReposicion(() => asignarVersion(cuentaId, version))
             }
           />
         )}

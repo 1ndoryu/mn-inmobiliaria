@@ -215,12 +215,34 @@ export function useVersionado({ inmuebleId, fotosParaVariante, promptVariante }:
   );
 
   const editarCuenta = useCallback(
-    async (id: string, datos2: { nombre: string; url: string; principal: boolean }) => {
+    async (id: string, datos2: { nombre: string; url: string; principal: boolean; version?: number | null }) => {
       const r = await mutar(() => actualizarCuenta(id, datos2));
       await regenerarCuentas();
       return r;
     },
     [mutar, regenerarCuentas],
+  );
+
+  /* [30AA-13] La versión de una cuenta decide qué se publica en ella: se
+   * cambia desde la sección de Facebook y el pendiente lo recalcula el
+   * servidor, así que después se reponen vínculos y cuentas. */
+  const asignarVersion = useCallback(
+    async (id: string, version: number | null) => {
+      const cuenta = cuentas.find((c) => c.id === id);
+      if (!cuenta) return;
+      await mutar(() =>
+        actualizarCuenta(id, {
+          nombre: cuenta.nombre,
+          url: cuenta.url,
+          notas: cuenta.notas ?? '',
+          principal: cuenta.principal,
+          version,
+        }),
+      );
+      await regenerarCuentas();
+      await recargar();
+    },
+    [cuentas, mutar, recargar, regenerarCuentas],
   );
 
   const eliminarCuenta = useCallback(
@@ -283,6 +305,7 @@ export function useVersionado({ inmuebleId, fotosParaVariante, promptVariante }:
     borrarFoto,
     crear,
     editarCuenta,
+    asignarVersion,
     eliminarCuenta,
     vincular,
     desvincular,

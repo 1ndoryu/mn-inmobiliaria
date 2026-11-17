@@ -1,11 +1,13 @@
 /* [30AA-1] Cuentas de Facebook del inmueble: a cuál está vinculado y con qué
  * aviso de Marketplace en cada una. La cuenta principal es la que espeja
  * `inmuebles.marketplace_id`, así que su ID se sigue editando en la ficha.
- * [30AA-7] El vínculo es POR VERSIÓN: cada versión se publica como aviso
- * distinto y lleva su propio ID, aunque sea en la misma cuenta.
+ * [30AA-13] Cada cuenta publica UNA versión fija: la v1 en el Facebook de Maye
+ * y la v2 en el de Wan (decisión de la usuaria, 2026-11-16). Aquí solo se
+ * puede poner el ID de la versión de esa cuenta; lo pendiente por publicar se
+ * mide contra ella.
  * [30AA-9] `compacto` lo usa el modal exclusivo de vínculos: misma conducta,
- * sin el párrafo de introducción y con las filas en una línea, para que dos
- * versiones y dos cuentas entren sin scroll. */
+ * sin el párrafo de introducción y con las filas en una línea, para que las
+ * cuentas entren sin scroll. */
 import { useState } from 'react';
 import { Check, Plus, Unlink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -17,14 +19,16 @@ import { normalizarMarketplaceId, esMarketplaceIdValido } from '@/domain/inmuebl
 interface Props {
   cuentas: CuentaFacebook[];
   vinculos: VinculoFacebook[];
-  /** Versiones que ESTE inmueble tiene (1 y las que se generaron): una fila
-   * de aviso por cada una. Un inmueble sin v2 no pide ID de v2. */
+  /** Versiones que ESTE inmueble tiene (1 y las que se generaron): si la
+   * versión de una cuenta no está aquí, esa cuenta no pide ID. */
   versiones: number[];
   ocupado: boolean;
   compacto?: boolean;
   alVincular: (cuentaId: string, version: number, marketplaceId: string | null) => void;
   alDesvincular: (cuentaId: string, version: number) => void;
   alCrearCuenta: (nombre: string, url: string) => void;
+  /** [30AA-13] Reasignar la versión de una cuenta (v1 = Maye, v2 = Wan). */
+  alAsignarVersion: (cuentaId: string, version: number | null) => void;
 }
 
 export function SeccionFacebook({
@@ -36,11 +40,11 @@ export function SeccionFacebook({
   alVincular,
   alDesvincular,
   alCrearCuenta,
+  alAsignarVersion,
 }: Props) {
   const [nuevaNombre, setNuevaNombre] = useState('');
   const [nuevaUrl, setNuevaUrl] = useState('');
   const [creando, setCreando] = useState(false);
-  const lista = versiones.length > 0 ? [...versiones].sort((a, b) => a - b) : [1];
 
   function crear() {
     const nombre = nuevaNombre.trim();
@@ -55,8 +59,8 @@ export function SeccionFacebook({
     <div className={compacto ? 'grid min-w-0 gap-2' : 'grid min-w-0 gap-4'}>
       {!compacto && (
         <p className="text-xs text-muted-foreground">
-          Cada versión se publica como un aviso distinto: pon el ID de Marketplace de cada una en su cuenta. La cuenta
-          principal es la que usa el ID de aviso de la ficha.
+          Cada cuenta publica una sola versión: la v1 en el Facebook de Maye y la v2 en el de Wan. Pon el ID de
+          Marketplace de la versión de cada cuenta; lo que falte es lo que queda por publicar.
         </p>
       )}
 
@@ -76,6 +80,8 @@ export function SeccionFacebook({
       <ul className={compacto ? 'grid min-w-0 gap-1.5' : 'grid min-w-0 gap-2'}>
         {cuentas.map((cuenta) => {
           const deCuenta = vinculos.filter((v) => v.facebook_id === cuenta.id);
+          const version = cuenta.version ?? 1;
+          const existeVersion = versiones.includes(version);
           return (
             <li
               key={cuenta.id}
@@ -83,8 +89,9 @@ export function SeccionFacebook({
             >
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="font-medium">{cuenta.nombre}</span>
-                {cuenta.principal && <Badge variant="secondary">Principal</Badge>}
-                {deCuenta.length > 0 && <Badge variant="outline">Vinculada</Badge>}
+                <Badge variant="secondary">v{version}</Badge>
+                {cuenta.principal && <Badge variant="outline">Principal</Badge>}
+                {deCuenta.some((v) => v.version === version) && <Badge variant="outline">Vinculada</Badge>}
                 <span className="ml-auto text-xs text-muted-foreground">{cuenta.inmuebles} inmuebles</span>
               </div>
               {cuenta.url && !compacto && (
@@ -98,10 +105,8 @@ export function SeccionFacebook({
                 </a>
               )}
               <div className={compacto ? 'mt-1 grid min-w-0 gap-0.5' : 'mt-2 grid min-w-0 gap-1'}>
-                {lista.map((version) => (
+                {existeVersion ? (
                   <CampoAviso
-                    /* `key` con la versión: al cambiar el vínculo el campo se
-                     * remonta con el valor del servidor. */
                     key={`${cuenta.id}-${version}`}
                     version={version}
                     vinculo={deCuenta.find((v) => v.version === version)}
@@ -110,20 +115,26 @@ export function SeccionFacebook({
                     alVincular={(id) => alVincular(cuenta.id, version, id)}
                     alDesvincular={() => alDesvincular(cuenta.id, version)}
                   />
-                ))}
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Sin versión {version} en este inmueble: no hay nada que publicar aquí.
+                  </p>
+                )}
               </div>
+              {/* La versión de la cuenta se cambia aquí mismo: es el único
+               * sitio donde se decide qué se publica dónde. */}
+              <label className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                Publica la
+                <VersionCuenta
+                  cuenta={cuenta}
+                  ocupado={ocupado}
+                  alAsignar={(v) => alAsignarVersion(cuenta.id, v)}
+                />
+              </label>
             </li>
           );
         })}
       </ul>
-
-      {/* La ayuda solo cuando hace falta y sobra sitio: en el modal compacto
-       * el marcador del campo ya dice qué pegar. */}
-      {!compacto && vinculos.length < cuentas.length * lista.length && cuentas.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Para vincular, escribe el ID del aviso de Marketplace de esa versión y pulsa «Vincular».
-        </p>
-      )}
 
       {creando ? (
         <div className={compacto ? 'grid gap-1.5 rounded-md border px-2.5 py-2' : 'grid gap-2 rounded-md border p-3'}>
@@ -152,6 +163,35 @@ export function SeccionFacebook({
         </Button>
       )}
     </div>
+  );
+}
+
+/* Selector de la versión de una cuenta. `''` = sin asignar: esa cuenta deja
+ * de pedir ID y no entra en el export. */
+function VersionCuenta({
+  cuenta,
+  ocupado,
+  alAsignar,
+}: {
+  cuenta: CuentaFacebook;
+  ocupado: boolean;
+  alAsignar: (version: number | null) => void;
+}) {
+  return (
+    <select /* sentinel-disable html-nativo-en-vez-de-componente */
+      className="h-7 rounded-md border border-input bg-background px-1 text-xs"
+      value={cuenta.version ?? ''}
+      disabled={ocupado}
+      aria-label={`Versión que publica ${cuenta.nombre}`}
+      onChange={(e) => alAsignar(e.target.value === '' ? null : Number(e.target.value))}
+    >
+      <option value="">— sin versión —</option>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <option key={n} value={n}>
+          v{n}
+        </option>
+      ))}
+    </select>
   );
 }
 
