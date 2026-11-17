@@ -276,3 +276,13 @@ html {
     overflow-y: auto;
   }
 }
+
+/* [30AA-14] Comparador del modal de revisión: la línea y el recorte de la
+ * original se posicionan con `--corte`, una sola variable que fija el arrastre
+ * (React la escribe; el gate prohíbe el `style` por propiedad). */
+.comparador-antes {
+  clip-path: inset(0 calc(100% - var(--corte, 50%)) 0 0);
+}
+.comparador-linea {
+  left: var(--corte, 50%);
+}
