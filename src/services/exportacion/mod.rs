@@ -35,6 +35,11 @@ pub struct InmuebleExport {
     pub titulo: String,
     pub descripcion: String,
     pub fotos: Vec<FotoExport>,
+    /// [30AA-12] Publicado en ESTA cuenta con ESTA versión: tiene fila en
+    /// `inmueble_facebook` y el ID del aviso puesto. Vincular sin ID no cuenta:
+    /// el aviso todavía no existe en Marketplace. El escritorio lo usa para
+    /// separar `publicados/` de `pendientes/`.
+    pub publicado: bool,
 }
 
 /// Un grupo de carpetas: v1 (ficha pública) o v2 (variante)
@@ -87,6 +92,18 @@ impl ExportService {
         let inmuebles = InmuebleRepository::por_facebook(pool, cuenta.id).await?;
         let ids: Vec<Uuid> = inmuebles.iter().map(|i| i.id).collect();
         let fotos = fotos_de(pool, &ids).await?;
+        /* [30AA-12] Qué versiones de qué inmuebles están publicadas en ESTA
+         * cuenta: una sola consulta para las dos ramas (v1 y variantes). */
+        let vinculos = FacebookRepository::vinculos_por_inmuebles(pool, &ids).await?;
+        let publicado = |id: Uuid, version: i16| {
+            vinculos.get(&id).is_some_and(|vs| {
+                vs.iter().any(|v| {
+                    v.facebook_id == cuenta.id
+                        && v.version == version
+                        && v.marketplace_id.as_deref().is_some_and(|m| !m.trim().is_empty())
+                })
+            })
+        };
 
         let mut grupos = Vec::with_capacity(5);
         let incluir = |v: i16| solo_version.is_none_or(|s| s == v);
@@ -110,6 +127,7 @@ impl ExportService {
                             titulo: i.titulo.clone(),
                             descripcion: i.descripcion.clone(),
                             fotos: fs,
+                            publicado: publicado(i.id, 1),
                         }
                     })
                     .collect(),
@@ -157,6 +175,7 @@ impl ExportService {
                         titulo,
                         descripcion,
                         fotos: propias,
+                        publicado: publicado(i.id, numero),
                     })
                 })
                 .collect();

@@ -8,6 +8,10 @@
 
 ## Pendientes
 
+- [ ] `30AA-12` — **Separar la exportación en `publicados/` y `pendientes/` por versión.**
+  Hecho cuando `version N/` tenga esas dos carpetas, cada inmueble caiga en la suya según tenga
+  el aviso de Marketplace puesto en la cuenta (vincular sin ID = pendiente) y el exe instalado
+  deje el árbol antiguo convertido sin volver a bajar las fotos.
 - [ ] `30AA-11` — **Cerrar Lechera y la v2 de los 4 inmuebles pequeños.** Hecho cuando
   `apartamento-amoblado-en-villa-sol-suites-lechera` (5/19), Villa Tocoma, Vista Hermosa, Coronado
   Plaza piso 4 y Las Peoñas estén con su v2 completa, medida con `medir.py`, con el texto de cada

@@ -111,7 +111,7 @@ async fn el_aviso_espeja_la_cuenta_principal() {
         .expect("segunda cuenta");
 
     /* Vincular la NO principal no toca el espejo; la principal sí. */
-    FacebookService::vincular(&pool, id, nueva.id, None)
+    FacebookService::vincular(&pool, id, nueva.id, 1, None)
         .await
         .expect("vínculo con la nueva");
     let espejo: Option<String> =
@@ -122,7 +122,7 @@ async fn el_aviso_espeja_la_cuenta_principal() {
             .unwrap();
     assert_eq!(espejo, None, "la cuenta no principal no escribe el espejo");
 
-    FacebookService::vincular(&pool, id, maye.id, Some("1234567890"))
+    FacebookService::vincular(&pool, id, maye.id, 1, Some("1234567890"))
         .await
         .expect("vínculo con la principal");
     let espejo: Option<String> =
@@ -138,7 +138,7 @@ async fn el_aviso_espeja_la_cuenta_principal() {
     assert!(vinculos.iter().any(|v| v.principal && v.marketplace_id.is_some()));
 
     /* Desvincular la principal deja el espejo vacío: no queda un aviso colgado. */
-    FacebookService::desvincular(&pool, id, maye.id)
+    FacebookService::desvincular(&pool, id, maye.id, 1)
         .await
         .expect("desvincular");
     let espejo: Option<String> =
@@ -211,7 +211,7 @@ async fn el_manifiesto_separa_v1_y_v2() {
     let maye = FacebookService::crear(&pool, cuenta("Maye", true))
         .await
         .expect("cuenta principal");
-    FacebookService::vincular(&pool, id, maye.id, None)
+    FacebookService::vincular(&pool, id, maye.id, 1, None)
         .await
         .expect("vínculo");
 
@@ -251,6 +251,9 @@ async fn el_manifiesto_separa_v1_y_v2() {
     assert_eq!(inmueble.fotos.len(), 2, "la mejorada sustituye a su original");
     assert!(inmueble.fotos.iter().any(|f| f.origen == "mejorada"));
     assert!(inmueble.fotos.windows(2).all(|p| p[0].orden <= p[1].orden));
+    /* [30AA-12] Vinculado sin aviso (ID vacío) todavía NO está publicado:
+     * el aviso no existe en Marketplace hasta que tiene número. */
+    assert!(!inmueble.publicado, "vínculo sin ID = pendiente");
 
     let v2 = &m.grupos[1];
     assert_eq!(v2.version, 2);
@@ -258,6 +261,17 @@ async fn el_manifiesto_separa_v1_y_v2() {
     assert_eq!(variante.fotos.len(), 1);
     assert_eq!(variante.fotos[0].origen, "variante");
     assert!(variante.fotos[0].url.starts_with("/uploads/"));
+    assert!(!variante.publicado);
+
+    /* Poner el aviso en la v2 no publica la v1: cada versión se decide sola. */
+    FacebookService::vincular(&pool, id, maye.id, 2, Some("999888777"))
+        .await
+        .expect("aviso de la v2");
+    let m = ExportService::manifiesto(&pool, None, None)
+        .await
+        .expect("manifiesto con aviso");
+    assert!(!m.grupos[0].inmuebles[0].publicado, "la v1 sigue pendiente");
+    assert!(m.grupos[1].inmuebles[0].publicado, "la v2 ya está publicada");
 
     /* Pedir solo v2 no devuelve el grupo de v1. */
     let solo_v2 = ExportService::manifiesto(&pool, None, Some(2))
