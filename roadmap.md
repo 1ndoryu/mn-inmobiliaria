@@ -8,6 +8,10 @@
 
 ## Pendientes
 
+- [ ] `30AA-13` — **Una cuenta de Facebook por versión.** Hecho cuando la v1 se publique solo en
+  el Facebook de Maye y la v2 solo en el de Wan (`facebook.version`, única por versión), el export
+  mida «publicado» contra la cuenta dueña de cada versión y el escritorio deje en
+  `version 2/publicados` los 4 avisos que Wan ya tiene (los 8 restantes en `pendientes`).
 - [ ] `30AA-11` — **Cerrar Lechera y la v2 de los 4 inmuebles pequeños.** Hecho cuando
   `apartamento-amoblado-en-villa-sol-suites-lechera` (5/19), Villa Tocoma, Vista Hermosa, Coronado
   Plaza piso 4 y Las Peoñas estén con su v2 completa, medida con `medir.py`, con el texto de cada
