@@ -90,7 +90,11 @@ impl ExportService {
                 .ok_or_else(|| AppError::NotFound("No hay cuenta de Facebook principal".into()))?,
         };
 
-        let inmuebles = InmuebleRepository::por_facebook(pool, cuenta.id).await?;
+        /* [30AA-15] El inmueble sin cuenta solo lo ve la cuenta principal:
+         * sigue siendo una ficha con su aviso pendiente (filtrarlo lo hacía
+         * desaparecer en vez de caer en `pendientes`), pero si lo vieran todas
+         * saldría repetido en cada carpeta. */
+        let inmuebles = InmuebleRepository::por_facebook(pool, cuenta.id, cuenta.principal).await?;
         let ids: Vec<Uuid> = inmuebles.iter().map(|i| i.id).collect();
         let fotos = fotos_de(pool, &ids).await?;
         /* [30AA-13] Cada versión se publica en UNA cuenta (v1 = Maye, v2 = Wan):

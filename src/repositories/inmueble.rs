@@ -290,16 +290,22 @@ impl InmuebleRepository {
     }
 
     /* [30AA-1] Inmuebles vinculados a una cuenta de Facebook, para la
-     * exportación: el orden es el de la ficha más reciente primero. */
+     * exportación: el orden es el de la ficha más reciente primero.
+     * [30AA-15] `sin_vinculo` los suma todos: un inmueble sin cuenta sigue
+     * siendo una ficha publicada en la web y, por tanto, un pendiente de la
+     * v1; filtrarlo lo hacía desaparecer del manifiesto en vez de caer en
+     * `pendientes`. */
     pub async fn por_facebook(
         pool: &PgPool,
         facebook_id: Uuid,
+        sin_vinculo: bool,
     ) -> Result<Vec<InmuebleRow>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
-            "SELECT {COLUMNAS} FROM inmuebles i              WHERE EXISTS (SELECT 1 FROM inmueble_facebook v                            WHERE v.inmueble_id = i.id AND v.facebook_id = $1)              ORDER BY i.updated_at DESC",
+            "SELECT {COLUMNAS} FROM inmuebles i              WHERE $2 OR EXISTS (SELECT 1 FROM inmueble_facebook v                            WHERE v.inmueble_id = i.id AND v.facebook_id = $1)              ORDER BY i.updated_at DESC",
         ))
         .bind(facebook_id)
+        .bind(sin_vinculo)
         .fetch_all(pool)
         .await
     }

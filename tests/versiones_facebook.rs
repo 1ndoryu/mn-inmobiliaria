@@ -314,5 +314,23 @@ async fn el_manifiesto_separa_v1_y_v2() {
         .expect("manifiesto v2");
     assert_eq!(solo_v2.grupos.len(), 1);
 
+    /* [30AA-15] Un inmueble SIN ninguna cuenta no desaparece: sale en la v1 de
+     * la principal como pendiente. Antes lo filtraba `por_facebook` y el
+     * escritorio no tenía dónde ponerlo (`version 1/pendientes` vacía con
+     * cuatro fichas sin aviso). */
+    sembrar(&pool).await;
+    let m = ExportService::manifiesto(&pool, None, Some(1))
+        .await
+        .expect("manifiesto con inmueble sin cuenta");
+    assert_eq!(
+        m.grupos[0].inmuebles.len(),
+        2,
+        "el inmueble sin cuenta no desaparece del manifiesto"
+    );
+    assert!(
+        m.grupos[0].inmuebles.iter().any(|i| !i.publicado),
+        "sale como pendiente: no tiene aviso"
+    );
+
     borrar_bd(&admin, "glory_versiones_c").await;
 }
