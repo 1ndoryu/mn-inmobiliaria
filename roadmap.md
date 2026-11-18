@@ -8,6 +8,11 @@
 
 ## Pendientes
 
+- [ ] `30AA-18` — **Publicar la v0 (fotos originales) en las 26 fichas.** El export ya la
+  sirve (grupo 0 con las 314 originales y su texto propio, distinto del de la v1, generado el
+  2026-11-18) y el modal tiene su pestaña «Originales». Hecho cuando las 26 estén publicadas en
+  Marketplace con su `marketplace_id` pegado (hoy `faltan_avisos` las da todas por pendientes) y
+  el escritorio las deje en `version 0/publicados`.
 - [ ] `30AA-16` — **Lote continuo de variantes hasta la v5 en todos los inmuebles.** Pase cada dos
   horas (`pase.py`, tarea programada `variantes-mn-cada-2h`) que renueva cookies de Gemini si
   hacen falta y genera solo las variantes que faltan, con el tope de 140/día. Hecho cuando los 26
