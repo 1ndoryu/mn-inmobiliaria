@@ -128,16 +128,24 @@ export function fotosDeVersion(v: VersionesInmueble, n: number): FotoVariante[] 
   return v.fotos.filter((f) => f.version === n).sort((a, b) => a.orden - b.orden);
 }
 
-/** ¿Hay algo que enseñar en esa pestaña? La v1 siempre; la v2 solo con texto
- * o con fotos variante. */
+/* [30AA-18] Nombre de cada versión en la UI. La v0 son las fotos originales:
+ * se llama por su nombre, no «Versión 0», y la v1 sigue siendo la pública. */
+export function etiquetaDeNumero(n: number): string {
+  if (n === 0) return 'Originales';
+  return `Versión ${n}`;
+}
+
+/** ¿Hay algo que enseñar en esa pestaña? La v0 y la v1 siempre; la v2+ solo
+ * con texto o con fotos variante. */
 export function hayVersion(v: VersionesInmueble, n: number): boolean {
   if (n <= 1) return true;
   return versionNumero(v, n) !== null || fotosDeVersion(v, n).length > 0;
 }
 
 /* [30AA-7] Versiones que ESTA ficha tiene de verdad: la 1 y las generadas
- * (texto o fotos variante). La configuración global no basta: un inmueble sin
- * v2 no «debe» un aviso de v2. Pura. */
+ * (texto o fotos variante), más la 0 si ya tiene su texto de originales. La
+ * configuración global no basta: un inmueble sin v2 no «debe» un aviso de v2.
+ * Pura. */
 export function versionesDe(v: VersionesInmueble): number[] {
   const propias = new Set<number>([1]);
   for (const t of v.variantes) propias.add(t.version);

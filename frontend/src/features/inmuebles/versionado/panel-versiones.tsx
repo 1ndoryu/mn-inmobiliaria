@@ -7,7 +7,13 @@ import { useState } from 'react';
 import { AlertTriangle, History, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { hayVersion, versionNumero, versionesDe, type VersionesInmueble } from '@/domain/versiones';
+import {
+  etiquetaDeNumero,
+  hayVersion,
+  versionNumero,
+  versionesDe,
+  type VersionesInmueble,
+} from '@/domain/versiones';
 import { paresDeFotos, type ProgresoVariantes } from '@/hooks/inmuebles/use-versionado';
 import type { EstadoVersion } from '@/domain/versiones';
 import { PestanaFotos } from './pestana-fotos';
@@ -41,11 +47,16 @@ interface Props {
   alAsignarVersion: (cuentaId: string, version: number | null) => void;
 }
 
-/* Etiquetas de las pestañas: v1, v2…, Facebook e historial. */
+/* Etiquetas de las pestañas: v0 (originales, si ya tiene texto), v1, v2…,
+ * Facebook e historial. */
 function etiquetas(datos: VersionesInmueble): { id: Seccion; texto: string }[] {
-  const lista: { id: Seccion; texto: string }[] = [{ id: 'v1', texto: 'Versión 1' }];
+  const lista: { id: Seccion; texto: string }[] = [];
+  /* [30AA-18] La pestaña de originales solo aparece con su texto ya hecho:
+   * sin él no hay nada que enseñar (sus fotos son las de la ficha). */
+  if (versionNumero(datos, 0)) lista.push({ id: 'v0', texto: etiquetaDeNumero(0) });
+  lista.push({ id: 'v1', texto: etiquetaDeNumero(1) });
   for (let n = 2; n <= datos.configuradas; n++) {
-    lista.push({ id: `v${n}`, texto: `Versión ${n}` });
+    lista.push({ id: `v${n}`, texto: etiquetaDeNumero(n) });
   }
   lista.push({ id: 'facebook', texto: 'Facebook' }, { id: 'historial', texto: 'Historial' });
   return lista;

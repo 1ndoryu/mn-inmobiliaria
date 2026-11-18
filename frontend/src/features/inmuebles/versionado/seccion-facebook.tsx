@@ -186,9 +186,9 @@ function VersionCuenta({
       onChange={(e) => alAsignar(e.target.value === '' ? null : Number(e.target.value))}
     >
       <option value="">— sin versión —</option>
-      {[1, 2, 3, 4, 5].map((n) => (
+      {[0, 1, 2, 3, 4, 5].map((n) => (
         <option key={n} value={n}>
-          v{n}
+          {n === 0 ? 'v0 · originales' : `v${n}`}
         </option>
       ))}
     </select>

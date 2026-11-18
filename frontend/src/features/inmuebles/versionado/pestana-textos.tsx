@@ -1,7 +1,8 @@
 /* [30AA-1] Texto de una versión: la v1 es de solo lectura (es la ficha
- * pública) y la v2+ se genera con IA, se edita a mano y se marca lista.
- * El botón «Guardar» solo aparece con cambios: editar una variante deja
- * entrada en el historial del servidor. */
+ * pública) y la v0 y la v2+ se generan con IA, se editan a mano y se marcan
+ * listas. La v0 (30AA-18) es la de las fotos originales: mismo texto público
+ * contado de otra forma. El botón «Guardar» solo aparece con cambios: editar
+ * una variante deja entrada en el historial del servidor. */
 import { useState } from 'react';
 import { Check, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -107,6 +108,7 @@ function EditorVariante({
       <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
         La variante dice lo mismo que la ficha con otras palabras: no cambia habitaciones, precios ni servicios. El
         servidor rechaza cualquier número que no esté en la v1.
+        {version === 0 && ' Esta es la de «Originales»: se publica con las fotos sin mejorar.'}
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
