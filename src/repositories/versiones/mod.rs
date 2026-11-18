@@ -190,9 +190,9 @@ impl VersionRepository {
         Ok(())
     }
 
-    /// Variantes de texto de varios inmuebles, indexadas por inmueble Y versión
+    /// Textos de versión de varios inmuebles, indexados por inmueble Y versión
     /// (export). Va por versión y no solo por inmueble: el export ya saca una
-    /// carpeta por versión (v2, v3…), no solo la primera.
+    /// carpeta por versión (v0, v2, v3…), no solo la primera.
     pub async fn variantes_por_inmuebles(
         pool: &PgPool,
         ids: &[Uuid],
@@ -206,7 +206,7 @@ impl VersionRepository {
             "SELECT id, inmueble_id, version, titulo, descripcion, estado, modelo, \
                     prompt_usado, creada_en, actualizada_en \
              FROM inmueble_versiones \
-             WHERE inmueble_id = ANY($1) AND version >= 2 \
+             WHERE inmueble_id = ANY($1) \
              ORDER BY inmueble_id, version ASC",
         )
         .bind(ids)

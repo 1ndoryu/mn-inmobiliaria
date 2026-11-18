@@ -271,7 +271,7 @@ async fn el_manifiesto_separa_v1_y_v2() {
         .await
         .expect("manifiesto");
     assert_eq!(m.cuenta, maye.id);
-    assert_eq!(m.grupos.len(), 2, "v1 y v2");
+    assert_eq!(m.grupos.len(), 2, "v1 y v2 (todavía sin texto de v0)");
 
     let v1 = &m.grupos[0];
     assert_eq!(v1.version, 1);
@@ -316,6 +316,52 @@ async fn el_manifiesto_separa_v1_y_v2() {
         .await
         .expect("manifiesto v2");
     assert_eq!(solo_v2.grupos.len(), 1);
+
+    /* [30AA-18] La v0: texto propio y las fotos ORIGINALES, sin las mejoradas
+     * (aquí no vale `preferir_mejoradas`). No exige cuenta dueña y su aviso
+     * cuenta en cualquier cuenta, porque no tiene una asignada. */
+    VersionRepository::upsert(
+        &pool,
+        id,
+        0,
+        "En Residencias Kama, apartamento de 3 habitaciones",
+        "Dos baños, 90 m² y un puesto de estacionamiento.",
+        "prueba",
+        "prompt",
+    )
+    .await
+    .expect("texto de la v0");
+    let m = ExportService::manifiesto(&pool, None, None)
+        .await
+        .expect("manifiesto con v0");
+    assert_eq!(m.grupos.len(), 3, "v0, v1 y v2");
+    let v0 = &m.grupos[0];
+    assert_eq!(v0.version, 0, "la v0 va la primera");
+    assert_eq!(v0.inmuebles[0].titulo, "En Residencias Kama, apartamento de 3 habitaciones");
+    assert_eq!(
+        v0.inmuebles[0].fotos.len(),
+        2,
+        "las originales: las dos fotos, ninguna mejorada"
+    );
+    assert!(v0.inmuebles[0].fotos.iter().all(|f| f.origen == "original"));
+    assert!(!v0.inmuebles[0].publicado, "nadie la ha publicado");
+
+    FacebookService::vincular(&pool, id, wan.id, 0, Some("555444333"))
+        .await
+        .expect("aviso de la v0 en una cuenta cualquiera");
+    let m = ExportService::manifiesto(&pool, None, Some(0))
+        .await
+        .expect("manifiesto solo v0");
+    assert_eq!(m.grupos.len(), 1);
+    assert!(m.grupos[0].inmuebles[0].publicado, "el aviso de v0 cuenta en Maye o en Wan");
+    assert!(
+        !FacebookService::faltan_avisos(&pool, id, 5)
+            .await
+            .unwrap()
+            .versiones
+            .contains(&0),
+        "con el aviso puesto, la v0 ya no se echa en falta"
+    );
 
     /* [30AA-15] Un inmueble SIN ninguna cuenta no desaparece: sale en la v1 de
      * la principal como pendiente. Antes lo filtraba `por_facebook` y el

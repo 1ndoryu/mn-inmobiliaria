@@ -92,17 +92,18 @@ impl FacebookService {
         Ok(())
     }
 
-    /// [30AA-13] La versión de una cuenta va de 1 a 5 y solo puede tenerla una
-    /// cuenta: dos cuentas publicando «la v2» dejarían el pendiente ambiguo.
+    /// [30AA-13] La versión de una cuenta va de 0 a 5 (la 0 son las fotos
+    /// originales, 30AA-18) y solo puede tenerla una cuenta: dos cuentas
+    /// publicando «la v2» dejarían el pendiente ambiguo.
     async fn version_valida(
         pool: &PgPool,
         cuenta: Option<Uuid>,
         version: Option<i16>,
     ) -> Result<Option<i16>, AppError> {
         let Some(v) = version else { return Ok(None) };
-        if !(1..=5).contains(&v) {
+        if !(0..=5).contains(&v) {
             return Err(AppError::Validation(
-                "La versión de la cuenta va de 1 a 5".into(),
+                "La versión de la cuenta va de 0 a 5".into(),
             ));
         }
         let ocupada = FacebookRepository::cuenta_de_version(pool, v).await?;
@@ -187,10 +188,12 @@ impl FacebookService {
     /// La versión 1 existe siempre (vive en `inmuebles`); las demás necesitan
     /// fila en `inmueble_versiones` y estar dentro de la configuración.
     async fn exigir_version(pool: &PgPool, inmueble_id: Uuid, version: i16) -> Result<(), AppError> {
-        if version < 1 {
-            return Err(AppError::Validation("La versión va de 1 en adelante".into()));
+        if version < 0 {
+            return Err(AppError::Validation("La versión va de 0 en adelante".into()));
         }
-        if version == 1 {
+        /* La v0 (fotos originales) se vincula como cualquier otra versión:
+         * existe en cuanto la ficha tenga su texto de v0. */
+        if version == 1 || version == 0 {
             return Ok(());
         }
         let configuradas = crate::repositories::VersionRepository::configuradas(pool).await?;

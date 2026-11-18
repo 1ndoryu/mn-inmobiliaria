@@ -115,14 +115,9 @@ impl ExportService {
                 inmuebles: inmuebles
                     .iter()
                     .map(|i| {
-                        let mut fs: Vec<FotoExport> = fotos
-                            .iter()
-                            .filter(|f| f.inmueble_id == i.id)
-                            .map(FotoExport::from)
-                            .collect();
                         /* La mejorada sustituye a su original si existe (la
                          * ficha ya enseña esa). Se empareja por `orden`. */
-                        fs = preferir_mejoradas(fs);
+                        let fs = preferir_mejoradas(fotos_de_la_ficha(&fotos, i.id));
                         InmuebleExport {
                             slug: i.slug.clone(),
                             titulo: i.titulo.clone(),
@@ -141,50 +136,45 @@ impl ExportService {
         let mut variantes = VersionRepository::fotos_por_inmuebles(pool, &ids, None).await?;
         variantes.retain(|v| v.version >= 2);
         let textos = VersionRepository::variantes_por_inmuebles(pool, &ids).await?;
+
+        if solo_version.is_none_or(|s| s == 0) {
+            /* [30AA-18] La v0 son las fotos ORIGINALES (sin Gemini) con su
+             * texto propio. No exige cuenta dueña (no la tiene asignada
+             * ninguna) y su aviso vale en cualquier cuenta: `publicado` aquí
+             * no usa `publicado()` sino el aviso de v0. */
+            let avisos_v0 = FacebookRepository::avisos_de_version(pool, &ids, 0).await?;
+            let filas = grupo_originales(&inmuebles, FotoFiltro { fotos: &fotos, textos: &textos }, &avisos_v0);
+            /* Sin fichas con v0 hecha no se crea la carpeta: a diferencia de
+             * las demás, aquí la lista sale de los textos, no de los datos. */
+            if !filas.is_empty() {
+                grupos.push(GrupoExport {
+                    version: 0,
+                    inmuebles: filas,
+                });
+            }
+        }
         let mut numeros: Vec<i16> = variantes
             .iter()
             .map(|v| v.version)
             .chain(textos.values().map(|t| t.version))
+            /* La v0 ya se armó arriba con las originales. */
+            .filter(|v| *v >= 2)
             .collect();
         numeros.sort_unstable();
         numeros.dedup();
 
         for numero in numeros.into_iter().filter(|v| incluir(*v)) {
-            let filas: Vec<InmuebleExport> = inmuebles
-                .iter()
-                .filter_map(|i| {
-                    let propias: Vec<FotoExport> = variantes
-                        .iter()
-                        .filter(|v| v.inmueble_id == i.id && v.version == numero)
-                        .map(|v| FotoExport {
-                            orden: v.orden,
-                            url: url_publica_de_foto(&v.storage_key),
-                            origen: "variante".to_string(),
-                        })
-                        .collect();
-                    let texto = textos.get(&(i.id, numero));
-                    /* Sin fotos ni texto en esta versión no hay carpeta que crear. */
-                    if propias.is_empty() && texto.is_none() {
-                        return None;
-                    }
-                    let (titulo, descripcion) = texto.map_or_else(
-                        || (i.titulo.clone(), i.descripcion.clone()),
-                        |v| (v.titulo.clone(), v.descripcion.clone()),
-                    );
-                    Some(InmuebleExport {
-                        slug: i.slug.clone(),
-                        titulo,
-                        descripcion,
-                        fotos: propias,
-                        publicado: publicado(i.id, numero),
-                    })
-                })
-                .collect();
+            let filas = grupo_variante(&inmuebles, &variantes, &textos, numero, &publicado);
             grupos.push(GrupoExport {
                 version: numero,
                 inmuebles: filas,
             });
         }
+
+        /* La v0 se arma aparte de la 1 (que va primera por ser la ficha), así
+         * que el orden natural queda 1, 0, 2…: se ordena para que el escritorio
+         * cree las carpetas en el orden que se lee. */
+        grupos.sort_by_key(|g| g.version);
 
         Ok(ManifiestoExport {
             cuenta: cuenta.id,
@@ -203,6 +193,95 @@ impl From<&FotoManifiesto> for FotoExport {
             origen: f.origen.clone(),
         }
     }
+}
+
+/// Lo que necesita el grupo de originales: las fotos de la ficha y los textos
+/// por `(inmueble, versión)`.
+struct FotoFiltro<'a> {
+    fotos: &'a [FotoManifiesto],
+    textos: &'a std::collections::HashMap<(Uuid, i16), crate::models::InmuebleVersion>,
+}
+
+/// [30AA-1] Fichas de un grupo v2+: sus fotos variante y su texto. Sin fotos
+/// ni texto en esa versión no hay carpeta que crear. El texto cae a la v1 si
+/// la variante aún no tiene el suyo.
+fn grupo_variante(
+    inmuebles: &[crate::models::InmuebleRow],
+    variantes: &[crate::models::FotoVarianteRow],
+    textos: &std::collections::HashMap<(Uuid, i16), crate::models::InmuebleVersion>,
+    numero: i16,
+    publicado: &impl Fn(Uuid, i16) -> bool,
+) -> Vec<InmuebleExport> {
+    inmuebles
+        .iter()
+        .filter_map(|i| {
+            let propias: Vec<FotoExport> = variantes
+                .iter()
+                .filter(|v| v.inmueble_id == i.id && v.version == numero)
+                .map(|v| FotoExport {
+                    orden: v.orden,
+                    url: url_publica_de_foto(&v.storage_key),
+                    origen: "variante".to_string(),
+                })
+                .collect();
+            let texto = textos.get(&(i.id, numero));
+            if propias.is_empty() && texto.is_none() {
+                return None;
+            }
+            let (titulo, descripcion) = texto.map_or_else(
+                || (i.titulo.clone(), i.descripcion.clone()),
+                |v| (v.titulo.clone(), v.descripcion.clone()),
+            );
+            Some(InmuebleExport {
+                slug: i.slug.clone(),
+                titulo,
+                descripcion,
+                fotos: propias,
+                publicado: publicado(i.id, numero),
+            })
+        })
+        .collect()
+}
+
+/// Todas las fotos de la ficha (originales y mejoradas), por `orden`.
+fn fotos_de_la_ficha(fotos: &[FotoManifiesto], inmueble_id: Uuid) -> Vec<FotoExport> {
+    fotos
+        .iter()
+        .filter(|f| f.inmueble_id == inmueble_id)
+        .map(FotoExport::from)
+        .collect()
+}
+
+/// [30AA-18] Fichas del grupo v0: solo las que ya tienen texto de v0 y sus
+/// fotos **originales**, sin sustituirlas por las mejoradas.
+fn grupo_originales(
+    inmuebles: &[crate::models::InmuebleRow],
+    datos: FotoFiltro<'_>,
+    avisos_v0: &std::collections::HashSet<Uuid>,
+) -> Vec<InmuebleExport> {
+    inmuebles
+        .iter()
+        .filter_map(|i| {
+            let texto = datos.textos.get(&(i.id, 0))?;
+            let mut fs: Vec<FotoExport> = datos
+                .fotos
+                .iter()
+                .filter(|f| f.inmueble_id == i.id && f.origen == "original")
+                .map(FotoExport::from)
+                .collect();
+            fs.sort_by_key(|f| f.orden);
+            if fs.is_empty() {
+                return None;
+            }
+            Some(InmuebleExport {
+                slug: i.slug.clone(),
+                titulo: texto.titulo.clone(),
+                descripcion: texto.descripcion.clone(),
+                fotos: fs,
+                publicado: avisos_v0.contains(&i.id),
+            })
+        })
+        .collect()
 }
 
 /// Quita el original de un hueco donde hay mejorada: evita bajar dos veces

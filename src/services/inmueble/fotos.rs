@@ -169,7 +169,8 @@ impl InmuebleService {
             return Err(AppError::NotFound("Inmueble no encontrado".into()));
         }
         /* Solo las versiones que la configuración admite (v2..vN): una v7
-         * suelta no la enseñaría ningún sitio y quedaría como archivo muerto. */
+         * suelta no la enseñaría ningún sitio y quedaría como archivo muerto.
+         * La 0 tampoco: sus fotos son las originales, no una variante. */
         let configuradas = crate::repositories::VersionRepository::configuradas(pool).await?;
         if version < 2 || version > configuradas {
             return Err(AppError::Validation(format!(

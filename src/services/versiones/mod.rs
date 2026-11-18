@@ -1,4 +1,5 @@
-//! [30AA-1] Generación y edición de versiones de texto (v2 en adelante).
+//! [30AA-1] Generación y edición de versiones de texto: la v0 (fotos
+//! originales, 30AA-18) y las variantes v2 en adelante.
 //!
 //! La variante NO puede cambiar la realidad: mismos números, misma ubicación,
 //! mismos servicios. Solo cambia el orden de las frases y las palabras. Eso
@@ -60,9 +61,12 @@ impl VersionService {
             .ok_or_else(|| AppError::NotFound("Inmueble no encontrado".into()))?;
         let configuradas = VersionRepository::configuradas(pool).await?;
         let version = req.version.unwrap_or(2);
-        if version < 2 || version > configuradas {
+        /* La v0 es la única que vive fuera de la configuración: es la versión
+         * de las fotos originales y existe siempre que la ficha tenga texto
+         * (30AA-18). Las demás sí dependen de `configuradas`. */
+        if version < 0 || (version >= 2 && version > configuradas) || version == 1 {
             return Err(AppError::Validation(format!(
-                "Versión fuera de rango (2..={configuradas})"
+                "Versión fuera de rango (0 o 2..={configuradas})"
             )));
         }
         if row.titulo.trim().is_empty() && row.descripcion.trim().is_empty() {

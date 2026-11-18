@@ -210,6 +210,31 @@ impl FacebookRepository {
         Ok(filas.into_iter().collect())
     }
 
+    /// [30AA-18] Inmuebles con aviso puesto en CUALQUIER cuenta para esa
+    /// versión. La v0 (originales) no tiene cuenta dueña: su aviso vale el
+    /// que se publicó, sin importar desde qué cuenta. Las demás siguen
+    /// midiéndose en la suya (`avisos_en_la_cuenta_de_su_version`).
+    pub async fn avisos_de_version(
+        pool: &PgPool,
+        ids: &[Uuid],
+        version: i16,
+    ) -> Result<std::collections::HashSet<Uuid>, sqlx::Error> {
+        if ids.is_empty() {
+            return Ok(std::collections::HashSet::new());
+        }
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+        let filas: Vec<(Uuid,)> = sqlx::query_as(
+            "SELECT DISTINCT inmueble_id FROM inmueble_facebook \
+             WHERE inmueble_id = ANY($1) AND version = $2 \
+               AND marketplace_id IS NOT NULL AND btrim(marketplace_id) <> ''",
+        )
+        .bind(ids)
+        .bind(version)
+        .fetch_all(pool)
+        .await?;
+        Ok(filas.into_iter().map(|(id,)| id).collect())
+    }
+
     /* ---- Vínculos inmueble ↔ cuenta ---- */
 
     pub async fn vinculos_de(
@@ -250,7 +275,8 @@ impl FacebookRepository {
         let cubiertas: Vec<(i16,)> = sqlx::query_as(
             "SELECT DISTINCT v.version FROM inmueble_facebook v \
              JOIN facebook f ON f.id = v.facebook_id \
-             WHERE v.inmueble_id = $1 AND f.version = v.version",
+             WHERE v.inmueble_id = $1 \
+               AND (f.version = v.version OR v.version = 0)",
         )
         .bind(inmueble_id)
         .fetch_all(pool)
@@ -278,7 +304,8 @@ impl FacebookRepository {
         let cubiertas_filas: Vec<(Uuid, i16)> = sqlx::query_as(
             "SELECT DISTINCT v.inmueble_id, v.version FROM inmueble_facebook v \
              JOIN facebook f ON f.id = v.facebook_id \
-             WHERE v.inmueble_id = ANY($1) AND f.version = v.version",
+             WHERE v.inmueble_id = ANY($1) \
+               AND (f.version = v.version OR v.version = 0)",
         )
         .bind(ids)
         .fetch_all(pool)
@@ -488,19 +515,29 @@ async fn propias_por_inmueble(
 
 /// Versiones **que la ficha tiene** y que no aparecen en `cubiertas`.
 ///
-/// La 1 siempre cuenta (vive en `inmuebles`); de la 2 en adelante, solo las
-/// que tienen fila en `inmueble_versiones` y no pasan de `configuradas`. Las
+/// La 1 siempre cuenta (vive en `inmuebles`); la 0 solo si ya tiene su texto
+/// (30AA-18); de la 2 en adelante, solo las que tienen fila en
+/// `inmueble_versiones`/`fotos_variantes` y no pasan de `configuradas`. Las
 /// versiones que existen pero quedaron fuera de la configuración no se echan
 /// en falta.
 fn sin_aviso(configuradas: i16, propias: &[(i16,)], cubiertas: &[(i16,)]) -> Vec<i16> {
     let tope = configuradas.max(1);
+    let tiene = |v: i16| propias.iter().any(|(p,)| *p == v);
     let existe = |v: i16| {
-        v <= tope
-            && (v == 1 || propias.iter().any(|(p,)| *p == v))
+        if v == 0 {
+            /* La v0 es la de las fotos originales: existe en cuanto la ficha
+             * tiene su texto propio, y no depende de `configuradas`. */
+            return tiene(0);
+        }
+        v <= tope && (v == 1 || tiene(v))
     };
-    (1..=tope)
+    let mut faltan: Vec<i16> = (1..=tope)
         .filter(|v| existe(*v) && !cubiertas.iter().any(|(c,)| c == v))
-        .collect()
+        .collect();
+    if existe(0) && !cubiertas.iter().any(|(c,)| *c == 0) {
+        faltan.insert(0, 0);
+    }
+    faltan
 }
 
 #[cfg(test)]
@@ -538,5 +575,14 @@ mod tests {
     fn manda_la_configuracion() {
         assert!(sin_aviso(1, &[(2,), (3,)], &[(1,)]).is_empty());
         assert!(sin_aviso(2, &[(2,), (3,)], &[(1,), (2,)]).is_empty());
+    }
+
+    /* [30AA-18] La v0 se echa en falta en cuanto tiene su texto, sin depender
+     * de `configuradas`, y sale la primera: la lista se lee «falta v0, v1». */
+    #[test]
+    fn la_v0_cuenta_en_cuanto_tiene_texto() {
+        assert_eq!(sin_aviso(2, &[(0,)], &[(1,)]), vec![0]);
+        assert_eq!(sin_aviso(2, &[(0,), (2,)], &[]), vec![0, 1, 2]);
+        assert!(sin_aviso(1, &[(0,)], &[(0,), (1,)]).is_empty());
     }
 }
