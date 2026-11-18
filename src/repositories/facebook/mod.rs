@@ -235,9 +235,9 @@ impl FacebookRepository {
     /// publicar y la cuenta ya está decidida.
     ///
     /// Solo se echan en falta las versiones que la ficha tiene: la 1 siempre, y
-    /// de la 2 en adelante las que tengan fila en `inmueble_versiones` (con el
-    /// tope de `configuradas`, por si la configuración bajó). Un inmueble sin
-    /// v2 no «debe» v2.
+    /// de la 2 en adelante las que tengan texto o fotos variante (con el tope
+    /// de `configuradas`, por si la configuración bajó). Un inmueble sin v2 no
+    /// «debe» v2.
     pub async fn faltan_avisos(
         pool: &PgPool,
         inmueble_id: Uuid,
@@ -255,12 +255,8 @@ impl FacebookRepository {
         .bind(inmueble_id)
         .fetch_all(pool)
         .await?;
-        let propias: Vec<(i16,)> =
-            // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
-            sqlx::query_as("SELECT version FROM inmueble_versiones WHERE inmueble_id = $1")
-                .bind(inmueble_id)
-                .fetch_all(pool)
-                .await?;
+        let mut propias = propias_por_inmueble(pool, &[inmueble_id]).await?;
+        let propias = propias.remove(&inmueble_id).unwrap_or_default();
         Ok(sin_aviso(configuradas, &propias, &cubiertas))
     }
 
@@ -287,23 +283,13 @@ impl FacebookRepository {
         .bind(ids)
         .fetch_all(pool)
         .await?;
-        // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
-        let propias_filas: Vec<(Uuid, i16)> = sqlx::query_as(
-            "SELECT inmueble_id, version FROM inmueble_versiones WHERE inmueble_id = ANY($1)",
-        )
-        .bind(ids)
-        .fetch_all(pool)
-        .await?;
+        let propias = propias_por_inmueble(pool, ids).await?;
         let mut cubiertas: std::collections::HashMap<Uuid, Vec<(i16,)>> =
             std::collections::HashMap::new();
         for (id, version) in cubiertas_filas {
             cubiertas.entry(id).or_default().push((version,));
         }
-        let mut propias: std::collections::HashMap<Uuid, Vec<(i16,)>> =
-            std::collections::HashMap::new();
-        for (id, version) in propias_filas {
-            propias.entry(id).or_default().push((version,));
-        }
+        let mut propias = propias;
         for id in ids {
             let de_este_cubiertas = cubiertas.remove(id).unwrap_or_default();
             let de_este_propias = propias.remove(id).unwrap_or_default();
@@ -467,6 +453,37 @@ impl FacebookRepository {
         .await?;
         Ok(matches!(fila, Some((id,)) if Some(id) != inmueble_id))
     }
+}
+
+/// Versiones que la ficha tiene de verdad, por inmueble.
+///
+/// [30AA-17] Una versión existe si tiene **texto** (`inmueble_versiones`) **o
+/// fotos variante** (`fotos_variantes`). Antes solo contaba el texto, así que
+/// un inmueble con la v2 de fotos hecha y sin vínculo salía «al día»: el lote
+/// genera fotos, no texto, y la columna Vínculo nunca avisaba. Es la misma
+/// regla que `versionesDe()` en `frontend/src/domain/versiones.ts`.
+async fn propias_por_inmueble(
+    pool: &PgPool,
+    ids: &[Uuid],
+) -> Result<std::collections::HashMap<Uuid, Vec<(i16,)>>, sqlx::Error> {
+    let mut mapa: std::collections::HashMap<Uuid, Vec<(i16,)>> =
+        std::collections::HashMap::new();
+    if ids.is_empty() {
+        return Ok(mapa);
+    }
+    // sentinel-disable-next-line sqlx-query-as-sin-macro -- sentencia nueva; ver cabecera
+    let filas: Vec<(Uuid, i16)> = sqlx::query_as(
+        "SELECT inmueble_id, version FROM inmueble_versiones WHERE inmueble_id = ANY($1) \
+         UNION \
+         SELECT inmueble_id, version FROM fotos_variantes WHERE inmueble_id = ANY($1)",
+    )
+    .bind(ids)
+    .fetch_all(pool)
+    .await?;
+    for (id, version) in filas {
+        mapa.entry(id).or_default().push((version,));
+    }
+    Ok(mapa)
 }
 
 /// Versiones **que la ficha tiene** y que no aparecen en `cubiertas`.

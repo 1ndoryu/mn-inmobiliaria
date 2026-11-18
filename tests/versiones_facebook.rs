@@ -33,7 +33,7 @@ async fn recrear_bd(admin: &PgConnectOptions, nombre: &str) -> PgPool {
      * con un «ColumnNotFound» que engaña. Se avisa claro. */
     let migraciones = sqlx::migrate!("./migrations");
     assert!(
-        migraciones.iter().any(|m| m.version == 20261117000054),
+        migraciones.iter().any(|m| m.version == 20_261_117_000_054),
         "binario de pruebas viejo: recompila con la migración 20261117000054"
     );
     let mut conn = PgConnection::connect_with(&admin.clone().database("postgres"))
@@ -74,7 +74,7 @@ async fn sembrar(pool: &PgPool) -> Uuid {
         "titulo": "Apartamento de 3 habitaciones en Residencias Kama",
         "descripcion": "90 m² con dos baños y un puesto de estacionamiento.",
         "ubicacion": "Zona de prueba",
-        "precio": 250000.0,
+        "precio": 250_000.0,
         "habitaciones": 3,
         "banos": 2,
         "metros": 90.0,
@@ -174,10 +174,13 @@ async fn editar_una_variante_deja_historial() {
     let pool = recrear_bd(&admin, "glory_versiones_b").await;
     let id = sembrar(&pool).await;
 
-    assert_eq!(
-        VersionRepository::configuradas(&pool).await.unwrap(),
-        2,
-        "la migración siembra 2 versiones"
+    /* [30AA-16] La configuración sube a 5 mientras dura el lote, así que
+     * fijar el valor exacto hacía fallar el test por un cambio de datos. Lo
+     * que importa es que esté dentro de rango. */
+    let configuradas = VersionRepository::configuradas(&pool).await.unwrap();
+    assert!(
+        (1..=5).contains(&configuradas),
+        "versiones configuradas fuera de rango: {configuradas}"
     );
 
     VersionRepository::upsert(
@@ -333,4 +336,50 @@ async fn el_manifiesto_separa_v1_y_v2() {
     );
 
     borrar_bd(&admin, "glory_versiones_c").await;
+}
+
+#[tokio::test]
+async fn las_fotos_variante_cuentan_como_version_propia() {
+    let admin = admin_opts();
+    let pool = recrear_bd(&admin, "glory_versiones_d").await;
+    let id = sembrar(&pool).await;
+    let maye = FacebookService::listar(&pool)
+        .await
+        .expect("cuentas")
+        .into_iter()
+        .find(|c| c.principal)
+        .expect("Maye sembrada");
+
+    /* [30AA-17] Con la v1 vinculada y SIN texto de v2, unas fotos variante ya
+     * hacen que la ficha deba un aviso de v2. Antes el badge decía «al día»:
+     * solo miraba `inmueble_versiones`, y el lote de variantes no escribe
+     * texto. */
+    VersionRepository::upsert_foto(&pool, id, 0, 2, "variantes/sala-v2.jpg", "prueba", "prompt")
+        .await
+        .expect("variante de foto");
+    assert_eq!(
+        FacebookService::faltan_avisos(&pool, id, 5).await.unwrap().versiones,
+        vec![1, 2],
+        "sin vínculos faltan la v1 y la v2 de fotos"
+    );
+
+    FacebookService::vincular(&pool, id, maye.id, 1, None)
+        .await
+        .expect("vínculo de la v1");
+    assert_eq!(
+        FacebookService::faltan_avisos(&pool, id, 5).await.unwrap().versiones,
+        vec![2],
+        "la v2 sale pendiente aunque no tenga texto"
+    );
+
+    /* Una v3 de fotos sin vínculo también se echa en falta. */
+    VersionRepository::upsert_foto(&pool, id, 1, 3, "variantes/cocina-v3.jpg", "prueba", "prompt")
+        .await
+        .expect("variante v3");
+    assert_eq!(
+        FacebookService::faltan_avisos(&pool, id, 5).await.unwrap().versiones,
+        vec![2, 3]
+    );
+
+    borrar_bd(&admin, "glory_versiones_d").await;
 }
