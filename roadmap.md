@@ -11,8 +11,9 @@
 - [ ] `30AA-16` — **Lote continuo de variantes hasta la v5 en todos los inmuebles.** Pase cada dos
   horas (`pase.py`, tarea programada `variantes-mn-cada-2h`) que renueva cookies de Gemini si
   hacen falta y genera solo las variantes que faltan, con el tope de 140/día. Hecho cuando los 26
-  inmuebles tengan sus 314 fotos en v2, v3, v4 y v5 (1.127 pendientes al 2026-11-17), el manifiesto
-  lo refleje por versión y la tarea programada se pueda retirar.
+  inmuebles tengan sus 314 fotos en v2, v3, v4 y v5 (993 pendientes al 2026-11-18), cada versión
+  con su propio texto generado (`textos` del pase, 30AA-17), el manifiesto lo refleje por versión
+  y la tarea programada se pueda retirar.
 - [ ] `30AA-11` — **Cerrar Lechera y la v2 de los 4 inmuebles pequeños.** Hecho cuando
   `apartamento-amoblado-en-villa-sol-suites-lechera` (5/19), Villa Tocoma, Vista Hermosa, Coronado
   Plaza piso 4 y Las Peoñas estén con su v2 completa, medida con `medir.py`, con el texto de cada
