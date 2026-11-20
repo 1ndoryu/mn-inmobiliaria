@@ -5,6 +5,8 @@
 
 # Environment (secrets)
 .env
+# Respaldos de claves: nombran el .env y llevan sus secretos dentro.
+.env.bak-*
 /frontend/.env.local
 
 # Frontend
