@@ -8,12 +8,6 @@
 
 ## Pendientes
 
-- [ ] `GW-14` — **Emparejar el borrador con la ficha en cualquier reparto de versiones.** El
-  espejo `inmuebles.marketplace_id` se quedaba vacío con cuentas que no fueran v1 (medido el
-  2026-11-21: 0 de 26 con espejo) y el borrador contestaba sin ficha. Hecho cuando el espejo tome
-  la versión más baja, el respaldo por `inmueble_facebook` resuelva el aviso de otra cuenta, los
-  vínculos v1 estén recuperados desde producción y esté desplegado en prod con un borrador real
-  devolviendo `fuente=no-disponible`.
 - [ ] `30AA-18` — **Publicar la v0 (fotos originales) en las 26 fichas.** El export ya la
   sirve (grupo 0 con las 314 originales y su texto propio, distinto del de la v1, generado el
   2026-11-18) y el modal tiene su pestaña «Originales». Hecho cuando las 26 estén publicadas en
