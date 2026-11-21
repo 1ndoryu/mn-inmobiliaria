@@ -11,10 +11,12 @@
 - [ ] `GW-16` — **Desplegar en prod la forma nueva de los borradores.** En `main` y en la 89: el
   sujeto con artículo («La casa en Las Orquídeas»), sin nombrar el estado, con el similar del
   mismo tipo y sin enlace, el aviso redactado por la IA sobre los hechos que arma Rust, el molde
-  fijo «Como alternativa, tenemos otras opciones:» y el cierre con la invitación («Cuéntenos qué
-  está buscando y con gusto le ayudamos»). Hecho cuando prod tenga esa imagen y un borrador real
+  fijo «Como alternativa, tenemos otras opciones:», el cierre con la invitación («Cuéntenos qué
+  está buscando y con gusto le ayudamos») dicha una sola vez y el espejo de `marketplace_id`
+  tomado de la cuenta principal (GW-17). Hecho cuando prod tenga esa imagen y un borrador real
   de un vendido diga «por el momento no está disponible», cite el lugar una sola vez, ofrezca una
-  opción del mismo tipo sin enlace y cierre con la invitación.
+  opción del mismo tipo sin enlace, cierre con la invitación y el panel de sync no ofrezca
+  reemplazar ningún vínculo bueno.
 - [ ] `30AA-18` — **Publicar la v0 (fotos originales) en las 26 fichas.** El export ya la
   sirve (grupo 0 con las 314 originales y su texto propio, distinto del de la v1, generado el
   2026-11-18) y el modal tiene su pestaña «Originales». Hecho cuando las 26 estén publicadas en
