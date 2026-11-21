@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { CuentaFacebook, VinculoFacebook } from '@/domain/versiones';
 import { normalizarMarketplaceId, esMarketplaceIdValido } from '@/domain/inmueble';
+import { AccionesCuenta } from './acciones-cuenta';
 
 interface Props {
   cuentas: CuentaFacebook[];
@@ -27,6 +28,10 @@ interface Props {
   alVincular: (cuentaId: string, version: number, marketplaceId: string | null) => void;
   alDesvincular: (cuentaId: string, version: number) => void;
   alCrearCuenta: (nombre: string, url: string) => void;
+  /** [30AA-19] Renombrar una cuenta ya creada (el resto de sus datos no cambia). */
+  alEditarCuenta: (cuenta: CuentaFacebook, nombre: string) => void;
+  /** [30AA-19] Borrar una cuenta; sus vínculos se van en cascada. */
+  alBorrarCuenta: (cuentaId: string) => void;
   /** [30AA-13] Reasignar la versión de una cuenta (v1 = Maye, v2 = Wan). */
   alAsignarVersion: (cuentaId: string, version: number | null) => void;
 }
@@ -40,6 +45,8 @@ export function SeccionFacebook({
   alVincular,
   alDesvincular,
   alCrearCuenta,
+  alEditarCuenta,
+  alBorrarCuenta,
   alAsignarVersion,
 }: Props) {
   const [nuevaNombre, setNuevaNombre] = useState('');
@@ -93,6 +100,14 @@ export function SeccionFacebook({
                 {cuenta.principal && <Badge variant="outline">Principal</Badge>}
                 {deCuenta.some((v) => v.version === version) && <Badge variant="outline">Vinculada</Badge>}
                 <span className="ml-auto text-xs text-muted-foreground">{cuenta.inmuebles} inmuebles</span>
+                {/* [30AA-19] Se puede renombrar y borrar cualquier cuenta: antes
+                 * solo se creaban, y una cuenta de prueba se quedaba para siempre. */}
+                <AccionesCuenta
+                  cuenta={cuenta}
+                  ocupado={ocupado}
+                  alEditar={(nombre) => alEditarCuenta(cuenta, nombre)}
+                  alBorrar={() => alBorrarCuenta(cuenta.id)}
+                />
               </div>
               {cuenta.url && !compacto && (
                 <a
