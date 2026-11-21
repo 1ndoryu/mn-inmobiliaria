@@ -393,6 +393,12 @@ fn retoque_acepta_solo_lo_que_respeta_los_hechos() {
         format!("{base}\n\nVéala aquí: https://wa.me/584249208855"),
         /* El arranque de la propuesta es fijo: el modelo no lo varía. */
         base.replace("tenemos otras opciones", "le ofrecemos otras opciones"),
+        /* Decisión de ella 2026-11-21: la invitación va SOLO en el cierre; el
+         * modelo la adelantaba al primer párrafo y el mensaje la decía dos veces. */
+        base.replace(
+            "no está disponible.",
+            "no está disponible, pero con gusto le ayudamos a buscar otra opción.",
+        ),
         String::new(),
     ] {
         assert!(!retoque_aceptado(&base, &malo, &conservar), "{malo}");

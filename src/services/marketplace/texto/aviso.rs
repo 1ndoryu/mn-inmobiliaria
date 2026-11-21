@@ -72,7 +72,10 @@ pub fn sistema_retoque_no_disponible(base: &str) -> String {
          letra. Prohibido añadir precios, enlaces, teléfonos, \
          disponibilidad, visitas, fotos o cualquier dato que no esté en el \
          texto. No nombres el estado (nada de «vendido», «alquilado» ni \
-         «reservado»). Mismo número de párrafos, separados por línea en blanco; \
+         «reservado»). La invitación a contar qué busca va SOLO en el último \
+         párrafo: no la repitas antes ni añadas variantes como «con gusto le \
+         ayudamos a buscar otra opción», que suenan dos veces. Mismo número de \
+         párrafos, separados por línea en blanco; \
          sin saludo y sin el nombre del cliente (el sistema lo antepone). \
          Devuelve solo el mensaje, sin comillas ni comentarios.\n\n{base}"
     )
@@ -134,6 +137,17 @@ pub fn retoque_aceptado(base: &str, candidato: &str, conservar: &[String]) -> bo
      * modelo la variaba («le ofrecemos», «contamos con»), así que el molde es
      * parte de lo que se exige, no una sugerencia del prompt. */
     if base.contains(MOLDE_ALTERNATIVA) && !c.contains(MOLDE_ALTERNATIVA) {
+        return false;
+    }
+    /* Decisión de ella 2026-11-21 (segunda): la invitación a contar qué busca
+     * va SOLO en el cierre. El modelo la adelantaba al primer párrafo («pero
+     * con gusto le ayudamos a buscar otra opción») y el mensaje la decía dos
+     * veces. El cuerpo es todo lo anterior al cierre, que ya se exigió literal. */
+    let cuerpo = c.strip_suffix(CIERRE_BORRADOR).unwrap_or(c).to_lowercase();
+    if ["con gusto le ayudamos", "cuéntenos qué", "cuentanos que", "qué está buscando"]
+        .iter()
+        .any(|p| cuerpo.contains(p))
+    {
         return false;
     }
     /* El nombre del original y el del parecido siguen en el texto: sin ellos

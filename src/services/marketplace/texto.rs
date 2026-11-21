@@ -22,6 +22,9 @@ pub use aviso::{
     borrador_no_disponible, nombres_del_aviso, retoque_aceptado, sistema_retoque_no_disponible,
 };
 pub use sujeto::normalizar_sujeto;
+/* Los cuatro no tienen uso fuera de los tests: `forma.rs` y `aviso.rs` los
+ * toman de `sujeto` directamente. Sin `cfg(test)` quedan como import sin uso. */
+#[cfg(test)]
 pub(in crate::services::marketplace) use sujeto::{
     alternativa_en_frase, lugar_con_articulo, sujeto_en_frase, sujeto_inicial,
 };

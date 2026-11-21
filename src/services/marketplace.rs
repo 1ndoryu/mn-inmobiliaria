@@ -66,6 +66,10 @@ pub use self::texto::{
     borrador_no_disponible, nombres_del_aviso, normalizar_sujeto, retoque_aceptado,
     sistema_retoque_no_disponible,
 };
+/* Solo los tests de `pruebas` los usan (`super::*`); `aviso.rs` y `forma.rs`
+ * los toman de `texto::sujeto` directamente. Re-exportarlos fuera de
+ * `cfg(test)` deja un import sin uso y rompe `clippy -D warnings`. */
+#[cfg(test)]
 pub(in crate::services::marketplace) use self::texto::{
     alternativa_en_frase, lugar_con_articulo, sujeto_en_frase, sujeto_inicial,
 };
