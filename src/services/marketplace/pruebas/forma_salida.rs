@@ -205,8 +205,7 @@ fn forma_aprobada_2026_10_21() {
         format!(
             "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable. \
              El inmueble se ubica en Av. Atlántico, Riberas del Caroní.\n\n\
-             Puede llamarnos al {CONTACTO_TEL} para cualquier consulta, o \
-             escribirnos al whatsapp."
+             {CIERRE_BORRADOR}"
         )
     );
 }
@@ -296,10 +295,11 @@ fn no_disponible_propone_similar_y_contacto() {
     );
     assert!(!r.contains("reservado"), "{r}");
     assert!(!r.contains("sigue disponible"), "{r}");
-    /* [GW-16] La residencia se dice una vez: la zona solo aporta el sector. */
+    /* [GW-16] La residencia se dice una vez y la frase se lee seguida: el
+     * lugar con artículo y el inmueble indefinido. */
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Tenemos una opción parecida en Puerto Ordaz: el apartamento en Torre Alta, por 82.000$."
+        "Como alternativa, tenemos otras opciones: en Puerto Ordaz, un apartamento en Torre Alta, por 82.000$."
     );
     assert!(r.contains("82.000$"), "{r}");
     /* [GW-16] Sin enlace de ningún tipo: ni el de WhatsApp ni el del aviso. */
@@ -318,28 +318,48 @@ fn no_disponible_cita_la_zona_una_sola_vez() {
     let mut f = seguro_kama_meru();
     f.estado = "vendido".to_string();
 
-    /* La zona trae un sector que el sujeto no dice: se queda. */
+    /* La zona trae una vía que el nombre no dice: se cita con su artículo. */
     let mut s = seguro_similar();
     s.nombre_corto = "Casa en Guayana Country Club".to_string();
     s.zona = "Av. Atlantico, Guayana Country Club".to_string();
     let r = borrador_no_disponible(&f, Some(&s));
-    assert!(
-        r.contains("Tenemos una opción parecida en Av. Atlantico: la casa en Guayana Country Club, por 82.000$."),
-        "{r}"
+    assert_eq!(
+        r.split("\n\n").nth(1).unwrap_or(""),
+        "Como alternativa, tenemos otras opciones: en la Av. Atlantico, una casa en Guayana Country Club, por 82.000$."
     );
 
     /* La zona es la residencia pelada: no se repite. */
     s.zona = "Guayana Country Club".to_string();
     let r = borrador_no_disponible(&f, Some(&s));
+    assert_eq!(
+        r.split("\n\n").nth(1).unwrap_or(""),
+        "Como alternativa, tenemos otras opciones: una casa en Guayana Country Club, por 82.000$."
+    );
+
+    /* La misma residencia escrita distinta (zona abreviada, nombre
+     * expandido): también es la misma y no se repite. */
+    s.nombre_corto = "Casa en Urbanización Riberas del Caroní".to_string();
+    s.zona = "Urb. Riberas del Caroní".to_string();
+    let r = borrador_no_disponible(&f, Some(&s));
+    assert_eq!(
+        r.split("\n\n").nth(1).unwrap_or(""),
+        "Como alternativa, tenemos otras opciones: una casa en Urbanización Riberas del Caroní, por 82.000$."
+    );
+    s.zona = "Av. Guayana, Urb. Riberas del Caroní".to_string();
+    let r = borrador_no_disponible(&f, Some(&s));
     assert!(
-        r.contains("Tenemos una opción parecida: la casa en Guayana Country Club, por 82.000$."),
+        r.contains("en la Av. Guayana, una casa en Urbanización Riberas del Caroní, por 82.000$"),
         "{r}"
     );
 
     /* Una zona que no menciona la residencia se cita entera. */
+    s.nombre_corto = "Casa en Guayana Country Club".to_string();
     s.zona = "Puerto Ordaz".to_string();
     let r = borrador_no_disponible(&f, Some(&s));
-    assert!(r.contains("opción parecida en Puerto Ordaz: la casa"), "{r}");
+    assert!(
+        r.contains("en Puerto Ordaz, una casa en Guayana Country Club, por 82.000$"),
+        "{r}"
+    );
 }
 
 /// [GW-16] El retoque de la IA solo se acepta si no toca los hechos; si no,
@@ -352,26 +372,60 @@ fn retoque_acepta_solo_lo_que_respeta_los_hechos() {
     s.nombre_corto = "Casa en Guayana Country Club".to_string();
     s.zona = "Av. Atlantico, Guayana Country Club".to_string();
     let base = borrador_no_disponible(&f, Some(&s));
-    assert!(retoque_aceptado(&base, &base), "{base}");
+    let conservar = nombres_del_aviso(&f, Some(&s));
+    assert!(retoque_aceptado(&base, &base, &conservar), "{base}");
 
     /* Viste la misma información: vale. */
     let bueno = format!(
         "El apartamento en Resd. Kama Merú por el momento no está disponible.\n\n\
-         Le ofrecemos algo parecido en Av. Atlantico: la casa en Guayana Country Club, por 82.000$.\n\n\
+         Como alternativa, tenemos otras opciones: en la Av. Atlantico, una casa en Guayana Country Club, por 82.000$.\n\n\
          {CIERRE_BORRADOR}"
     );
-    assert!(retoque_aceptado(&base, &bueno), "{bueno}");
+    assert!(retoque_aceptado(&base, &bueno, &conservar), "{bueno}");
 
-    /* Mueve la cifra, nombra el estado, cambia el cierre o añade enlaces: no. */
+    /* Mueve la cifra, nombra el estado, pierde un nombre, cambia el cierre o
+     * añade enlaces: no. */
     for malo in [
         base.replace("82.000", "85.000"),
         base.replace("no está disponible", "ya se vendió"),
+        base.replace("Guayana Country Club", "Las Orquídeas"),
         base.replace(CIERRE_BORRADOR, "Escríbanos al 04140000000"),
         format!("{base}\n\nVéala aquí: https://wa.me/584249208855"),
+        /* El arranque de la propuesta es fijo: el modelo no lo varía. */
+        base.replace("tenemos otras opciones", "le ofrecemos otras opciones"),
         String::new(),
     ] {
-        assert!(!retoque_aceptado(&base, &malo), "{malo}");
+        assert!(!retoque_aceptado(&base, &malo, &conservar), "{malo}");
     }
+}
+
+/// [GW-16] Las zonas reales de la 89 (volcadas el 2026-11-21) leídas seguidas:
+/// artículo en la vía, sin «en Av.» suelto y sin el tipo del original.
+#[test]
+fn el_lugar_lleva_articulo_con_las_zonas_reales() {
+    for (zona, esperado) in [
+        ("Av. Atlantico", "la Av. Atlantico"),
+        ("Av. Atlántico", "la Av. Atlántico"),
+        ("Final Av. Las Américas", "la Final Av. Las Américas"),
+        ("Urb. Riberas del Caroní", "la Urb. Riberas del Caroní"),
+        ("Calle Mediterráneo, en el sector de Villa Africana", "la Calle Mediterráneo, en el sector de Villa Africana"),
+        ("Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz", "la Av. Principal de Villa Icabarú (Paso Caroní), Puerto Ordaz"),
+        /* Nombre propio o ya con artículo: tal cual. */
+        ("Las Peonías, Puerto Ordaz", "Las Peonías, Puerto Ordaz"),
+        ("Guayana Country Club", "Guayana Country Club"),
+        ("Caujaro", "Caujaro"),
+    ] {
+        assert_eq!(lugar_con_articulo(zona), esperado, "{zona}");
+    }
+}
+
+/// [GW-16] El parecido se ofrece en indefinido: no es el inmueble que se pidió.
+#[test]
+fn la_alternativa_va_en_indefinido() {
+    assert_eq!(alternativa_en_frase("Casa en Guayana Country Club"), "una casa en Guayana Country Club");
+    assert_eq!(alternativa_en_frase("Apart. en Resd. San Ignacio"), "un apartamento en Resd. San Ignacio");
+    assert_eq!(alternativa_en_frase("Townhouse en Villa Tocoma"), "un townhouse en Villa Tocoma");
+    assert_eq!(alternativa_en_frase(""), "otro inmueble");
 }
 
 /// [GW-16] El estado no se nombra: vendido, alquilado y reservado dicen lo mismo.
@@ -386,7 +440,8 @@ fn no_disponible_no_nombra_el_estado() {
     }
 }
 
-/// El similar en alquiler cita el canon mensual.#[test]
+/// El similar en alquiler cita el canon mensual.
+#[test]
 fn no_disponible_similar_en_alquiler_cita_canon() {
     let mut f = seguro_kama_meru();
     f.estado = "alquilado".to_string();
