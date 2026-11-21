@@ -296,8 +296,11 @@ fn no_disponible_propone_similar_y_contacto() {
     );
     assert!(!r.contains("reservado"), "{r}");
     assert!(!r.contains("sigue disponible"), "{r}");
-    assert!(r.contains("opción parecida en Puerto Ordaz, Torre Alta"), "{r}");
-    assert!(r.contains("el apartamento en Torre Alta"), "{r}");
+    /* [GW-16] La residencia se dice una vez: la zona solo aporta el sector. */
+    assert_eq!(
+        r.split("\n\n").nth(1).unwrap_or(""),
+        "Tenemos una opción parecida en Puerto Ordaz: el apartamento en Torre Alta, por 82.000$."
+    );
     assert!(r.contains("82.000$"), "{r}");
     /* [GW-16] Sin enlace de ningún tipo: ni el de WhatsApp ni el del aviso. */
     assert!(!r.contains("facebook.com/marketplace"), "{r}");
@@ -305,6 +308,70 @@ fn no_disponible_propone_similar_y_contacto() {
     assert!(r.contains(CONTACTO_TEL), "{r}");
     assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
     assert!(!r.contains(CONTACTO_WA), "{r}");
+}
+
+/// [GW-16] La zona solo se recorta si de verdad repite la residencia: un
+/// inmueble cuya zona no la trae conserva su ubicación entera, y uno cuya zona
+/// es la residencia pelada no la repite.
+#[test]
+fn no_disponible_cita_la_zona_una_sola_vez() {
+    let mut f = seguro_kama_meru();
+    f.estado = "vendido".to_string();
+
+    /* La zona trae un sector que el sujeto no dice: se queda. */
+    let mut s = seguro_similar();
+    s.nombre_corto = "Casa en Guayana Country Club".to_string();
+    s.zona = "Av. Atlantico, Guayana Country Club".to_string();
+    let r = borrador_no_disponible(&f, Some(&s));
+    assert!(
+        r.contains("Tenemos una opción parecida en Av. Atlantico: la casa en Guayana Country Club, por 82.000$."),
+        "{r}"
+    );
+
+    /* La zona es la residencia pelada: no se repite. */
+    s.zona = "Guayana Country Club".to_string();
+    let r = borrador_no_disponible(&f, Some(&s));
+    assert!(
+        r.contains("Tenemos una opción parecida: la casa en Guayana Country Club, por 82.000$."),
+        "{r}"
+    );
+
+    /* Una zona que no menciona la residencia se cita entera. */
+    s.zona = "Puerto Ordaz".to_string();
+    let r = borrador_no_disponible(&f, Some(&s));
+    assert!(r.contains("opción parecida en Puerto Ordaz: la casa"), "{r}");
+}
+
+/// [GW-16] El retoque de la IA solo se acepta si no toca los hechos; si no,
+/// se sirve el texto determinista, que ya es correcto.
+#[test]
+fn retoque_acepta_solo_lo_que_respeta_los_hechos() {
+    let mut f = seguro_kama_meru();
+    f.estado = "vendido".to_string();
+    let mut s = seguro_similar();
+    s.nombre_corto = "Casa en Guayana Country Club".to_string();
+    s.zona = "Av. Atlantico, Guayana Country Club".to_string();
+    let base = borrador_no_disponible(&f, Some(&s));
+    assert!(retoque_aceptado(&base, &base), "{base}");
+
+    /* Viste la misma información: vale. */
+    let bueno = format!(
+        "El apartamento en Resd. Kama Merú por el momento no está disponible.\n\n\
+         Le ofrecemos algo parecido en Av. Atlantico: la casa en Guayana Country Club, por 82.000$.\n\n\
+         {CIERRE_BORRADOR}"
+    );
+    assert!(retoque_aceptado(&base, &bueno), "{bueno}");
+
+    /* Mueve la cifra, nombra el estado, cambia el cierre o añade enlaces: no. */
+    for malo in [
+        base.replace("82.000", "85.000"),
+        base.replace("no está disponible", "ya se vendió"),
+        base.replace(CIERRE_BORRADOR, "Escríbanos al 04140000000"),
+        format!("{base}\n\nVéala aquí: https://wa.me/584249208855"),
+        String::new(),
+    ] {
+        assert!(!retoque_aceptado(&base, &malo), "{malo}");
+    }
 }
 
 /// [GW-16] El estado no se nombra: vendido, alquilado y reservado dicen lo mismo.
@@ -319,8 +386,7 @@ fn no_disponible_no_nombra_el_estado() {
     }
 }
 
-/// El similar en alquiler cita el canon mensual.
-#[test]
+/// El similar en alquiler cita el canon mensual.#[test]
 fn no_disponible_similar_en_alquiler_cita_canon() {
     let mut f = seguro_kama_meru();
     f.estado = "alquilado".to_string();

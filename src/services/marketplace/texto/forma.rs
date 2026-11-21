@@ -111,6 +111,55 @@ pub(in crate::services::marketplace) fn sujeto_en_frase(nombre_corto: &str) -> S
     s
 }
 
+/// [GW-16] La zona sin la parte que el sujeto ya dice. `zona` es
+/// «`ubicacion`, `residencia`» y `nombre_corto` es «`Tipo` en `residencia`»,
+/// así que citar las dos repite el mismo nombre en una frase («Av. Atlantico,
+/// Guayana Country Club: la casa en Guayana Country Club»). Devuelve solo lo
+/// que el sujeto no nombra; vacío si no queda nada.
+#[must_use]
+fn zona_sin_residencia(zona: &str, nombre_corto: &str) -> String {
+    let z = zona.trim().trim_end_matches('.').trim();
+    let Some((_, residencia)) = nombre_corto.trim().split_once(" en ") else {
+        return z.to_string();
+    };
+    let residencia = residencia.trim();
+    if residencia.is_empty() {
+        return z.to_string();
+    }
+    /* Se compara sin puntos ni mayúsculas («Resd.» = «Resd») recorriendo la
+     * zona desde el final, que es de donde cuelga la residencia. */
+    let norm = |c: char| c.to_lowercase().next().unwrap_or(c);
+    let objetivo: Vec<char> = residencia
+        .chars()
+        .filter(|c| *c != '.' && !c.is_whitespace())
+        .map(norm)
+        .collect();
+    let mut pendientes = objetivo.len();
+    let mut corte = None;
+    for (i, c) in z.char_indices().rev() {
+        if pendientes == 0 {
+            break;
+        }
+        if c == '.' || c.is_whitespace() {
+            continue;
+        }
+        if norm(c) != objetivo[pendientes - 1] {
+            return z.to_string();
+        }
+        pendientes -= 1;
+        corte = Some(i);
+    }
+    if pendientes != 0 {
+        return z.to_string();
+    }
+    /* Del prefijo se cae también el separador que queda colgando. */
+    z[..corte.unwrap_or(0)]
+        .trim()
+        .trim_end_matches([',', '-', '–'])
+        .trim()
+        .to_string()
+}
+
 /// [GW-16] Reescribe el `nombre_corto` que la IA (o una fila de caché ya
 /// guardada) usa como sujeto: «Casa en Las Orquídeas sigue disponible…» pasa a
 /// «La casa en Las Orquídeas sigue disponible…». [GW-15] El cierre no lo lleva,
@@ -433,9 +482,17 @@ pub fn borrador_no_disponible(ficha: &PromptSeguro, similar: Option<&PromptSegur
     let propuesta = match similar {
         Some(s) => {
             let al_mes = if s.operacion.eq_ignore_ascii_case("alquiler") { " al mes" } else { "" };
+            /* [GW-16] El lugar solo se cita si aporta algo: cuando la zona es
+             * la propia residencia, repetirla aquí la diría dos veces en la
+             * misma frase. */
+            let lugar = zona_sin_residencia(&s.zona, &s.nombre_corto);
+            let donde = if lugar.is_empty() {
+                String::new()
+            } else {
+                format!(" en {lugar}")
+            };
             format!(
-                "Tenemos una opción parecida en {}: {}, por {}${al_mes}.",
-                s.zona,
+                "Tenemos una opción parecida{donde}: {}, por {}${al_mes}.",
                 sujeto_en_frase(&s.nombre_corto),
                 cifra_sin_simbolo(&s.precio_publico),
             )
@@ -443,6 +500,75 @@ pub fn borrador_no_disponible(ficha: &PromptSeguro, similar: Option<&PromptSegur
         None => "Si desea, escríbanos y le ayudamos a buscar otra opción que se ajuste a lo que necesita.".to_string(),
     };
     formatear_parrafos(&format!("{aviso}\n\n{propuesta}\n\n{CIERRE_BORRADOR}"))
+}
+
+/// [GW-16] Prompt del retoque del aviso «no disponible». El texto de
+/// `borrador_no_disponible` ya trae los hechos; la IA solo puede mejorar cómo
+/// se leen. Es una rama que también sirve con el relay caído, así que el
+/// resultado se valida en Rust: si cambia un dato o se sale del molde, se
+/// sirve el texto de partida.
+#[must_use]
+pub fn sistema_retoque_no_disponible(base: &str) -> String {
+    format!(
+        "Eres el asistente de MN Inmobiliaria respondiendo en Marketplace. \
+         Reescribe este mensaje para que suene natural y amable, en español de \
+         Venezuela, sin cambiar ningún dato. Es obligatorio conservar: la misma \
+         frase de que el inmueble por el momento no está disponible; el tipo y \
+         el nombre del inmueble; el lugar y la cifra tal como vienen, sin \
+         redondear ni repetir; y el último párrafo completo del contacto, \
+         copiado letra por letra. Prohibido añadir precios, enlaces, teléfonos, \
+         disponibilidad, visitas, fotos o cualquier dato que no esté en el \
+         texto. No nombres el estado (nada de «vendido», «alquilado» ni \
+         «reservado»). Mismo número de párrafos, separados por línea en blanco; \
+         sin saludo y sin el nombre del cliente (el sistema lo antepone). \
+         Devuelve solo el mensaje, sin comillas ni comentarios.\n\n{base}"
+    )
+}
+
+/// [GW-16] Acepta el retoque solo si respeta los hechos de `base`: misma
+/// cifra, mismo nombre y lugar, el cierre intacto y ningún dato de más. Sin
+/// retoque válido se sirve `base`, que ya es correcto.
+#[must_use]
+pub fn retoque_aceptado(base: &str, candidato: &str) -> bool {
+    let c = candidato.trim();
+    if c.is_empty() || c.len() > base.len() * 2 {
+        return false;
+    }
+    /* El cierre se copia literal: el modelo no puede reescribir el contacto. */
+    if !c.ends_with(CIERRE_BORRADOR) {
+        return false;
+    }
+    /* Todos los números de la base siguen ahí, y ninguno nuevo. */
+    let cifras = |t: &str| {
+        let mut v: Vec<String> = t
+            .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+            .filter(|s| s.chars().filter(char::is_ascii_digit).count() >= 3)
+            .map(ToString::to_string)
+            .collect();
+        v.sort();
+        v
+    };
+    if cifras(base) != cifras(c) {
+        return false;
+    }
+    /* Ni estados ni enlaces. */
+    let bajo = c.to_lowercase();
+    if ["vendid", "alquilad", "reservad", "http", "wa.me"]
+        .iter()
+        .any(|p| bajo.contains(p))
+    {
+        return false;
+    }
+    /* El nombre del inmueble se conserva (sin exigir mayúsculas: tras los dos
+     * puntos el modelo puede capitalizarlo). */
+    let conserva_el_nombre = base.split("\n\n").nth(1).is_none_or(|propuesta| {
+        propuesta
+            .split(": ")
+            .nth(1)
+            .and_then(|resto| resto.split(", por ").next())
+            .is_none_or(|nombre| bajo.contains(&nombre.trim().to_lowercase()))
+    });
+    conserva_el_nombre && bajo.contains("no está disponible")
 }
 
 /// [08AA-11] Párrafos coherentes para el borrador que se copia a

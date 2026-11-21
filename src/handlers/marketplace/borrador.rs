@@ -260,14 +260,51 @@ pub(super) async fn respuesta_no_disponible(
         }
     };
     let similar = similar.and_then(|fila| strip_ficha_para_prompt(&fila, STRIP_VERSION).ok());
-    let texto = borrador_no_disponible(ficha, similar.as_ref());
+    let base = borrador_no_disponible(ficha, similar.as_ref());
+    /* [GW-16] Ella eligió el híbrido (2026-11-21): los hechos los arma Rust y
+     * la IA solo viste el párrafo. Si el relay cae, el modelo desobedece o
+     * mueve una cifra, se sirve `base`, que ya es correcto: esta rama no puede
+     * quedarse sin borrador por la IA. */
+    let init = std::time::Instant::now();
+    let (texto, fuente, coste) =
+        match crate::handlers::ia::rutas::completar_opencode_rapido(
+            &crate::services::marketplace::sistema_retoque_no_disponible(&base),
+            &base,
+            &[],
+            &sha_hex(&clave_hilo(r.thread_id.trim())),
+        )
+        .await
+        {
+            Ok((t, _, uso)) => {
+                let limpio = crate::services::marketplace::quitar_saludo(t.trim(), None);
+                let aceptado = crate::services::marketplace::retoque_aceptado(&base, &limpio);
+                if !aceptado {
+                    tracing::info!("borrador mp: retoque del aviso no disponible descartado");
+                }
+                let coste = crate::services::marketplace::Coste {
+                    tokens_entrada: uso.map(|u| u.entrada),
+                    tokens_salida: uso.map(|u| u.salida),
+                    ms: Some(i64::try_from(init.elapsed().as_millis()).unwrap_or(i64::MAX)),
+                };
+                let texto = if aceptado {
+                    crate::services::marketplace::formatear_parrafos(&limpio)
+                } else {
+                    base
+                };
+                (texto, "no-disponible", coste)
+            }
+            Err(e) => {
+                tracing::warn!("borrador mp: retoque del aviso caído ({e}), va el texto base");
+                (base, "no-disponible", crate::services::marketplace::Coste::default())
+            }
+        };
     BorradorResponse {
         borrador: servir_cuerpo(&texto, r),
-        fuente: "no-disponible".to_string(),
+        fuente: fuente.to_string(),
         aviso_conocido: conocido,
         firma_version: firma_version.to_string(),
         corregida: false,
-        coste: crate::services::marketplace::Coste::default(),
+        coste,
     }
 }
 
