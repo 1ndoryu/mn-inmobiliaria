@@ -33,8 +33,21 @@ export function ModalVinculos({ inmueble, alCerrar, alActualizar }: Props) {
     fotosParaVariante: [],
     promptVariante: '',
   });
-  const { recargar, datos, cuentas, vinculos, ocupado, aviso, error, vincular, desvincular, crear, asignarVersion } =
-    versionado;
+  const {
+    recargar,
+    datos,
+    cuentas,
+    vinculos,
+    ocupado,
+    aviso,
+    error,
+    vincular,
+    desvincular,
+    crear,
+    editarCuenta,
+    eliminarCuenta,
+    asignarVersion,
+  } = versionado;
 
   /* Se recuerda el id abierto para releerlo al cerrar aunque el padre ya
    * haya vaciado la selección. */
@@ -118,6 +131,17 @@ export function ModalVinculos({ inmueble, alCerrar, alActualizar }: Props) {
                 await crear(nombre, url);
               })
             }
+            alEditarCuenta={(c, nombre) =>
+              void conReposicion(async () => {
+                await editarCuenta(c.id, {
+                  nombre,
+                  url: c.url,
+                  principal: c.principal,
+                  version: c.version,
+                });
+              })
+            }
+            alBorrarCuenta={(id) => void conReposicion(async () => { await eliminarCuenta(id); })}
             alAsignarVersion={(cuentaId, version) =>
               void conReposicion(() => asignarVersion(cuentaId, version))
             }

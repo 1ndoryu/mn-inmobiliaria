@@ -43,6 +43,9 @@ interface Props {
   alVincular: (cuentaId: string, version: number, marketplaceId: string | null) => void;
   alDesvincular: (cuentaId: string, version: number) => void;
   alCrearCuenta: (nombre: string, url: string) => void;
+  /** [30AA-19] Renombrar y borrar cuentas ya creadas. */
+  alEditarCuenta: (cuenta: CuentaFacebook, nombre: string) => void;
+  alBorrarCuenta: (cuentaId: string) => void;
   /** [30AA-13] Qué versión publica cada cuenta (v1 = Maye, v2 = Wan). */
   alAsignarVersion: (cuentaId: string, version: number | null) => void;
 }
@@ -158,6 +161,8 @@ export function PanelVersiones(props: Props) {
             alVincular={props.alVincular}
             alDesvincular={props.alDesvincular}
             alCrearCuenta={props.alCrearCuenta}
+            alEditarCuenta={props.alEditarCuenta}
+            alBorrarCuenta={props.alBorrarCuenta}
             alAsignarVersion={props.alAsignarVersion}
           />
         )}

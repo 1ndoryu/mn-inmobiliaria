@@ -245,12 +245,16 @@ export function useVersionado({ inmuebleId, fotosParaVariante, promptVariante }:
     [cuentas, mutar, recargar, regenerarCuentas],
   );
 
+  /* [30AA-19] Borrar la cuenta se lleva sus vínculos en cascada: hay que
+   * releer la ficha o el modal seguiría enseñando avisos de una cuenta que
+   * ya no existe. */
   const eliminarCuenta = useCallback(
     async (id: string) => {
       await mutar(() => borrarCuenta(id));
       await regenerarCuentas();
+      await recargar();
     },
-    [mutar, regenerarCuentas],
+    [mutar, recargar, regenerarCuentas],
   );
 
   /* [30AA-7] El vínculo es por versión: la v2 se publica como aviso aparte
