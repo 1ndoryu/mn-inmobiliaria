@@ -27,6 +27,15 @@ type FilaVinculo = (
 const COLUMNAS_VINCULO: &str = "f.id AS facebook_id, f.nombre, f.url, f.principal, \
                                 v.version, v.marketplace_id, v.publicado_en";
 
+/// [GW-17] Subconsulta del espejo: el aviso de la cuenta PRINCIPAL, y dentro
+/// de ella la versión más baja (una cuenta puede tener el inmueble en varias
+/// versiones). Con una sola copia, las dos actualizaciones del espejo no
+/// pueden volver a divergir —ya pasó en GW-14—.
+const ESPEJO: &str = "SELECT v.marketplace_id FROM inmueble_facebook v \
+     JOIN facebook f ON f.id = v.facebook_id \
+     WHERE v.inmueble_id = i.id AND v.marketplace_id IS NOT NULL \
+     ORDER BY f.principal DESC, COALESCE(f.version, 32767) LIMIT 1";
+
 pub struct FacebookRepository;
 
 impl FacebookRepository {
@@ -439,7 +448,7 @@ impl FacebookRepository {
     }
 
     /// Espeja en `inmuebles.marketplace_id` el aviso de este inmueble en la
-    /// cuenta de **versión más baja** (`NULL` si no tiene ningún aviso).
+    /// **cuenta principal** (`NULL` si no tiene ningún aviso).
     ///
     /// [GW-14] Antes exigía `version = 1 AND principal`, y con eso el espejo se
     /// quedaba vacío siempre que ninguna cuenta fuera la v1: el 2026-11-21 las
@@ -448,22 +457,21 @@ impl FacebookRepository {
     /// glory-web empareja SOLO por este espejo (`claves_por_marketplace_id`), así
     /// que no reconocía ningún inmueble propio y la IA contestaba sin ficha.
     ///
-    /// La v más baja es la que representa la ficha: la 0 son las fotos
-    /// originales y la 1 el texto publicado; una v2 es una variante para otra
-    /// cuenta y no debe pisar el aviso principal. `principal` solo desempata.
+    /// [GW-17] La versión más baja como criterio elegía el aviso equivocado en
+    /// cuanto una cuenta secundaria tenía v0: Florida Country y Arivana
+    /// espejaban el aviso de `Maye-v0` en vez del de la cuenta principal, y el
+    /// panel de sync ofrecía reemplazar en producción el bueno por ese. Manda
+    /// la principal —es la que representa la ficha— y la versión solo ordena
+    /// los avisos de una misma cuenta. Comprobado: coincide con producción en
+    /// los 20 inmuebles que existen en las dos bases.
     pub async fn sincronizar_espejo_principal(
         pool: &PgPool,
         inmueble_id: Uuid,
     ) -> Result<(), sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-sin-macro -- sentencia nueva; ver cabecera del módulo
-        sqlx::query(
-            "UPDATE inmuebles i SET marketplace_id = ( \
-                SELECT v.marketplace_id FROM inmueble_facebook v \
-                JOIN facebook f ON f.id = v.facebook_id \
-                WHERE v.inmueble_id = i.id AND v.marketplace_id IS NOT NULL \
-                ORDER BY COALESCE(f.version, 32767), f.principal DESC LIMIT 1) \
-             WHERE i.id = $1",
-        )
+        sqlx::query(&format!(
+            "UPDATE inmuebles i SET marketplace_id = ({ESPEJO}) WHERE i.id = $1"
+        ))
         .bind(inmueble_id)
         .execute(pool)
         .await?;
@@ -475,15 +483,9 @@ impl FacebookRepository {
     /// miles de filas, no de millones).
     pub async fn resincronizar_espejo_todos(pool: &PgPool) -> Result<(), sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-sin-macro -- sentencia nueva; ver cabecera del módulo
-        sqlx::query(
-            "UPDATE inmuebles i SET marketplace_id = ( \
-                SELECT v.marketplace_id FROM inmueble_facebook v \
-                JOIN facebook f ON f.id = v.facebook_id \
-                WHERE v.inmueble_id = i.id AND v.marketplace_id IS NOT NULL \
-                ORDER BY COALESCE(f.version, 32767), f.principal DESC LIMIT 1)",
-        )
-        .execute(pool)
-        .await?;
+        sqlx::query(&format!("UPDATE inmuebles i SET marketplace_id = ({ESPEJO})"))
+            .execute(pool)
+            .await?;
         Ok(())
     }
 

@@ -2,9 +2,9 @@
 //! variantes de foto y el manifiesto de exportación que consume el escritorio.
 //!
 //! Cubre las tres invariantes que sostienen la función:
-//!  1. `inmuebles.marketplace_id` es espejo del aviso de la cuenta de versión
-//!     más baja (la principal desempata), y el borrador encuentra la ficha
-//!     aunque el aviso lo guarde otra cuenta.
+//!  1. `inmuebles.marketplace_id` es espejo del aviso de la cuenta principal
+//!     (la versión más baja desempata dentro de ella), y el borrador encuentra
+//!     la ficha aunque el aviso lo guarde otra cuenta.
 //!  2. Editar o regenerar una variante deja entrada en el historial.
 //!  3. El manifiesto separa v1 (con la mejorada en lugar de su original) y v2
 //!     (solo las variantes IA), que es lo que separa las carpetas en disco.
@@ -116,7 +116,7 @@ fn cuenta_en(nombre: &str, principal: bool, version: i16) -> FacebookRequest {
 }
 
 #[tokio::test]
-async fn el_aviso_espeja_la_cuenta_de_version_mas_baja() {
+async fn el_aviso_espeja_la_cuenta_principal() {
     let admin = admin_opts();
     let pool = recrear_bd(&admin, "glory_versiones_a").await;
     let id = sembrar(&pool).await;
@@ -141,27 +141,29 @@ async fn el_aviso_espeja_la_cuenta_de_version_mas_baja() {
         "sin cuenta v1 el espejo igual se llena: si no, el borrador va sin ficha"
     );
 
-    /* La v0 manda sobre la v2 aunque no sea principal: la 0 son las fotos
-     * originales y es la que representa la ficha. */
+    /* [GW-17] La v0 de una cuenta secundaria NO pisa el aviso de la
+     * principal. Caso real: Florida Country y Arivana espejaban el aviso de
+     * `Maye-v0` y el panel de sync ofrecía reemplazar en producción el bueno. */
     FacebookService::vincular(&pool, id, maye_v0.id, 1, Some("2222222222"))
         .await
         .expect("aviso en la v0");
     assert_eq!(
         espejo_de(&pool, id).await.as_deref(),
-        Some("2222222222"),
-        "gana la versión más baja"
+        Some("1111111111"),
+        "manda la cuenta principal, no la versión más baja"
     );
 
-    /* Al desvincular la v0 el espejo vuelve a la v2: no queda colgado. */
+    /* Al desvincular la principal toma el relevo la otra cuenta: el espejo no
+     * queda colgado mientras haya algún vínculo. */
+    FacebookService::desvincular(&pool, id, wan.id, 1)
+        .await
+        .expect("desvincular la principal");
+    assert_eq!(espejo_de(&pool, id).await.as_deref(), Some("2222222222"));
+
+    /* Sin ningún vínculo, espejo NULL. */
     FacebookService::desvincular(&pool, id, maye_v0.id, 1)
         .await
         .expect("desvincular la v0");
-    assert_eq!(espejo_de(&pool, id).await.as_deref(), Some("1111111111"));
-
-    /* Sin ningún vínculo, espejo NULL. */
-    FacebookService::desvincular(&pool, id, wan.id, 1)
-        .await
-        .expect("desvincular la v2");
     assert_eq!(espejo_de(&pool, id).await, None);
 
     borrar_bd(&admin, "glory_versiones_a").await;
@@ -212,21 +214,22 @@ async fn el_aviso_de_otra_cuenta_resuelve_la_ficha() {
         .expect("v0");
 
     /* El espejo guarda UN aviso; el otro vive solo en `inmueble_facebook`.
-     * [GW-14] El respaldo tiene que encontrarlo: es el mismo ID exacto. */
+     * [GW-14] El respaldo tiene que encontrarlo: es el mismo ID exacto.
+     * [GW-17] El espejo es el de la principal; el de la v0 necesita respaldo. */
     FacebookService::vincular(&pool, id, principal.id, 1, Some("5555555555"))
         .await
         .expect("aviso de la principal");
     FacebookService::vincular(&pool, id, v0.id, 1, Some("6666666666"))
         .await
         .expect("aviso de la v0");
-    assert_eq!(espejo_de(&pool, id).await.as_deref(), Some("6666666666"));
+    assert_eq!(espejo_de(&pool, id).await.as_deref(), Some("5555555555"));
 
-    let por_espejo = InmuebleRepository::find_by_marketplace_id(&pool, "5555555555")
+    let por_espejo = InmuebleRepository::find_by_marketplace_id(&pool, "6666666666")
         .await
         .unwrap();
-    assert!(por_espejo.is_none(), "el espejo solo guarda el de la v0");
+    assert!(por_espejo.is_none(), "el espejo solo guarda el de la principal");
 
-    let por_vinculo = InmuebleRepository::find_by_aviso_vinculado(&pool, "5555555555")
+    let por_vinculo = InmuebleRepository::find_by_aviso_vinculado(&pool, "6666666666")
         .await
         .unwrap();
     assert_eq!(
