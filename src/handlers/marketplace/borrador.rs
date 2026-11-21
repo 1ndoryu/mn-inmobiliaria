@@ -157,6 +157,12 @@ pub async fn borrador(
         /* Hit: el plugin audita `hit`; aquí no se audita nada (el conteo de
          * usos ya subió en la misma sentencia del `UPDATE ... RETURNING`). */
         log_borrador_cache(r.thread_id.trim(), corregida);
+        /* [GW-16] Las filas ya guardadas traen el sujeto viejo («Casa en Las
+         * Orquídeas»): se reescribe al servir, sin invalidar la caché. */
+        let texto = match seguro.as_ref() {
+            Some(f) => crate::services::marketplace::normalizar_sujeto(&texto, &f.nombre_corto),
+            None => texto,
+        };
         let resp = respuesta_hit(
             servir_cuerpo(&texto, &r),
             corregida,
@@ -253,13 +259,8 @@ pub(super) async fn respuesta_no_disponible(
             None
         }
     };
-    /* El enlace exige `marketplace_id`: la consulta ya lo pide, pero un `None`
-     * aquí degrada a «sin similar» en vez de armar un enlace roto. */
-    let similar = similar.and_then(|fila| {
-        let aviso = fila.marketplace_id.clone()?;
-        strip_ficha_para_prompt(&fila, STRIP_VERSION).ok().map(|s| (s, aviso))
-    });
-    let texto = borrador_no_disponible(ficha, similar.as_ref().map(|(s, a)| (s, a.as_str())));
+    let similar = similar.and_then(|fila| strip_ficha_para_prompt(&fila, STRIP_VERSION).ok());
+    let texto = borrador_no_disponible(ficha, similar.as_ref());
     BorradorResponse {
         borrador: servir_cuerpo(&texto, r),
         fuente: "no-disponible".to_string(),
@@ -501,13 +502,18 @@ pub(super) fn sistema_borrador(
          La conversación trae marcas: `Cliente:` es el comprador, `Dueña:` \
           es la dueña (tú no eres la dueña: no repitas lo que ella ya dijo). \
            Formato obligatorio, en este orden exacto: primer párrafo = UNA sola \
-          frase, con uno de estos dos moldes: «<nombre_corto> sigue disponible en \
-          <precio>$ negociable.» si la cifra es la de venta, o «El canon mensual \
-          es de <precio>$ para <nombre_corto>.» si es el canon de alquiler; nunca \
+          frase, con uno de estos dos moldes: «El/La <tipo> en <lugar> sigue \
+          disponible en <precio>$ negociable.» si la cifra es la de venta, o «El \
+          canon mensual es de <precio>$ para el/la <tipo> en <lugar>.» si es el \
+          canon de alquiler (artículo y tipo completo, en minúscula: «la casa en \
+          Las Orquídeas», «el apartamento en Resd. Kama Merú»); nunca \
           el molde de venta para un canon, porque «sigue disponible en 2.800$» se \
-          lee como si el inmueble valiera eso. El sujeto es `nombre_corto` tal \
-          cual, copiado de los datos: no lo compongas ni le añadas nada del \
-          título (ni «planta baja con patio» ni la dirección), que suena a ficha \
+          lee como si el inmueble valiera eso. El sujeto sale de `nombre_corto`, \
+          copiado de los datos: cambia su abreviatura por el tipo completo y \
+          antepón el artículo («Casa en Las Orquídeas» → «La casa en Las \
+          Orquídeas», «Apart. en Resd. Kama Merú» → «El apartamento en Resd. \
+          Kama Merú»); no le añadas nada del título (ni «planta baja con patio» \
+          ni la dirección), que suena a ficha \
           y no a conversación. Sin «te hablo de», «sí \
           sigue» ni «te escribo»; sin visitas, coordinación ni confirmar nada con \
           la dueña. La cifra exacta de los datos o del aviso, con el $ al final \

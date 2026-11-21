@@ -122,7 +122,7 @@ fn forma_con_ficha_no_deja_salir_el_fallback() {
     let r = imponer_forma_borrador(&ia, Some(&seguro_kama_meru()));
     assert!(!r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
     assert!(
-        r.contains("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable."),
+        r.contains("El apartamento en Resd. Kama Merú sigue disponible en 86.000$ negociable."),
         "{r}"
     );
 }
@@ -142,7 +142,7 @@ fn forma_con_ficha_respeta_la_cifra_buena() {
     let ia = "Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
     let r = imponer_forma_borrador(ia, Some(&seguro_kama_meru()));
     assert!(
-        r.starts_with("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable."),
+        r.starts_with("El apartamento en Resd. Kama Merú sigue disponible en 86.000$ negociable."),
         "{r}"
     );
 }
@@ -154,7 +154,7 @@ fn forma_con_ficha_de_alquiler_usa_el_canon() {
     s.operacion = "alquiler".to_string();
     let r = imponer_forma_borrador(FALLBACK_BORRADOR, Some(&s));
     assert!(
-        r.contains("El canon mensual es de 86.000$ para Apart. en Resd. Kama Merú."),
+        r.contains("El canon mensual es de 86.000$ para el apartamento en Resd. Kama Merú."),
         "{r}"
     );
 }
@@ -177,7 +177,7 @@ fn forma_sin_precio_en_la_ficha_conserva_el_fallback() {
 fn reserva_con_ficha_lleva_el_precio() {
     let r = borrador_de_reserva(Some(&seguro_kama_meru()));
     assert!(
-        r.starts_with("Apart. en Resd. Kama Merú sigue disponible en 86.000$ negociable."),
+        r.starts_with("El apartamento en Resd. Kama Merú sigue disponible en 86.000$ negociable."),
         "{r}"
     );
     assert!(!r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
@@ -282,34 +282,52 @@ fn seguro_similar() -> PromptSeguro {
     }
 }
 
-/// [28AD-1] Avisa que ya no está, propone el similar con su enlace y cierra con el contacto.
+/// [28AD-1] Avisa que no está y propone el similar, sin enlace.
+/// [GW-16] Sin nombrar el estado y con el sujeto natural («El apartamento en…»).
 #[test]
 fn no_disponible_propone_similar_y_contacto() {
     let mut f = seguro_kama_meru();
     f.estado = "reservado".to_string();
     let s = seguro_similar();
-    let r = borrador_no_disponible(&f, Some((&s, "123456789")));
-    assert!(r.starts_with("Apart. en Resd. Kama Merú ya está reservado"), "{r}");
+    let r = borrador_no_disponible(&f, Some(&s));
+    assert!(
+        r.starts_with("El apartamento en Resd. Kama Merú por el momento no está disponible."),
+        "{r}"
+    );
+    assert!(!r.contains("reservado"), "{r}");
     assert!(!r.contains("sigue disponible"), "{r}");
-    assert!(r.contains("Apart. en Torre Alta"), "{r}");
+    assert!(r.contains("opción parecida en Puerto Ordaz, Torre Alta"), "{r}");
+    assert!(r.contains("el apartamento en Torre Alta"), "{r}");
     assert!(r.contains("82.000$"), "{r}");
-    assert!(r.contains("https://www.facebook.com/marketplace/item/123456789"), "{r}");
+    /* [GW-16] Sin enlace de ningún tipo: ni el de WhatsApp ni el del aviso. */
+    assert!(!r.contains("facebook.com/marketplace"), "{r}");
+    assert!(!r.contains("http"), "{r}");
     assert!(r.contains(CONTACTO_TEL), "{r}");
     assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
-    /* [GW-15] El similar conserva su enlace de Marketplace (es el aviso, no
-     * WhatsApp): lo que ya no sale es el enlace de WhatsApp. */
     assert!(!r.contains(CONTACTO_WA), "{r}");
 }
+
+/// [GW-16] El estado no se nombra: vendido, alquilado y reservado dicen lo mismo.
 #[test]
-fn no_disponible_texto_por_estado_y_canon() {
+fn no_disponible_no_nombra_el_estado() {
     let mut f = seguro_kama_meru();
-    f.estado = "vendido".to_string();
-    assert!(borrador_no_disponible(&f, None).contains("ya fue vendido"));
+    for (estado, prohibido) in [("vendido", "vendid"), ("alquilado", "alquilad"), ("reservado", "reservad")] {
+        f.estado = estado.to_string();
+        let r = borrador_no_disponible(&f, None);
+        assert!(r.contains("por el momento no está disponible"), "{r}");
+        assert!(!r.contains(prohibido), "«{estado}» no debe salir: {r}");
+    }
+}
+
+/// El similar en alquiler cita el canon mensual.
+#[test]
+fn no_disponible_similar_en_alquiler_cita_canon() {
+    let mut f = seguro_kama_meru();
     f.estado = "alquilado".to_string();
-    assert!(borrador_no_disponible(&f, None).contains("ya fue alquilado"));
     let mut s = seguro_similar();
     s.operacion = "alquiler".to_string();
-    assert!(borrador_no_disponible(&f, Some((&s, "9"))).contains("82.000$ al mes"));
+    let r = borrador_no_disponible(&f, Some(&s));
+    assert!(r.contains("82.000$ al mes"), "{r}");
 }
 
 /// [28AD-1] Sin similar: ofrece ayuda para buscar y mantiene el contacto; sin nombre, «Este inmueble».
@@ -319,11 +337,59 @@ fn no_disponible_sin_similar_ofrece_buscar() {
     f.estado = "vendido".to_string();
     f.nombre_corto = String::new();
     let r = borrador_no_disponible(&f, None);
-    assert!(r.starts_with("Este inmueble ya fue vendido"), "{r}");
+    assert!(r.starts_with("Este inmueble por el momento no está disponible."), "{r}");
     assert!(r.contains("buscar otra opción"), "{r}");
     assert!(!r.contains("facebook.com/marketplace"), "{r}");
     assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
     assert!(!r.contains(CONTACTO_WA), "{r}");
+}
+
+/// [GW-16] El sujeto de la apertura lleva artículo y el tipo completo. El
+/// `nombre_corto` guardado no cambia; solo la frase que se lee.
+#[test]
+fn sujeto_con_articulo_y_tipo_completo() {
+    assert_eq!(sujeto_inicial("Casa en Las Orquídeas"), "La casa en Las Orquídeas");
+    assert_eq!(sujeto_inicial("Apart. en Resd. Kama Merú"), "El apartamento en Resd. Kama Merú");
+    assert_eq!(sujeto_inicial("Townhouse en Villa Tocoma"), "El townhouse en Villa Tocoma");
+    assert_eq!(sujeto_inicial("Local en Av. Manuel Piar"), "El local en Av. Manuel Piar");
+    assert_eq!(sujeto_inicial("   "), "Este inmueble");
+    /* Un tipo que no conocemos se cita tal cual: nunca un artículo inventado. */
+    assert_eq!(sujeto_inicial("Galpón en Zona Industrial"), "Galpón en Zona Industrial");
+    assert_eq!(sujeto_en_frase("Apart. en Resd. Kama Merú"), "el apartamento en Resd. Kama Merú");
+}
+
+/// [GW-16] La apertura sale del molde con el sujeto natural, no con el
+/// `nombre_corto` pelado.
+#[test]
+fn apertura_usa_el_sujeto_natural() {
+    let mut s = seguro_kama_meru();
+    s.nombre_corto = "Casa en Las Orquídeas".to_string();
+    let r = imponer_forma_borrador(FALLBACK_BORRADOR, Some(&s));
+    assert!(
+        r.contains("La casa en Las Orquídeas sigue disponible en 86.000$ negociable."),
+        "{r}"
+    );
+    s.operacion = "alquiler".to_string();
+    let r = imponer_forma_borrador(FALLBACK_BORRADOR, Some(&s));
+    assert!(
+        r.contains("El canon mensual es de 86.000$ para la casa en Las Orquídeas."),
+        "{r}"
+    );
+}
+
+/// [GW-16] El sujeto que escribe la IA (o una fila vieja de caché) también se
+/// reescribe, y aplicarlo dos veces no lo estropea.
+#[test]
+fn el_sujeto_de_la_ia_se_reescribe() {
+    let ia = "Casa en Las Orquídeas sigue disponible en 43.000$ negociable.";
+    let r = imponer_forma_borrador(ia, None);
+    assert!(r.starts_with("Casa en Las Orquídeas sigue disponible"), "{r}");
+    let reescrito = normalizar_sujeto(&r, "Casa en Las Orquídeas");
+    assert!(
+        reescrito.starts_with("La casa en Las Orquídeas sigue disponible"),
+        "{reescrito}"
+    );
+    assert_eq!(normalizar_sujeto(&reescrito, "Casa en Las Orquídeas"), reescrito);
 }
 
 /// [28AA-cache] La reserva de la ficha lleva el precio; sin ficha, el fallback.

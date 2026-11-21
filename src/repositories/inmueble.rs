@@ -135,17 +135,21 @@ impl InmuebleRepository {
      * está: misma operación («ambas» casa con cualquiera), publicado, con aviso
      * de Marketplace (sin él no hay enlace que dar). Primero la misma ubicación;
      * dentro, el precio más cercano. Si `$1` no existe, las subconsultas dan
-     * NULL y no hay candidato. */
+     * NULL y no hay candidato.
+     * [GW-16] Mismo TIPO obligatorio (decisión de ella 2026-11-21): a quien
+     * preguntaba por una casa no se le ofrece un apartamento. Sin candidato del
+     * mismo tipo, no hay similar: mejor «escríbanos» que una opción que no es. */
     pub async fn similar_disponible(
         pool: &PgPool,
         id: Uuid,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
-            "WITH ref AS (SELECT ubicacion, operacion, precio FROM inmuebles WHERE id = $1) \
+            "WITH ref AS (SELECT ubicacion, operacion, precio, tipo FROM inmuebles WHERE id = $1) \
              SELECT {COLUMNAS} FROM inmuebles \
              WHERE id <> $1 AND publicado = TRUE AND estado = 'disponible' \
                AND precio > 0 AND marketplace_id IS NOT NULL \
+               AND tipo = (SELECT tipo FROM ref) \
                AND (operacion = (SELECT operacion FROM ref) OR operacion = 'ambas' \
                     OR (SELECT operacion FROM ref) = 'ambas') \
              ORDER BY (lower(ubicacion) = lower((SELECT ubicacion FROM ref))) DESC, \

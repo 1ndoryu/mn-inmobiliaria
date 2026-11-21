@@ -76,7 +76,10 @@ pub fn sistema_continuacion(tono: &str, aviso: &str, datos: &str, ya_dicho: &str
          otra operación (p. ej. «Alquiler: $2.800») y el Cliente pregunta por \
          ella, da esa. Si la cifra es la del alquiler, di «canon mensual» junto \
          al importe: una cifra suelta se lee como precio de venta. Cita el \
-         inmueble con `nombre_corto` tal cual, nunca por su título ni con \
+         inmueble con su tipo completo y artículo a partir de `nombre_corto` \
+         («Casa en Las Orquídeas» → «la casa en Las Orquídeas», «Apart. en Resd. \
+         Kama Merú» → «el apartamento en Resd. Kama Merú»), nunca por su título \
+         ni con \
          detalles suyos (suena a ficha). \
          Ya le dijiste (no lo repitas igual): {ya_dicho}"
     )

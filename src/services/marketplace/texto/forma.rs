@@ -29,10 +29,11 @@ pub(in crate::services::marketplace) fn apertura_de_ficha(
     if !cifra.chars().any(|c| c.is_ascii_digit() && c != '0') {
         return None;
     }
-    let nombre = match ficha.nombre_corto.trim() {
-        "" => "Este inmueble",
-        n => n,
-    };
+    /* [GW-16] Decisión de ella 2026-11-21: el sujeto lleva artículo y el tipo
+     * completo («La casa en Las Orquídeas», «El apartamento en Resd. Kama
+     * Merú»). «Casa en Las Orquídeas sigue disponible…» suena a ficha. */
+    let nombre = sujeto_inicial(&ficha.nombre_corto);
+    let nombre = nombre.as_str();
     let operacion = ficha.operacion.trim();
     // [25AA-7] «Ambas» cita las dos cifras: la venta y el canon mensual.
     let alquiler = ficha.precio_alquiler_publico.as_deref().map(cifra_sin_simbolo);
@@ -43,7 +44,10 @@ pub(in crate::services::marketplace) fn apertura_de_ficha(
         ),
         _ if operacion.eq_ignore_ascii_case("alquiler") => (
             vec![cifra.clone()],
-            format!("El canon mensual es de {cifra}$ para {nombre}."),
+            format!(
+                "El canon mensual es de {cifra}$ para {}.",
+                sujeto_en_frase(&ficha.nombre_corto)
+            ),
         ),
         _ => (
             vec![cifra.clone()],
@@ -61,6 +65,73 @@ pub fn falta_precio(texto: &str, ficha: &PromptSeguro) -> bool {
     apertura_de_ficha(ficha).is_some_and(|(cifras, _)| {
         !cifras.iter().all(|c| texto.contains(c.as_str()))
     })
+}
+
+/// [GW-16] El `nombre_corto` guardado (`"Casa en Las Orquídeas"`, `"Apart. en
+/// Resd. Kama Merú"`) como sujeto de una frase: con artículo y el tipo entero
+/// («La casa en…», «El apartamento en…»). Sin nombre guardado, «Este inmueble».
+/// El `nombre_corto` en sí no se toca: sigue siendo la etiqueta corta de la
+/// ficha y del panel.
+#[must_use]
+pub fn sujeto_inicial(nombre_corto: &str) -> String {
+    let n = nombre_corto.trim();
+    if n.is_empty() {
+        return "Este inmueble".to_string();
+    }
+    /* El tipo va delante de « en »: es lo único que se traduce. El resto
+     * (la residencia) se cita tal cual, que es lo que ella reconoce. */
+    let (tipo, resto) = match n.find(" en ") {
+        Some(i) => (&n[..i], &n[i..]),
+        None => (n, ""),
+    };
+    let articulo = |genero_femenino: bool, palabra: &str| {
+        format!("{} {}", if genero_femenino { "La" } else { "El" }, palabra)
+    };
+    let sujeto = match tipo.trim().trim_end_matches('.').to_lowercase().as_str() {
+        "apart" | "apartamento" => articulo(false, "apartamento"),
+        "casa" => articulo(true, "casa"),
+        "townhouse" => articulo(false, "townhouse"),
+        "local" => articulo(false, "local"),
+        "terreno" => articulo(false, "terreno"),
+        "inmueble" => return "Este inmueble".to_string(),
+        /* Un tipo que no reconocemos se cita tal cual: mejor literal que
+         * inventarle un artículo. */
+        _ => return n.to_string(),
+    };
+    format!("{sujeto}{resto}")
+}
+
+/// [GW-16] El mismo sujeto a mitad de frase («para el apartamento en…»): el
+/// artículo va en minúscula cuando no abre la oración.
+pub(in crate::services::marketplace) fn sujeto_en_frase(nombre_corto: &str) -> String {
+    let mut s = sujeto_inicial(nombre_corto);
+    if let Some(p) = s.get(0..1) {
+        s.replace_range(0..p.len(), &p.to_lowercase());
+    }
+    s
+}
+
+/// [GW-16] Reescribe el `nombre_corto` que la IA (o una fila de caché ya
+/// guardada) usa como sujeto: «Casa en Las Orquídeas sigue disponible…» pasa a
+/// «La casa en Las Orquídeas sigue disponible…». [GW-15] El cierre no lo lleva,
+/// así que el resto del texto no se toca. Case-sensitive a propósito: el texto
+/// ya reescrito lleva el tipo en minúscula y no vuelve a coincidir, de modo que
+/// aplicarlo dos veces da lo mismo.
+#[must_use]
+pub fn normalizar_sujeto(texto: &str, nombre_corto: &str) -> String {
+    let n = nombre_corto.trim();
+    if n.is_empty() || !texto.contains(n) {
+        return texto.to_string();
+    }
+    let abre = texto.starts_with(n);
+    let mut t = texto.replace(n, &sujeto_en_frase(n));
+    /* El sujeto que abre la frase lleva el artículo en mayúscula. */
+    if abre {
+        if let Some(p) = t.get(0..1) {
+            t.replace_range(0..p.len(), &p.to_uppercase());
+        }
+    }
+    t
 }
 
 /// Cifra publicada sin el `$` ni espacios (`"$86.000"` → `"86.000"`).
@@ -91,7 +162,14 @@ pub fn imponer_forma_borrador(ia: &str, ficha: Option<&PromptSeguro>) -> String 
             p.contains(CONTACTO_WA) || p.contains(CONTACTO_TEL) || p.contains("qué estás buscando")
         })
         .unwrap_or(ps.len() - 1);
-    let p1 = sanear_p1(&ps[0]);
+    /* [GW-16] El sujeto lo escribe Rust: aunque el modelo copie `nombre_corto`
+     * («Apart. en Resd. Kama Merú»), lo que sale es «El apartamento en Resd.
+     * Kama Merú». Se aplica antes de comprobar la cifra, así que da igual si
+     * luego se sustituye el párrafo entero por el molde. */
+    let p1 = ficha.map_or_else(
+        || sanear_p1(&ps[0]),
+        |f| normalizar_sujeto(&sanear_p1(&ps[0]), &f.nombre_corto),
+    );
     /* [20AA-1] La cifra no se le confía al modelo: el mismo inmueble, con la
      * ficha en `datos` y el mismo hilo, dio el fallback a las 03:42 y el
      * precio correcto a las 11:02 (base de la 89, `mp_respuestas_cache`). Si
@@ -338,28 +416,27 @@ pub fn no_disponible(estado: &str) -> bool {
 }
 
 /// [28AD-1] Borrador determinista de un inmueble que ya no está disponible
-/// (sin IA ni caché: el precio del similar y el enlace salen de la ficha, no de
-/// un modelo). `similar` = ficha del parecido y su ID de aviso de Marketplace;
-/// sin él, se invita a escribir. Siempre cierra con el contacto canónico.
+/// (sin IA ni caché: el precio del similar sale de la ficha, no de un modelo).
+/// `similar` = ficha del parecido; sin él, se invita a escribir. Siempre cierra
+/// con el contacto canónico.
 #[must_use]
-pub fn borrador_no_disponible(ficha: &PromptSeguro, similar: Option<(&PromptSeguro, &str)>) -> String {
-    let nombre = match ficha.nombre_corto.trim() {
-        "" => "Este inmueble",
-        n => n,
-    };
-    let aviso = match ficha.estado.trim() {
-        "reservado" => format!("{nombre} ya está reservado y por ahora no está disponible."),
-        "alquilado" => format!("{nombre} ya fue alquilado y ya no está disponible."),
-        _ => format!("{nombre} ya fue vendido y ya no está disponible."),
-    };
+pub fn borrador_no_disponible(ficha: &PromptSeguro, similar: Option<&PromptSeguro>) -> String {
+    /* [GW-16] Decisiones de ella 2026-11-21:
+     * - se dice que no está disponible, sin nombrar el estado («ya fue
+     *   vendido» cuenta de más: no hace falta saber si se vendió o se alquiló);
+     * - la opción se ofrece sin enlace: el comprador sigue el hilo con
+     *   nosotros, no un enlace suelto. */
+    let aviso = format!(
+        "{} por el momento no está disponible.",
+        sujeto_inicial(&ficha.nombre_corto)
+    );
     let propuesta = match similar {
-        Some((s, marketplace_id)) => {
+        Some(s) => {
             let al_mes = if s.operacion.eq_ignore_ascii_case("alquiler") { " al mes" } else { "" };
             format!(
-                "Tenemos una opción parecida en {}: {}, por {}${al_mes}. Puede verla aquí: \
-                 https://www.facebook.com/marketplace/item/{marketplace_id}",
+                "Tenemos una opción parecida en {}: {}, por {}${al_mes}.",
                 s.zona,
-                s.nombre_corto.trim(),
+                sujeto_en_frase(&s.nombre_corto),
                 cifra_sin_simbolo(&s.precio_publico),
             )
         }
