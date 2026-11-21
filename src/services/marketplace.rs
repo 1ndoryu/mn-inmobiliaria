@@ -59,6 +59,16 @@ pub use self::texto::{
     normalizar_excerpt, normalizar_excerpt_con_hilo, precio_del_aviso, precio_publico,
     validar_borrador, BorradorRequest, ExcerptIn, ExtrasIn, Largo, Tono,
 };
+/* [GW-16] El aviso de no disponible y el nombrado del inmueble salieron de
+ * `forma.rs` (tope de tamaño del gate) a `texto/aviso.rs` y `texto/sujeto.rs`;
+ * se re-exportan aquí para que sus usos externos no cambien. */
+pub use self::texto::{
+    borrador_no_disponible, nombres_del_aviso, normalizar_sujeto, retoque_aceptado,
+    sistema_retoque_no_disponible,
+};
+pub(in crate::services::marketplace) use self::texto::{
+    alternativa_en_frase, lugar_con_articulo, sujeto_en_frase, sujeto_inicial,
+};
 /* Solo tests (`super::es_hex64` en `pruebas`): fuera de `cfg(test)` sería
  * import sin uso y rompería `clippy -D warnings` (mismo patrón que `ia.rs`). */
 #[cfg(test)]
