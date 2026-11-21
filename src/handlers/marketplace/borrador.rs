@@ -277,7 +277,10 @@ pub(super) async fn respuesta_no_disponible(
         {
             Ok((t, _, uso)) => {
                 let limpio = crate::services::marketplace::quitar_saludo(t.trim(), None);
-                let aceptado = crate::services::marketplace::retoque_aceptado(&base, &limpio);
+                let conservar =
+                    crate::services::marketplace::nombres_del_aviso(ficha, similar.as_ref());
+                let aceptado =
+                    crate::services::marketplace::retoque_aceptado(&base, &limpio, &conservar);
                 if !aceptado {
                     tracing::info!("borrador mp: retoque del aviso no disponible descartado");
                 }
@@ -559,9 +562,10 @@ pub(super) fn sistema_borrador(
           `operacion`, y si la descripción de los datos trae otra (p. ej. \
           «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa \
           diciendo «canon mensual»; \
-          segundo bloque = el cierre «{CIERRE_BORRADOR}», sin cambiar ni una \
-          palabra; no añadas enlaces, URLs ni nada después (el teléfono va en \
-          la frase); nada de invitar a contar qué busca ni de preguntas. \
+          segundo bloque = el cierre «{CIERRE_BORRADOR}» copiado tal cual, \
+          sin cambiar ni una palabra; no añadas enlaces, URLs ni nada después \
+          (el teléfono va en la frase, y la invitación a contar qué busca ya \
+          está dentro del cierre: no la repitas ni añadas preguntas). \
           Excepción: UNA sola frase más (máximo 140 \
           caracteres, sin ? ni ¿) SOLO si el Cliente pide un dato concreto \
           no dicho arriba (baños, habitaciones, m2). Si el Cliente pregunta \
