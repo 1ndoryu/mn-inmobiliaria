@@ -1,4 +1,7 @@
-use super::super::{CIERRE_BORRADOR, CIERRE_BORRADOR_CON_ENLACE, CONTACTO_TEL, CONTACTO_WA, CTA_FIJO};
+use super::super::{
+    CIERRE_BORRADOR, CIERRE_BORRADOR_CON_ENLACE, CIERRE_BORRADOR_SIN_CTA, CONTACTO_TEL,
+    CONTACTO_WA, CTA_FIJO,
+};
 use super::excerpt::{es_etiqueta, sin_tilde_min};
 
 /* [08AA-29] Ruido por CONTENIDO (no por prefijo): el aviso de
@@ -189,6 +192,7 @@ fn es_cierre_propio(linea: &str) -> bool {
         || cuerpo == CONTACTO_WA
         || cuerpo == CIERRE_BORRADOR
         || cuerpo == CIERRE_BORRADOR_CON_ENLACE
+        || cuerpo == CIERRE_BORRADOR_SIN_CTA
         || cuerpo.starts_with(CIERRE_VIEJO)
     {
         return true;

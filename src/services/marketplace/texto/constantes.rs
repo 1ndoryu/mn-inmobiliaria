@@ -21,14 +21,20 @@ pub const CONTACTO_WA: &str = "https://wa.me/584249208855";
 
 /// [21AA-2] Cierre del borrador, decidido por ella el 2026-10-21 y recortado
 /// el 2026-11-21 [GW-15]: teléfono y «escribirnos al whatsapp», sin enlace.
-/// Es un solo párrafo; sin «Somos inmobiliaria» (lo quitó el 2026-10-21:
-/// sobra en un chat), arranca en «Puede llamarnos».
-pub const CIERRE_BORRADOR: &str = "Puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp.";
+/// [GW-16] El 2026-11-21 le devolvió la invitación final, pegada al teléfono
+/// en el mismo párrafo. Se escribe en usted como el resto del borrador
+/// («Le comento…», «Puede llamarnos…»): «Cuéntanos» rompía el trato.
+pub const CIERRE_BORRADOR: &str = "Puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp. Cuéntenos qué está buscando y con gusto le ayudamos.";
 
 /// [GW-15] Cierre con el enlace que se emitió hasta el 2026-11-21. Ya no se
 /// escribe: existe para reconocerlo como cierre propio al limpiar el eco de
 /// los hilos (`es_cierre_propio`) y las filas viejas de `mp_respuestas_cache`.
 pub const CIERRE_BORRADOR_CON_ENLACE: &str = "Puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp: https://wa.me/584249208855";
+
+/// [GW-16] Cierre sin la invitación final, servido entre GW-15 y GW-16
+/// (2026-11-21). Igual que el anterior, ya no se escribe: sirve para reconocer
+/// el eco propio en los hilos y las filas de caché que aún lo traen.
+pub const CIERRE_BORRADOR_SIN_CTA: &str = "Puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp.";
 
 /// [GW-15] Arranque común de los dos cierres (`CIERRE_BORRADOR` y el que
 /// llevaba enlace). Es la marca que separa el cierre en su propio párrafo
