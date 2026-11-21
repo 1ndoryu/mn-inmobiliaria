@@ -173,6 +173,26 @@ impl InmuebleRepository {
         .await
     }
 
+    /* [GW-14] Respaldo del emparejamiento por aviso: `marketplace_id` es espejo
+     * de UN vínculo (el de la versión más baja), pero el mismo aviso puede estar
+     * vinculado en otra cuenta. Sin esta búsqueda, ese aviso quedaba «sin ficha»
+     * aunque `inmueble_facebook` lo tuviera. Sigue siendo ID exacto, nunca
+     * título: no se cita el precio de un inmueble parecido. */
+    pub async fn find_by_aviso_vinculado(
+        pool: &PgPool,
+        marketplace_id: &str,
+    ) -> Result<Option<InmuebleRow>, sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
+        sqlx::query_as::<_, InmuebleRow>(&format!(
+            "SELECT {COLUMNAS} FROM inmuebles i \
+             WHERE i.id = (SELECT v.inmueble_id FROM inmueble_facebook v \
+                           WHERE v.marketplace_id = $1 LIMIT 1)"
+        ))
+        .bind(marketplace_id)
+        .fetch_optional(pool)
+        .await
+    }
+
     /// Detalle público: solo visible si está publicado
     pub async fn find_public_by_slug(
         pool: &PgPool,

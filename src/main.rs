@@ -26,6 +26,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     sqlx::migrate!().run(&pool).await?;
 
+    /* [GW-14] El espejo `inmuebles.marketplace_id` es una copia derivada y el
+     * borrador de glory-web empareja SOLO por él. Se recalcula al arrancar para
+     * que una base que quedó desfasada (regla vieja, o vínculos restaurados
+     * fuera de la app) se cure sola en vez de seguir contestando sin ficha.
+     * Fail-open: si falla, se avisa y el servidor arranca igual. */
+    match glory_backend::repositories::FacebookRepository::resincronizar_espejo_todos(&pool).await
+    {
+        Ok(()) => tracing::info!("espejo marketplace: recalculado al arrancar"),
+        Err(e) => tracing::warn!("espejo marketplace: no se pudo recalcular ({e}), sigue como estaba"),
+    }
+
     /* [03AA-3 M4] Purga de caché mp al arrancar (siempre, fail-open) + pg_cron
      * diario solo con `DB_24H=true` (07:00 UTC = 03:00 Caracas). Sin pg_cron
      * en el servidor se avisa y se sigue: la purga al arrancar ya cubre. */

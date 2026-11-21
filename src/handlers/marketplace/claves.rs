@@ -80,7 +80,25 @@ pub(super) async fn claves_por_marketplace_id(
             let catalogo = hash_ficha(&f);
             Ok((Some(seguro), precio, catalogo, true))
         }
-        Ok(None) => Ok((None, SIN_FICHA.to_string(), SIN_FICHA.to_string(), false)),
+        /* [GW-14] El espejo de `inmuebles.marketplace_id` guarda UN aviso por
+         * ficha (el de la versión más baja), pero un inmueble puede tener el
+         * mismo aviso vinculado en otra cuenta. Sin este respaldo, ese aviso
+         * existía en `inmueble_facebook` y el borrador contestaba sin ficha.
+         * Sigue sin caer al título: es el mismo ID exacto, solo se busca en el
+         * sitio donde vive el vínculo. */
+        Ok(None) => match InmuebleRepository::find_by_aviso_vinculado(pool, marketplace_id).await {
+            Ok(Some(f)) => {
+                let seguro = strip_ficha_para_prompt(&f, STRIP_VERSION)?;
+                let precio = precio_hash_seguro(&seguro);
+                let catalogo = hash_ficha(&f);
+                Ok((Some(seguro), precio, catalogo, true))
+            }
+            Ok(None) => Ok((None, SIN_FICHA.to_string(), SIN_FICHA.to_string(), false)),
+            Err(e) => {
+                tracing::warn!("claves_cache: respaldo por inmueble_facebook falló ({e}), va sin ficha");
+                Ok((None, SIN_FICHA.to_string(), SIN_FICHA.to_string(), false))
+            }
+        },
         Err(e) => {
             tracing::warn!("claves_cache: buscar por marketplace_id falló ({e}), va sin ficha");
             Ok((None, SIN_FICHA.to_string(), SIN_FICHA.to_string(), false))

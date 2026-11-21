@@ -54,6 +54,7 @@ desktop.ini
 /scripts/datos/*
 !/scripts/datos/importar-rescate.mjs
 !/scripts/datos/inmueble.mjs
+!/scripts/datos/recuperar-vinculos-v1.mjs
 !/scripts/datos/inmueble/
 !/scripts/datos/pelar-exif.py
 !/scripts/calidad/
@@ -68,6 +69,7 @@ desktop.ini
 !/scripts/dev/bateria-ia.ps1
 !/scripts/dev/sync-pull.mjs
 !/scripts/dev/lib-api.mjs
+!/scripts/dev/respaldo-bd.sh
 !/scripts/mp/
 /scripts/mp/*
 !/scripts/mp/firma-aviso.mjs

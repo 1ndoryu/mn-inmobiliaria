@@ -4,3 +4,8 @@
 # una migración con CRLF cambia su checksum y el arranque falla con VersionMismatch
 # (incidente 2026-10-13).
 migrations/*.sql -text
+
+# Los scripts de shell corren en la 89 (bash): un CRLF en el shebang o en un
+# `case` los rompe con un error que no dice nada («$'\r': command not found»).
+# Este checkout tiene core.autocrlf=true, así que la regla va explícita.
+*.sh text eol=lf

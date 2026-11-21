@@ -2,7 +2,9 @@
 //! variantes de foto y el manifiesto de exportación que consume el escritorio.
 //!
 //! Cubre las tres invariantes que sostienen la función:
-//!  1. `inmuebles.marketplace_id` es espejo del aviso de la cuenta principal.
+//!  1. `inmuebles.marketplace_id` es espejo del aviso de la cuenta de versión
+//!     más baja (la principal desempata), y el borrador encuentra la ficha
+//!     aunque el aviso lo guarde otra cuenta.
 //!  2. Editar o regenerar una variante deja entrada en el historial.
 //!  3. El manifiesto separa v1 (con la mejorada en lugar de su original) y v2
 //!     (solo las variantes IA), que es lo que separa las carpetas en disco.
@@ -114,58 +116,143 @@ fn cuenta_en(nombre: &str, principal: bool, version: i16) -> FacebookRequest {
 }
 
 #[tokio::test]
-async fn el_aviso_espeja_la_cuenta_principal() {
+async fn el_aviso_espeja_la_cuenta_de_version_mas_baja() {
     let admin = admin_opts();
     let pool = recrear_bd(&admin, "glory_versiones_a").await;
     let id = sembrar(&pool).await;
 
-    let maye = FacebookService::crear(&pool, cuenta("Maye", true))
+    /* [GW-14] Caso real del 2026-11-21: ninguna cuenta es v1 (Wan v2 y
+     * Maye-v0 v0), y con la regla vieja (`version = 1 AND principal`) el
+     * espejo se quedaba vacío en TODOS los inmuebles. */
+    let wan = FacebookService::crear(&pool, cuenta_en("Wan", true, 2))
         .await
-        .expect("cuenta principal");
-    let nueva = FacebookService::crear(&pool, cuenta("Nueva", false))
+        .expect("cuenta principal v2");
+    let maye_v0 = FacebookService::crear(&pool, cuenta_en("Maye-v0", false, 0))
         .await
-        .expect("segunda cuenta");
+        .expect("cuenta v0");
 
-    /* Vincular la NO principal no toca el espejo; la principal sí. */
-    FacebookService::vincular(&pool, id, nueva.id, 1, None)
+    FacebookService::vincular(&pool, id, wan.id, 1, Some("1111111111"))
         .await
-        .expect("vínculo con la nueva");
-    let espejo: Option<String> =
-        sqlx::query_scalar("SELECT marketplace_id FROM inmuebles WHERE id = $1")
-            .bind(id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(espejo, None, "la cuenta no principal no escribe el espejo");
+        .expect("aviso en la principal");
+    let espejo = espejo_de(&pool, id).await;
+    assert_eq!(
+        espejo.as_deref(),
+        Some("1111111111"),
+        "sin cuenta v1 el espejo igual se llena: si no, el borrador va sin ficha"
+    );
 
-    FacebookService::vincular(&pool, id, maye.id, 1, Some("1234567890"))
+    /* La v0 manda sobre la v2 aunque no sea principal: la 0 son las fotos
+     * originales y es la que representa la ficha. */
+    FacebookService::vincular(&pool, id, maye_v0.id, 1, Some("2222222222"))
         .await
-        .expect("vínculo con la principal");
-    let espejo: Option<String> =
-        sqlx::query_scalar("SELECT marketplace_id FROM inmuebles WHERE id = $1")
-            .bind(id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(espejo.as_deref(), Some("1234567890"));
+        .expect("aviso en la v0");
+    assert_eq!(
+        espejo_de(&pool, id).await.as_deref(),
+        Some("2222222222"),
+        "gana la versión más baja"
+    );
 
-    let vinculos = FacebookService::vinculos(&pool, id).await.unwrap();
-    assert_eq!(vinculos.len(), 2, "el mismo inmueble va en dos cuentas");
-    assert!(vinculos.iter().any(|v| v.principal && v.marketplace_id.is_some()));
-
-    /* Desvincular la principal deja el espejo vacío: no queda un aviso colgado. */
-    FacebookService::desvincular(&pool, id, maye.id, 1)
+    /* Al desvincular la v0 el espejo vuelve a la v2: no queda colgado. */
+    FacebookService::desvincular(&pool, id, maye_v0.id, 1)
         .await
-        .expect("desvincular");
-    let espejo: Option<String> =
-        sqlx::query_scalar("SELECT marketplace_id FROM inmuebles WHERE id = $1")
-            .bind(id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(espejo, None);
+        .expect("desvincular la v0");
+    assert_eq!(espejo_de(&pool, id).await.as_deref(), Some("1111111111"));
+
+    /* Sin ningún vínculo, espejo NULL. */
+    FacebookService::desvincular(&pool, id, wan.id, 1)
+        .await
+        .expect("desvincular la v2");
+    assert_eq!(espejo_de(&pool, id).await, None);
 
     borrar_bd(&admin, "glory_versiones_a").await;
+}
+
+#[tokio::test]
+async fn el_espejo_desempata_por_la_principal() {
+    let admin = admin_opts();
+    let pool = recrear_bd(&admin, "glory_versiones_e").await;
+    let id = sembrar(&pool).await;
+
+    /* Dos cuentas sin versión declarada: mismas condiciones, gana la principal. */
+    let principal = FacebookService::crear(&pool, cuenta("Principal", true))
+        .await
+        .expect("principal");
+    let otra = FacebookService::crear(&pool, cuenta("Otra", false))
+        .await
+        .expect("segunda");
+
+    FacebookService::vincular(&pool, id, otra.id, 1, Some("3333333333"))
+        .await
+        .expect("aviso en la no principal");
+    FacebookService::vincular(&pool, id, principal.id, 1, Some("4444444444"))
+        .await
+        .expect("aviso en la principal");
+    assert_eq!(espejo_de(&pool, id).await.as_deref(), Some("4444444444"));
+
+    /* Desvincular la principal deja a la otra como representante. */
+    FacebookService::desvincular(&pool, id, principal.id, 1)
+        .await
+        .expect("desvincular la principal");
+    assert_eq!(espejo_de(&pool, id).await.as_deref(), Some("3333333333"));
+
+    borrar_bd(&admin, "glory_versiones_e").await;
+}
+
+#[tokio::test]
+async fn el_aviso_de_otra_cuenta_resuelve_la_ficha() {
+    let admin = admin_opts();
+    let pool = recrear_bd(&admin, "glory_versiones_f").await;
+    let id = sembrar(&pool).await;
+
+    let principal = FacebookService::crear(&pool, cuenta_en("Principal", true, 2))
+        .await
+        .expect("principal v2");
+    let v0 = FacebookService::crear(&pool, cuenta_en("Maye-v0", false, 0))
+        .await
+        .expect("v0");
+
+    /* El espejo guarda UN aviso; el otro vive solo en `inmueble_facebook`.
+     * [GW-14] El respaldo tiene que encontrarlo: es el mismo ID exacto. */
+    FacebookService::vincular(&pool, id, principal.id, 1, Some("5555555555"))
+        .await
+        .expect("aviso de la principal");
+    FacebookService::vincular(&pool, id, v0.id, 1, Some("6666666666"))
+        .await
+        .expect("aviso de la v0");
+    assert_eq!(espejo_de(&pool, id).await.as_deref(), Some("6666666666"));
+
+    let por_espejo = InmuebleRepository::find_by_marketplace_id(&pool, "5555555555")
+        .await
+        .unwrap();
+    assert!(por_espejo.is_none(), "el espejo solo guarda el de la v0");
+
+    let por_vinculo = InmuebleRepository::find_by_aviso_vinculado(&pool, "5555555555")
+        .await
+        .unwrap();
+    assert_eq!(
+        por_vinculo.map(|f| f.id),
+        Some(id),
+        "el respaldo por `inmueble_facebook` sí encuentra la ficha"
+    );
+
+    /* Un ID que no existe en ningún sitio sigue sin ficha (nunca por título). */
+    assert!(
+        InmuebleRepository::find_by_aviso_vinculado(&pool, "9999999999")
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    borrar_bd(&admin, "glory_versiones_f").await;
+}
+
+/// Espejo `inmuebles.marketplace_id` de un inmueble.
+async fn espejo_de(pool: &PgPool, id: Uuid) -> Option<String> {
+    sqlx::query_scalar("SELECT marketplace_id FROM inmuebles WHERE id = $1")
+        .bind(id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
 }
 
 #[tokio::test]

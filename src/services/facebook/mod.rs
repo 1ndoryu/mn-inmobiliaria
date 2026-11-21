@@ -213,20 +213,13 @@ impl FacebookService {
         Ok(())
     }
 
-    /// Recalcula el espejo de todos los inmuebles (cambio de principal).
-    /// Una sola sentencia: el volumen es de miles de filas, no de millones.
-    /// Espeja la v1: es el aviso de la ficha, no el de una variante.
+    /// Recalcula el espejo de todos los inmuebles (cambio de principal o de
+    /// cuenta): delega en el repositorio para que la sentencia viva en un solo
+    /// sitio. Dos copias del mismo SQL ya divergieron una vez (GW-14).
     async fn resincronizar_todos(pool: &PgPool) -> Result<(), AppError> {
-        // sentinel-disable-next-line sqlx-query-sin-macro -- sentencia nueva; ver cabecera del módulo
-        sqlx::query(
-            "UPDATE inmuebles i SET marketplace_id = ( \
-                SELECT v.marketplace_id FROM inmueble_facebook v \
-                JOIN facebook f ON f.id = v.facebook_id \
-                WHERE v.inmueble_id = i.id AND v.version = 1 AND f.principal LIMIT 1)",
-        )
-        .execute(pool)
-        .await?;
-        Ok(())
+        FacebookRepository::resincronizar_espejo_todos(pool)
+            .await
+            .map_err(AppError::Database)
     }
 }
 

@@ -438,11 +438,19 @@ impl FacebookRepository {
         Ok(r.rows_affected() > 0)
     }
 
-    /// Espeja en `inmuebles.marketplace_id` el aviso de la **v1** en la cuenta
-    /// principal (`NULL` si no está vinculada o no tiene aviso).
+    /// Espeja en `inmuebles.marketplace_id` el aviso de este inmueble en la
+    /// cuenta de **versión más baja** (`NULL` si no tiene ningún aviso).
     ///
-    /// El espejo es de la v1 a propósito: es lo que leen el laboratorio de
-    /// Marketplace y el chat, que emparejan el aviso con la ficha publicada.
+    /// [GW-14] Antes exigía `version = 1 AND principal`, y con eso el espejo se
+    /// quedaba vacío siempre que ninguna cuenta fuera la v1: el 2026-11-21 las
+    /// cuentas eran Wan v2 y Maye-v0 v0, y las 26 fichas tenían
+    /// `marketplace_id` NULL aunque había 11 avisos vinculados. El borrador de
+    /// glory-web empareja SOLO por este espejo (`claves_por_marketplace_id`), así
+    /// que no reconocía ningún inmueble propio y la IA contestaba sin ficha.
+    ///
+    /// La v más baja es la que representa la ficha: la 0 son las fotos
+    /// originales y la 1 el texto publicado; una v2 es una variante para otra
+    /// cuenta y no debe pisar el aviso principal. `principal` solo desempata.
     pub async fn sincronizar_espejo_principal(
         pool: &PgPool,
         inmueble_id: Uuid,
@@ -452,10 +460,28 @@ impl FacebookRepository {
             "UPDATE inmuebles i SET marketplace_id = ( \
                 SELECT v.marketplace_id FROM inmueble_facebook v \
                 JOIN facebook f ON f.id = v.facebook_id \
-                WHERE v.inmueble_id = i.id AND v.version = 1 AND f.principal LIMIT 1) \
+                WHERE v.inmueble_id = i.id AND v.marketplace_id IS NOT NULL \
+                ORDER BY COALESCE(f.version, 32767), f.principal DESC LIMIT 1) \
              WHERE i.id = $1",
         )
         .bind(inmueble_id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Recalcula el espejo de TODOS los inmuebles con la misma regla que
+    /// `sincronizar_espejo_principal` (una sola sentencia: el volumen es de
+    /// miles de filas, no de millones).
+    pub async fn resincronizar_espejo_todos(pool: &PgPool) -> Result<(), sqlx::Error> {
+        // sentinel-disable-next-line sqlx-query-sin-macro -- sentencia nueva; ver cabecera del módulo
+        sqlx::query(
+            "UPDATE inmuebles i SET marketplace_id = ( \
+                SELECT v.marketplace_id FROM inmueble_facebook v \
+                JOIN facebook f ON f.id = v.facebook_id \
+                WHERE v.inmueble_id = i.id AND v.marketplace_id IS NOT NULL \
+                ORDER BY COALESCE(f.version, 32767), f.principal DESC LIMIT 1)",
+        )
         .execute(pool)
         .await?;
         Ok(())
