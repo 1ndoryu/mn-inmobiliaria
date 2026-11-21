@@ -517,8 +517,8 @@ pub(super) fn sistema_borrador(
           «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa \
           diciendo «canon mensual»; \
           segundo bloque = el cierre «{CIERRE_BORRADOR}», sin cambiar ni una \
-          palabra (teléfono y enlace en el MISMO párrafo, sin salto entre \
-          ellos); nada de invitar a contar qué busca ni de preguntas. \
+          palabra; no añadas enlaces, URLs ni nada después (el teléfono va en \
+          la frase); nada de invitar a contar qué busca ni de preguntas. \
           Excepción: UNA sola frase más (máximo 140 \
           caracteres, sin ? ni ¿) SOLO si el Cliente pide un dato concreto \
           no dicho arriba (baños, habitaciones, m2). Si el Cliente pregunta \
@@ -530,7 +530,7 @@ pub(super) fn sistema_borrador(
           final: ? ¿ fotos disponible precio visitas cifras contacto propio; \
           sin precio en datos ni aviso, no lo inventes; \
          si preguntan precio y no hay precio en los datos ni en el aviso, responde exactamente: {FALLBACK_BORRADOR} \
-         (el sistema agrega el contacto y el enlace al final). \
+         (el sistema agrega el contacto al final). \
           Ya le dijiste (no lo repitas igual): {ya_dicho}"
     )
 }

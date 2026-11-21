@@ -346,11 +346,13 @@ fn precio_del_aviso_extrae_moneda_antes_o_despues() {
 fn asegurar_contacto_agrega_lo_que_falta_y_respeta_lo_presente() {
     let sin_nada = asegurar_contacto("Casa en Riberas.\nSí, aceptamos visita.");
     assert!(sin_nada.contains(CONTACTO_TEL));
-    assert!(sin_nada.ends_with(CONTACTO_WA));
+    assert!(sin_nada.ends_with(CIERRE_BORRADOR));
+    /* [GW-15] Ni el que se añade ni el que ya venía llevan el enlace. */
+    assert!(!sin_nada.contains(CONTACTO_WA));
     /* [21AA-2] Con el cierre ya presente no se añade otra copia. */
     let completo = asegurar_contacto(&format!("Casa.\n{CIERRE_BORRADOR}"));
     assert_eq!(completo.matches(CONTACTO_TEL).count(), 1);
-    assert_eq!(completo.matches(CONTACTO_WA).count(), 1);
+    assert!(!completo.contains(CONTACTO_WA));
 }
 
 #[test]

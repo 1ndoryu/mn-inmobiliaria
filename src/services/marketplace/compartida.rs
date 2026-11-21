@@ -28,10 +28,11 @@ pub struct ClaveCompartida<'a> {
 /// mensajes: `["a b"]` y `["a", "b"]` no colisionan.
 /// [21AA-2] v3/v4: la plantilla compartida lleva horneado el cierre del
 /// borrador; cada forma anterior (v2, dos líneas; v3, con «Somos
-/// inmobiliaria») queda huérfana sin subir la versión.
+/// inmobiliaria») queda huérfana sin subir la versión. [GW-15] v5: fuera el
+/// enlace de WhatsApp del cierre, y las v4 lo llevan horneado.
 #[must_use]
 pub fn mensaje_clave_de(textos: &[&str]) -> String {
-    let mut canon = String::from("v4\n");
+    let mut canon = String::from("v5\n");
     for (i, texto) in textos.iter().enumerate() {
         if i > 0 {
             canon.push('\n');

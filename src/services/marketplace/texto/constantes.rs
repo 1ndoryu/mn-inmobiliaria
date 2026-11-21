@@ -13,12 +13,28 @@ pub const FALLBACK_BORRADOR: &str = "Lo reviso y te escribo el precio por aquí"
 /// lo agrega si falta. [08AA-14] Sin matriz negativa por decisión de ella
 /// 2026-10-08: el texto (propio o de la IA) pasa tal cual.
 pub const CONTACTO_TEL: &str = "04249208855";
+/// [GW-15] El enlace ya NO se emite (decisión de ella 2026-11-21: los
+/// borradores terminan en el teléfono y «escribirnos al whatsapp»). Se
+/// conserva para RECONOCER el enlace de los borradores ya emitidos: filas de
+/// caché viejas y mensajes que ya están en los hilos de Marketplace.
 pub const CONTACTO_WA: &str = "https://wa.me/584249208855";
 
-/// [21AA-2] Cierre del borrador, decidido por ella el 2026-10-21: el teléfono
-/// y el enlace van pegados en el MISMO párrafo. Sin «Somos inmobiliaria»
-/// (lo quitó ese mismo día: sobra en un chat): arranca en «Puede llamarnos».
-pub const CIERRE_BORRADOR: &str = "Puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp: https://wa.me/584249208855";
+/// [21AA-2] Cierre del borrador, decidido por ella el 2026-10-21 y recortado
+/// el 2026-11-21 [GW-15]: teléfono y «escribirnos al whatsapp», sin enlace.
+/// Es un solo párrafo; sin «Somos inmobiliaria» (lo quitó el 2026-10-21:
+/// sobra en un chat), arranca en «Puede llamarnos».
+pub const CIERRE_BORRADOR: &str = "Puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp.";
+
+/// [GW-15] Cierre con el enlace que se emitió hasta el 2026-11-21. Ya no se
+/// escribe: existe para reconocerlo como cierre propio al limpiar el eco de
+/// los hilos (`es_cierre_propio`) y las filas viejas de `mp_respuestas_cache`.
+pub const CIERRE_BORRADOR_CON_ENLACE: &str = "Puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp: https://wa.me/584249208855";
+
+/// [GW-15] Arranque común de los dos cierres (`CIERRE_BORRADOR` y el que
+/// llevaba enlace). Es la marca que separa el cierre en su propio párrafo
+/// cuando la IA lo pega a la frase anterior, sin depender de que el texto
+/// termine igual que el cierre vigente.
+pub const ARRANQUE_CIERRE: &str = "Puede llamarnos al";
 
 /// [09AA-2] Invitación canónica del final; [21AA-2] ya NO se emite (ella la
 /// quitó el 2026-10-21: el mensaje va apertura + cierre). Se conserva para

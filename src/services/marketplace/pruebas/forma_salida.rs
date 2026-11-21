@@ -44,14 +44,17 @@ fn forma_sanea_pregunta_pegada_en_p1() {
 fn forma_p1_invalido_da_minimo() {
     let r = imponer_forma_borrador("¿Te comparto fotos para que la veas?", None);
     assert!(r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
-    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
 }
 
 #[test]
 fn forma_final_siempre_canonico() {
     let r = imponer_forma_borrador(&ia_fabio("Tiene 2 baños."), None);
     assert!(r.contains(CIERRE_BORRADOR), "{r}");
-    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
+    /* [GW-15] El cierre ya no lleva enlace: ningún borrador debe traerlo. */
+    assert!(!r.contains(CONTACTO_WA), "{r}");
+    assert!(!r.contains("wa.me"), "{r}");
 }
 
 #[test]
@@ -179,19 +182,20 @@ fn reserva_con_ficha_lleva_el_precio() {
     );
     assert!(!r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
     assert!(r.contains(CONTACTO_TEL), "{r}");
-    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
 }
 
 #[test]
 fn reserva_sin_ficha_conserva_el_fallback() {
     let r = borrador_de_reserva(None);
     assert!(r.contains(&FALLBACK_BORRADOR[..10]), "{r}");
-    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
 }
 
 /// [21AA-2] Forma aprobada por ella el 2026-10-21, literal: apertura con el
-/// dato, la ubicación en la misma línea y el cierre (teléfono + enlace) como
-/// único final, sin la invitación «Cuéntame qué estás buscando».
+/// dato, la ubicación en la misma línea y el cierre como único final, sin la
+/// invitación «Cuéntame qué estás buscando». [GW-15] El cierre ya no lleva el
+/// enlace de WhatsApp (decisión de ella 2026-11-21).
 #[test]
 fn forma_aprobada_2026_10_21() {
     let ia = "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable.\n\nEl inmueble se ubica en Av. Atlántico, Riberas del Caroní.\n\nCuéntame qué estás buscando y con gusto te ayudo.";
@@ -202,9 +206,23 @@ fn forma_aprobada_2026_10_21() {
             "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable. \
              El inmueble se ubica en Av. Atlántico, Riberas del Caroní.\n\n\
              Puede llamarnos al {CONTACTO_TEL} para cualquier consulta, o \
-             escribirnos al whatsapp: {CONTACTO_WA}"
+             escribirnos al whatsapp."
         )
     );
+}
+
+/// [GW-15] Un cierre con enlace que devuelva la IA (o que venga de una fila de
+/// caché vieja) se sustituye por el vigente: el enlace no puede volver a salir.
+#[test]
+fn forma_recorta_el_enlace_de_un_cierre_viejo() {
+    let ia = format!(
+        "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable.\n\n\
+         {CIERRE_BORRADOR_CON_ENLACE}"
+    );
+    let r = imponer_forma_borrador(&ia, None);
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
+    assert!(!r.contains(CONTACTO_WA), "{r}");
+    assert!(!r.contains(CIERRE_BORRADOR_CON_ENLACE), "{r}");
 }
 
 /// [25AA-7] «Ambas» cita la venta y el canon; sin canon, el molde de venta.
@@ -277,10 +295,11 @@ fn no_disponible_propone_similar_y_contacto() {
     assert!(r.contains("82.000$"), "{r}");
     assert!(r.contains("https://www.facebook.com/marketplace/item/123456789"), "{r}");
     assert!(r.contains(CONTACTO_TEL), "{r}");
-    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
+    /* [GW-15] El similar conserva su enlace de Marketplace (es el aviso, no
+     * WhatsApp): lo que ya no sale es el enlace de WhatsApp. */
+    assert!(!r.contains(CONTACTO_WA), "{r}");
 }
-
-/// [28AD-1] Cada estado dice lo suyo; el alquiler del similar lleva «al mes».
 #[test]
 fn no_disponible_texto_por_estado_y_canon() {
     let mut f = seguro_kama_meru();
@@ -303,7 +322,8 @@ fn no_disponible_sin_similar_ofrece_buscar() {
     assert!(r.starts_with("Este inmueble ya fue vendido"), "{r}");
     assert!(r.contains("buscar otra opción"), "{r}");
     assert!(!r.contains("facebook.com/marketplace"), "{r}");
-    assert!(r.trim_end().ends_with(CONTACTO_WA), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
+    assert!(!r.contains(CONTACTO_WA), "{r}");
 }
 
 /// [28AA-cache] La reserva de la ficha lleva el precio; sin ficha, el fallback.

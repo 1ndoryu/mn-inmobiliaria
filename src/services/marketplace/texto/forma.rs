@@ -1,5 +1,5 @@
 use crate::services::marketplace::{
-    PromptSeguro, CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, FALLBACK_BORRADOR,
+    PromptSeguro, ARRANQUE_CIERRE, CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, FALLBACK_BORRADOR,
 };
 
 /// [07AA-8] Garantía determinista del formato: si el texto generado no trae
@@ -150,13 +150,16 @@ pub(in crate::services::marketplace) fn sanear_p1(p1: &str) -> String {
     let frases: Vec<String> = partir_frases(p1)
         .into_iter()
         .filter(|f| {
-            f.contains("wa.me")
-                || (!f.contains('?')
-                    && !f.contains('¿')
-                    && (!es_relleno(f)
-                        || f.contains('$')
-                        || f.contains("disponible")
-                        || f.contains(&FALLBACK_BORRADOR[..10])))
+            /* [GW-15] Las frases con enlace se descartan: el cierre ya no lo
+             * lleva y antes se conservaban a propósito, porque el enlace era
+             * parte del final canónico. */
+            !f.contains("wa.me")
+                && !f.contains('?')
+                && !f.contains('¿')
+                && (!es_relleno(f)
+                    || f.contains('$')
+                    || f.contains("disponible")
+                    || f.contains(&FALLBACK_BORRADOR[..10]))
         })
         .collect();
     let unido = frases.join(" ");
@@ -375,9 +378,11 @@ pub fn borrador_no_disponible(ficha: &PromptSeguro, similar: Option<(&PromptSegu
 #[must_use]
 pub fn formatear_parrafos(texto: &str) -> String {
     let plano = texto.replace("\r\n", "\n").replace('\r', "\n");
-    /* [21AA-2] Una sola marca: el cierre ya lleva teléfono y enlace en el
-     * mismo párrafo. */
-    let con_wa = partir_pegado(&plano, CIERRE_BORRADOR);
+    /* [21AA-2] Una sola marca: el cierre va en su propio párrafo.
+     * [GW-15] La marca es el arranque del cierre, no el cierre entero: así
+     * también separa el cierre con enlace que siguen trayendo la caché y los
+     * hilos viejos. */
+    let con_wa = partir_pegado(&plano, ARRANQUE_CIERRE);
     let mut parrafos: Vec<String> = Vec::new();
     let mut actual = String::new();
     for linea in con_wa.lines() {

@@ -8,6 +8,10 @@
 
 ## Pendientes
 
+- [ ] `GW-15` — **Desplegar en prod el cierre sin enlace de WhatsApp.** Los borradores terminan
+  en «Puede llamarnos al 04249208855 para cualquier consulta, o escribirnos al whatsapp.» desde
+  el 2026-11-21 (caché subida a v5 para no servir el enlace de las filas viejas). Hecho cuando
+  prod tenga la imagen nueva y un borrador real termine sin `wa.me`.
 - [ ] `30AA-18` — **Publicar la v0 (fotos originales) en las 26 fichas.** El export ya la
   sirve (grupo 0 con las 314 originales y su texto propio, distinto del de la v1, generado el
   2026-11-18) y el modal tiene su pestaña «Originales». Hecho cuando las 26 estén publicadas en

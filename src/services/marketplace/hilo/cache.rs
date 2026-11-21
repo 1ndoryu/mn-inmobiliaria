@@ -17,9 +17,11 @@ use crate::services::marketplace::{
 /// [21AA-2] v3 y v4: la fila guarda el cuerpo servido, así que cada cambio del
 /// cierre (`CIERRE_BORRADOR`) deja huérfanas las filas anteriores (v2, dos
 /// líneas; v3, aún con «Somos inmobiliaria»); las borra la purga al vencer.
+/// [GW-15] v5: el cierre ya no lleva el enlace de WhatsApp, y las filas v4 lo
+/// tienen horneado; sin subir la llave se seguiría sirviendo el enlace.
 #[must_use]
 pub fn clave_cache_hilo(firma: &str) -> String {
-    sha_hex(&format!("v4\n{firma}"))
+    sha_hex(&format!("v5\n{firma}"))
 }
 
 /* [03AA-3 M4] Caché de respuestas (`mp_respuestas_cache`): la clave es

@@ -1,4 +1,4 @@
-use super::super::{CIERRE_BORRADOR, CONTACTO_TEL, CONTACTO_WA, CTA_FIJO};
+use super::super::{CIERRE_BORRADOR, CIERRE_BORRADOR_CON_ENLACE, CONTACTO_TEL, CONTACTO_WA, CTA_FIJO};
 use super::excerpt::{es_etiqueta, sin_tilde_min};
 
 /* [08AA-29] Ruido por CONTENIDO (no por prefijo): el aviso de
@@ -179,14 +179,16 @@ const CIERRE_VIEJO: &str = "Somos inmobiliaria,";
 
 /// Cierre canónico del borrador propio (`CTA_FIJO` y `CIERRE_BORRADOR` de
 /// `imponer_forma_borrador`, más las formas viejas que siguen vivas en filas
-/// de caché y en hilos viejos: las dos líneas sueltas y el cierre con
-/// «Somos inmobiliaria»): igualdad exacta o el arranque conocido; el cliente
-/// nunca escribe estas líneas tal cual.
+/// de caché y en hilos viejos: las dos líneas sueltas, el cierre con
+/// «Somos inmobiliaria» y el cierre con enlace que se emitió hasta el
+/// 2026-11-21 [`CIERRE_BORRADOR_CON_ENLACE`]): igualdad exacta o el arranque
+/// conocido; el cliente nunca escribe estas líneas tal cual.
 fn es_cierre_propio(linea: &str) -> bool {
     let cuerpo = linea.trim();
     if cuerpo == CTA_FIJO
         || cuerpo == CONTACTO_WA
         || cuerpo == CIERRE_BORRADOR
+        || cuerpo == CIERRE_BORRADOR_CON_ENLACE
         || cuerpo.starts_with(CIERRE_VIEJO)
     {
         return true;
