@@ -9,10 +9,11 @@
 ## Pendientes
 
 - [ ] `GW-16` — **Desplegar en prod la forma nueva de los borradores.** El sujeto con artículo
-  («La casa en Las Orquídeas»), sin nombrar el estado de un inmueble no disponible y con el
-  similar del mismo tipo y sin enlace están en `main` y en la 89 desde el 2026-11-21. Hecho
-  cuando prod tenga esa imagen y un borrador real de un vendido diga «por el momento no está
-  disponible» y ofrezca una opción del mismo tipo sin enlace.
+  («La casa en Las Orquídeas»), sin nombrar el estado de un inmueble no disponible, con el
+  similar del mismo tipo y sin enlace, y con el aviso redactado por la IA sobre los hechos que
+  arma Rust (decisión de ella 2026-11-21) están en `main` y en la 89. Hecho cuando prod tenga esa
+  imagen y un borrador real de un vendido diga «por el momento no está disponible», cite el lugar
+  una sola vez y ofrezca una opción del mismo tipo sin enlace.
 - [ ] `30AA-18` — **Publicar la v0 (fotos originales) en las 26 fichas.** El export ya la
   sirve (grupo 0 con las 314 originales y su texto propio, distinto del de la v1, generado el
   2026-11-18) y el modal tiene su pestaña «Originales». Hecho cuando las 26 estén publicadas en
