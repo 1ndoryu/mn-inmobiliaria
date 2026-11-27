@@ -138,14 +138,20 @@ impl InmuebleRepository {
      * NULL y no hay candidato.
      * [GW-16] Mismo TIPO obligatorio (decisión de ella 2026-11-21): a quien
      * preguntaba por una casa no se le ofrece un apartamento. Sin candidato del
-     * mismo tipo, no hay similar: mejor «escríbanos» que una opción que no es. */
+     * mismo tipo, no hay similar: mejor «escríbanos» que una opción que no es.
+     * [GW-18] La cercanía se mide entre precios de la MISMA operación: en un
+     * alquiler se guarda el canon en `precio`, así que compararlo con el precio
+     * de venta de una fila «ambas» (420.000 frente a 320) descartaba justo las
+     * opciones mixtas. `1e18` deja en NULL la distancia de un modo que la fila
+     * no tiene, sin alterar la del que sí. */
     pub async fn similar_disponible(
         pool: &PgPool,
         id: Uuid,
     ) -> Result<Option<InmuebleRow>, sqlx::Error> {
         // sentinel-disable-next-line sqlx-query-as-sin-macro -- SQL dinámico (columnas de constante COLUMNAS); la macro exige literal
         sqlx::query_as::<_, InmuebleRow>(&format!(
-            "WITH ref AS (SELECT ubicacion, operacion, precio, tipo FROM inmuebles WHERE id = $1) \
+            "WITH ref AS (SELECT ubicacion, operacion, precio, precio_alquiler, tipo \
+                          FROM inmuebles WHERE id = $1) \
              SELECT {COLUMNAS} FROM inmuebles \
              WHERE id <> $1 AND publicado = TRUE AND estado = 'disponible' \
                AND precio > 0 AND marketplace_id IS NOT NULL \
@@ -153,7 +159,14 @@ impl InmuebleRepository {
                AND (operacion = (SELECT operacion FROM ref) OR operacion = 'ambas' \
                     OR (SELECT operacion FROM ref) = 'ambas') \
              ORDER BY (lower(ubicacion) = lower((SELECT ubicacion FROM ref))) DESC, \
-                      abs(precio - (SELECT precio FROM ref)) ASC, created_at DESC \
+                      LEAST( \
+                        COALESCE(abs((CASE WHEN operacion <> 'alquiler' THEN precio END) \
+                          - (SELECT CASE WHEN operacion <> 'alquiler' THEN precio END FROM ref)), 1e18), \
+                        COALESCE(abs((CASE WHEN operacion = 'alquiler' THEN precio \
+                                           WHEN precio_alquiler > 0 THEN precio_alquiler END) \
+                          - (SELECT CASE WHEN operacion = 'alquiler' THEN precio \
+                                         WHEN precio_alquiler > 0 THEN precio_alquiler END FROM ref)), 1e18) \
+                      ) ASC, created_at DESC \
              LIMIT 1"
         ))
         .bind(id)
