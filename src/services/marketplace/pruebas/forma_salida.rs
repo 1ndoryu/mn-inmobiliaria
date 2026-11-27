@@ -282,31 +282,32 @@ fn seguro_similar() -> PromptSeguro {
 }
 
 /// [28AD-1] Avisa que no está y propone el similar, sin enlace.
-/// [GW-16] Sin nombrar el estado y con el sujeto natural («El apartamento en…»).
+/// [GW-18] Corto y genérico: «El inmueble…», sin nombrar el pedido, y el
+/// cierre sin la invitación a contar qué busca.
 #[test]
 fn no_disponible_propone_similar_y_contacto() {
-    let mut f = seguro_kama_meru();
-    f.estado = "reservado".to_string();
     let s = seguro_similar();
-    let r = borrador_no_disponible(&f, Some(&s));
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert!(
-        r.starts_with("El apartamento en Resd. Kama Merú por el momento no está disponible."),
+        r.starts_with("El inmueble por el momento no está disponible."),
         "{r}"
     );
+    assert!(!r.contains("Kama Merú"), "{r}");
     assert!(!r.contains("reservado"), "{r}");
     assert!(!r.contains("sigue disponible"), "{r}");
     /* [GW-16] La residencia se dice una vez y la frase se lee seguida: el
      * lugar con artículo y el inmueble indefinido. */
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Como alternativa, tenemos otras opciones: en Puerto Ordaz, un apartamento en Torre Alta, por 82.000$."
+        "Tenemos otra opción disponible: en Puerto Ordaz, un apartamento en Torre Alta, por 82.000$."
     );
     assert!(r.contains("82.000$"), "{r}");
     /* [GW-16] Sin enlace de ningún tipo: ni el de WhatsApp ni el del aviso. */
     assert!(!r.contains("facebook.com/marketplace"), "{r}");
     assert!(!r.contains("http"), "{r}");
     assert!(r.contains(CONTACTO_TEL), "{r}");
-    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR_SIN_CTA), "{r}");
+    assert!(!r.contains("Cuéntenos"), "{r}");
     assert!(!r.contains(CONTACTO_WA), "{r}");
 }
 
@@ -315,38 +316,35 @@ fn no_disponible_propone_similar_y_contacto() {
 /// es la residencia pelada no la repite.
 #[test]
 fn no_disponible_cita_la_zona_una_sola_vez() {
-    let mut f = seguro_kama_meru();
-    f.estado = "vendido".to_string();
-
     /* La zona trae una vía que el nombre no dice: se cita con su artículo. */
     let mut s = seguro_similar();
     s.nombre_corto = "Casa en Guayana Country Club".to_string();
     s.zona = "Av. Atlantico, Guayana Country Club".to_string();
-    let r = borrador_no_disponible(&f, Some(&s));
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Como alternativa, tenemos otras opciones: en la Av. Atlantico, una casa en Guayana Country Club, por 82.000$."
+        "Tenemos otra opción disponible: en la Av. Atlantico, una casa en Guayana Country Club, por 82.000$."
     );
 
     /* La zona es la residencia pelada: no se repite. */
     s.zona = "Guayana Country Club".to_string();
-    let r = borrador_no_disponible(&f, Some(&s));
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Como alternativa, tenemos otras opciones: una casa en Guayana Country Club, por 82.000$."
+        "Tenemos otra opción disponible: una casa en Guayana Country Club, por 82.000$."
     );
 
     /* La misma residencia escrita distinta (zona abreviada, nombre
      * expandido): también es la misma y no se repite. */
     s.nombre_corto = "Casa en Urbanización Riberas del Caroní".to_string();
     s.zona = "Urb. Riberas del Caroní".to_string();
-    let r = borrador_no_disponible(&f, Some(&s));
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Como alternativa, tenemos otras opciones: una casa en Urbanización Riberas del Caroní, por 82.000$."
+        "Tenemos otra opción disponible: una casa en Urbanización Riberas del Caroní, por 82.000$."
     );
     s.zona = "Av. Guayana, Urb. Riberas del Caroní".to_string();
-    let r = borrador_no_disponible(&f, Some(&s));
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert!(
         r.contains("en la Av. Guayana, una casa en Urbanización Riberas del Caroní, por 82.000$"),
         "{r}"
@@ -355,7 +353,7 @@ fn no_disponible_cita_la_zona_una_sola_vez() {
     /* Una zona que no menciona la residencia se cita entera. */
     s.nombre_corto = "Casa en Guayana Country Club".to_string();
     s.zona = "Puerto Ordaz".to_string();
-    let r = borrador_no_disponible(&f, Some(&s));
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert!(
         r.contains("en Puerto Ordaz, una casa en Guayana Country Club, por 82.000$"),
         "{r}"
@@ -366,20 +364,18 @@ fn no_disponible_cita_la_zona_una_sola_vez() {
 /// se sirve el texto determinista, que ya es correcto.
 #[test]
 fn retoque_acepta_solo_lo_que_respeta_los_hechos() {
-    let mut f = seguro_kama_meru();
-    f.estado = "vendido".to_string();
     let mut s = seguro_similar();
     s.nombre_corto = "Casa en Guayana Country Club".to_string();
     s.zona = "Av. Atlantico, Guayana Country Club".to_string();
-    let base = borrador_no_disponible(&f, Some(&s));
-    let conservar = nombres_del_aviso(&f, Some(&s));
+    let base = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
+    let conservar = nombres_del_aviso(Some(&s));
     assert!(retoque_aceptado(&base, &base, &conservar), "{base}");
 
     /* Viste la misma información: vale. */
     let bueno = format!(
-        "El apartamento en Resd. Kama Merú por el momento no está disponible.\n\n\
-         Como alternativa, tenemos otras opciones: en la Av. Atlantico, una casa en Guayana Country Club, por 82.000$.\n\n\
-         {CIERRE_BORRADOR}"
+        "El inmueble por el momento no está disponible.\n\n\
+         Tenemos otra opción disponible: en la Av. Atlantico, una casa en Guayana Country Club, por 82.000$.\n\n\
+         {CIERRE_BORRADOR_SIN_CTA}"
     );
     assert!(retoque_aceptado(&base, &bueno, &conservar), "{bueno}");
 
@@ -389,15 +385,19 @@ fn retoque_acepta_solo_lo_que_respeta_los_hechos() {
         base.replace("82.000", "85.000"),
         base.replace("no está disponible", "ya se vendió"),
         base.replace("Guayana Country Club", "Las Orquídeas"),
-        base.replace(CIERRE_BORRADOR, "Escríbanos al 04140000000"),
+        base.replace(CIERRE_BORRADOR_SIN_CTA, "Escríbanos al 04140000000"),
         format!("{base}\n\nVéala aquí: https://wa.me/584249208855"),
         /* El arranque de la propuesta es fijo: el modelo no lo varía. */
-        base.replace("tenemos otras opciones", "le ofrecemos otras opciones"),
-        /* Decisión de ella 2026-11-21: la invitación va SOLO en el cierre; el
-         * modelo la adelantaba al primer párrafo y el mensaje la decía dos veces. */
+        base.replace("Tenemos otra opción", "Le ofrecemos otra opción"),
+        /* [GW-18] El cierre va sin invitación: si reaparece, se descarta. */
         base.replace(
             "no está disponible.",
-            "no está disponible, pero con gusto le ayudamos a buscar otra opción.",
+            "no está disponible. Cuéntenos qué está buscando y con gusto le ayudamos.",
+        ),
+        /* [GW-18] El aviso no nombra el inmueble pedido. */
+        base.replace(
+            "El inmueble por el momento",
+            "El apartamento en Resd. Kama Merú por el momento",
         ),
         String::new(),
     ] {
@@ -437,37 +437,53 @@ fn la_alternativa_va_en_indefinido() {
 /// [GW-16] El estado no se nombra: vendido, alquilado y reservado dicen lo mismo.
 #[test]
 fn no_disponible_no_nombra_el_estado() {
-    let mut f = seguro_kama_meru();
+    /* [GW-18] El aviso ya no recibe la ficha: su texto es el mismo con
+     * cualquier estado, y eso es justo lo que se comprueba. */
     for (estado, prohibido) in [("vendido", "vendid"), ("alquilado", "alquilad"), ("reservado", "reservad")] {
-        f.estado = estado.to_string();
-        let r = borrador_no_disponible(&f, None);
+        let r = borrador_no_disponible(&seguro_kama_meru(), None);
         assert!(r.contains("por el momento no está disponible"), "{r}");
         assert!(!r.contains(prohibido), "«{estado}» no debe salir: {r}");
     }
 }
 
-/// El similar en alquiler cita el canon mensual.
+/// [GW-18] La cifra sale de la operación del similar: en alquiler el canon, en
+/// venta la de venta y en «ambas» las dos, para que quien busca alquiler no
+/// reciba una cifra de venta.
 #[test]
-fn no_disponible_similar_en_alquiler_cita_canon() {
-    let mut f = seguro_kama_meru();
-    f.estado = "alquilado".to_string();
+fn no_disponible_cifra_segun_la_operacion_del_similar() {
     let mut s = seguro_similar();
     s.operacion = "alquiler".to_string();
-    let r = borrador_no_disponible(&f, Some(&s));
-    assert!(r.contains("82.000$ al mes"), "{r}");
+    s.precio_publico = "$320".to_string();
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
+    assert!(r.contains("por 320$ al mes"), "{r}");
+
+    s.operacion = "ambas".to_string();
+    s.precio_publico = "$420.000".to_string();
+    s.precio_alquiler_publico = Some("$2.800".to_string());
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
+    assert!(r.contains("por 420.000$ en venta o 2.800$ al mes"), "{r}");
+
+    /* [GW-18] Si se pidió alquiler, el canon va delante aunque la alternativa
+     * sea «ambas». */
+    let mut alq = seguro_kama_meru();
+    alq.operacion = "alquiler".to_string();
+    let r = borrador_no_disponible(&alq, Some(&s));
+    assert!(r.contains("por 2.800$ al mes o 420.000$ en venta"), "{r}");
+
+    /* «ambas» sin canon cargado: solo la cifra de venta. */
+    s.precio_alquiler_publico = None;
+    let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
+    assert!(r.contains("por 420.000$."), "{r}");
 }
 
-/// [28AD-1] Sin similar: ofrece ayuda para buscar y mantiene el contacto; sin nombre, «Este inmueble».
+/// [28AD-1] Sin similar: ofrece ayuda para buscar y mantiene el contacto.
 #[test]
 fn no_disponible_sin_similar_ofrece_buscar() {
-    let mut f = seguro_kama_meru();
-    f.estado = "vendido".to_string();
-    f.nombre_corto = String::new();
-    let r = borrador_no_disponible(&f, None);
-    assert!(r.starts_with("Este inmueble por el momento no está disponible."), "{r}");
+    let r = borrador_no_disponible(&seguro_kama_meru(), None);
+    assert!(r.starts_with("El inmueble por el momento no está disponible."), "{r}");
     assert!(r.contains("buscar otra opción"), "{r}");
     assert!(!r.contains("facebook.com/marketplace"), "{r}");
-    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR_SIN_CTA), "{r}");
     assert!(!r.contains(CONTACTO_WA), "{r}");
 }
 
