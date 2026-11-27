@@ -277,8 +277,7 @@ pub(super) async fn respuesta_no_disponible(
         {
             Ok((t, _, uso)) => {
                 let limpio = crate::services::marketplace::quitar_saludo(t.trim(), None);
-                let conservar =
-                    crate::services::marketplace::nombres_del_aviso(ficha, similar.as_ref());
+                let conservar = crate::services::marketplace::nombres_del_aviso(similar.as_ref());
                 let aceptado =
                     crate::services::marketplace::retoque_aceptado(&base, &limpio, &conservar);
                 if !aceptado {
