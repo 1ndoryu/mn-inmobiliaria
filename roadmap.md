@@ -9,12 +9,12 @@
 ## Pendientes
 
 - [ ] `GW-16` — **Desplegar en prod la forma nueva de los borradores.** En `main` y en la 89: el
-  sujeto con artículo («La casa en Las Orquídeas») en los disponibles, sin nombrar el estado, con
-  el similar del mismo tipo y sin enlace; el aviso corto y genérico de GW-18 («El inmueble por el
-  momento no está disponible» + «Tenemos otra opción disponible:» con la cifra de su operación,
-  cerrando sin la invitación); el retoque de la IA sobre los hechos que arma Rust; y el espejo de
+  sujeto con artículo («La casa en Las Orquídeas») en los disponibles, cerrando con el enlace de
+  WhatsApp y sin invitación (GW-19); el aviso corto y genérico de GW-18 («El inmueble por el
+  momento no está disponible» + «Tenemos otra opción disponible:» con la cifra de su operación
+  enlazada con «en» y el cierre propio de GW-19, sin retoque de la IA); y el espejo de
   `marketplace_id` tomado de la cuenta principal (GW-17). Hecho cuando prod tenga esa imagen y un
-  borrador real de un vendido cumpla GW-18 y el panel de sync no ofrezca reemplazar ningún
+  borrador real de un vendido cumpla GW-19 y el panel de sync no ofrezca reemplazar ningún
   vínculo bueno.
 - [ ] `30AA-18` — **Publicar la v0 (fotos originales) en las 26 fichas.** El export ya la
   sirve (grupo 0 con las 314 originales y su texto propio, distinto del de la v1, generado el
