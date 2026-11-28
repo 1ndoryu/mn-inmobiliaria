@@ -63,8 +63,7 @@ pub use self::texto::{
  * `forma.rs` (tope de tamaño del gate) a `texto/aviso.rs` y `texto/sujeto.rs`;
  * se re-exportan aquí para que sus usos externos no cambien. */
 pub use self::texto::{
-    borrador_no_disponible, nombres_del_aviso, normalizar_sujeto, retoque_aceptado,
-    sistema_retoque_no_disponible,
+    borrador_no_disponible, normalizar_sujeto,
 };
 /* Solo los tests de `pruebas` los usan (`super::*`); `aviso.rs` y `forma.rs`
  * los toman de `texto::sujeto` directamente. Re-exportarlos fuera de

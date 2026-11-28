@@ -52,9 +52,11 @@ fn forma_final_siempre_canonico() {
     let r = imponer_forma_borrador(&ia_fabio("Tiene 2 baños."), None);
     assert!(r.contains(CIERRE_BORRADOR), "{r}");
     assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
-    /* [GW-15] El cierre ya no lleva enlace: ningún borrador debe traerlo. */
-    assert!(!r.contains(CONTACTO_WA), "{r}");
-    assert!(!r.contains("wa.me"), "{r}");
+    /* [GW-19] El cierre vuelve a llevar el enlace de WhatsApp (decisión de
+     * ella 2026-11-28) y ya no la invitación final. */
+    assert!(r.contains(CONTACTO_WA), "{r}");
+    assert!(r.contains("wa.me"), "{r}");
+    assert!(!r.contains("Cuéntenos qué está buscando"), "{r}");
 }
 
 #[test]
@@ -210,18 +212,31 @@ fn forma_aprobada_2026_10_21() {
     );
 }
 
-/// [GW-15] Un cierre con enlace que devuelva la IA (o que venga de una fila de
-/// caché vieja) se sustituye por el vigente: el enlace no puede volver a salir.
+/// [GW-19] Un cierre con la invitación que devuelva la IA (o que venga de una
+/// fila de caché vieja) se sustituye por el vigente: la invitación no vuelve.
 #[test]
-fn forma_recorta_el_enlace_de_un_cierre_viejo() {
+fn forma_recorta_la_invitacion_de_un_cierre_viejo() {
     let ia = format!(
         "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable.\n\n\
-         {CIERRE_BORRADOR_CON_ENLACE}"
+         {CIERRE_BORRADOR_CON_INVITACION}"
     );
     let r = imponer_forma_borrador(&ia, None);
     assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
-    assert!(!r.contains(CONTACTO_WA), "{r}");
-    assert!(!r.contains(CIERRE_BORRADOR_CON_ENLACE), "{r}");
+    assert!(!r.contains("Cuéntenos qué está buscando"), "{r}");
+    assert!(!r.contains(CIERRE_BORRADOR_CON_INVITACION), "{r}");
+}
+
+/// [GW-19] El cierre recortado que quedó en caché tampoco sobrevive: el final
+/// se reconstruye con el vigente.
+#[test]
+fn forma_sustituye_el_cierre_recortado() {
+    let ia = format!(
+        "Casa en Riberas del Caroní sigue disponible en 43.000$ negociable.\n\n\
+         {CIERRE_BORRADOR_SIN_CTA}"
+    );
+    let r = imponer_forma_borrador(&ia, None);
+    assert!(r.trim_end().ends_with(CIERRE_BORRADOR), "{r}");
+    assert!(!r.contains(CIERRE_BORRADOR_SIN_CTA), "{r}");
 }
 
 /// [25AA-7] «Ambas» cita la venta y el canon; sin canon, el molde de venta.
@@ -299,16 +314,19 @@ fn no_disponible_propone_similar_y_contacto() {
      * lugar con artículo y el inmueble indefinido. */
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Tenemos otra opción disponible: en Puerto Ordaz, un apartamento en Torre Alta, por 82.000$."
+        "Tenemos otra opción disponible: en Puerto Ordaz, un apartamento en Torre Alta, en 82.000$."
     );
     assert!(r.contains("82.000$"), "{r}");
     /* [GW-16] Sin enlace de ningún tipo: ni el de WhatsApp ni el del aviso. */
     assert!(!r.contains("facebook.com/marketplace"), "{r}");
     assert!(!r.contains("http"), "{r}");
-    assert!(r.contains(CONTACTO_TEL), "{r}");
-    assert!(r.trim_end().ends_with(CIERRE_BORRADOR_SIN_CTA), "{r}");
-    assert!(!r.contains("Cuéntenos"), "{r}");
+    /* [GW-19] El aviso cierra con su propio texto: ofrece mandar la ficha y
+     * pregunta el monto, sin repetir el teléfono del cierre de los
+     * disponibles. */
+    assert!(r.trim_end().ends_with(CIERRE_AVISO), "{r}");
+    assert!(!r.contains(CONTACTO_TEL), "{r}");
     assert!(!r.contains(CONTACTO_WA), "{r}");
+    assert!(!r.contains("Cuéntenos"), "{r}");
 }
 
 /// [GW-16] La zona solo se recorta si de verdad repite la residencia: un
@@ -323,7 +341,7 @@ fn no_disponible_cita_la_zona_una_sola_vez() {
     let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Tenemos otra opción disponible: en la Av. Atlantico, una casa en Guayana Country Club, por 82.000$."
+        "Tenemos otra opción disponible: en la Av. Atlantico, una casa en Guayana Country Club, en 82.000$."
     );
 
     /* La zona es la residencia pelada: no se repite. */
@@ -331,7 +349,7 @@ fn no_disponible_cita_la_zona_una_sola_vez() {
     let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Tenemos otra opción disponible: una casa en Guayana Country Club, por 82.000$."
+        "Tenemos otra opción disponible: una casa en Guayana Country Club, en 82.000$."
     );
 
     /* La misma residencia escrita distinta (zona abreviada, nombre
@@ -341,12 +359,12 @@ fn no_disponible_cita_la_zona_una_sola_vez() {
     let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert_eq!(
         r.split("\n\n").nth(1).unwrap_or(""),
-        "Tenemos otra opción disponible: una casa en Urbanización Riberas del Caroní, por 82.000$."
+        "Tenemos otra opción disponible: una casa en Urbanización Riberas del Caroní, en 82.000$."
     );
     s.zona = "Av. Guayana, Urb. Riberas del Caroní".to_string();
     let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert!(
-        r.contains("en la Av. Guayana, una casa en Urbanización Riberas del Caroní, por 82.000$"),
+        r.contains("en la Av. Guayana, una casa en Urbanización Riberas del Caroní, en 82.000$"),
         "{r}"
     );
 
@@ -355,54 +373,9 @@ fn no_disponible_cita_la_zona_una_sola_vez() {
     s.zona = "Puerto Ordaz".to_string();
     let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
     assert!(
-        r.contains("en Puerto Ordaz, una casa en Guayana Country Club, por 82.000$"),
+        r.contains("en Puerto Ordaz, una casa en Guayana Country Club, en 82.000$"),
         "{r}"
     );
-}
-
-/// [GW-16] El retoque de la IA solo se acepta si no toca los hechos; si no,
-/// se sirve el texto determinista, que ya es correcto.
-#[test]
-fn retoque_acepta_solo_lo_que_respeta_los_hechos() {
-    let mut s = seguro_similar();
-    s.nombre_corto = "Casa en Guayana Country Club".to_string();
-    s.zona = "Av. Atlantico, Guayana Country Club".to_string();
-    let base = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
-    let conservar = nombres_del_aviso(Some(&s));
-    assert!(retoque_aceptado(&base, &base, &conservar), "{base}");
-
-    /* Viste la misma información: vale. */
-    let bueno = format!(
-        "El inmueble por el momento no está disponible.\n\n\
-         Tenemos otra opción disponible: en la Av. Atlantico, una casa en Guayana Country Club, por 82.000$.\n\n\
-         {CIERRE_BORRADOR_SIN_CTA}"
-    );
-    assert!(retoque_aceptado(&base, &bueno, &conservar), "{bueno}");
-
-    /* Mueve la cifra, nombra el estado, pierde un nombre, cambia el cierre o
-     * añade enlaces: no. */
-    for malo in [
-        base.replace("82.000", "85.000"),
-        base.replace("no está disponible", "ya se vendió"),
-        base.replace("Guayana Country Club", "Las Orquídeas"),
-        base.replace(CIERRE_BORRADOR_SIN_CTA, "Escríbanos al 04140000000"),
-        format!("{base}\n\nVéala aquí: https://wa.me/584249208855"),
-        /* El arranque de la propuesta es fijo: el modelo no lo varía. */
-        base.replace("Tenemos otra opción", "Le ofrecemos otra opción"),
-        /* [GW-18] El cierre va sin invitación: si reaparece, se descarta. */
-        base.replace(
-            "no está disponible.",
-            "no está disponible. Cuéntenos qué está buscando y con gusto le ayudamos.",
-        ),
-        /* [GW-18] El aviso no nombra el inmueble pedido. */
-        base.replace(
-            "El inmueble por el momento",
-            "El apartamento en Resd. Kama Merú por el momento",
-        ),
-        String::new(),
-    ] {
-        assert!(!retoque_aceptado(&base, &malo, &conservar), "{malo}");
-    }
 }
 
 /// [GW-16] Las zonas reales de la 89 (volcadas el 2026-11-21) leídas seguidas:
@@ -455,25 +428,25 @@ fn no_disponible_cifra_segun_la_operacion_del_similar() {
     s.operacion = "alquiler".to_string();
     s.precio_publico = "$320".to_string();
     let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
-    assert!(r.contains("por 320$ al mes"), "{r}");
+    assert!(r.contains("en 320$ al mes"), "{r}");
 
     s.operacion = "ambas".to_string();
     s.precio_publico = "$420.000".to_string();
     s.precio_alquiler_publico = Some("$2.800".to_string());
     let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
-    assert!(r.contains("por 420.000$ en venta o 2.800$ al mes"), "{r}");
+    assert!(r.contains(": 420.000$ en venta o 2.800$ al mes"), "{r}");
 
     /* [GW-18] Si se pidió alquiler, el canon va delante aunque la alternativa
      * sea «ambas». */
     let mut alq = seguro_kama_meru();
     alq.operacion = "alquiler".to_string();
     let r = borrador_no_disponible(&alq, Some(&s));
-    assert!(r.contains("por 2.800$ al mes o 420.000$ en venta"), "{r}");
+    assert!(r.contains(": 2.800$ al mes o 420.000$ en venta"), "{r}");
 
     /* «ambas» sin canon cargado: solo la cifra de venta. */
     s.precio_alquiler_publico = None;
     let r = borrador_no_disponible(&seguro_kama_meru(), Some(&s));
-    assert!(r.contains("por 420.000$."), "{r}");
+    assert!(r.contains("en 420.000$."), "{r}");
 }
 
 /// [28AD-1] Sin similar: ofrece ayuda para buscar y mantiene el contacto.

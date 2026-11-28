@@ -19,7 +19,7 @@ pub(in crate::services) use excerpt::sin_tilde_min;
 pub use excerpt::{normalizar_excerpt, normalizar_excerpt_con_hilo};
 /* [GW-16] Nombres y aviso de no disponible, partidos desde `forma.rs`. */
 pub use aviso::{
-    borrador_no_disponible, nombres_del_aviso, retoque_aceptado, sistema_retoque_no_disponible,
+    borrador_no_disponible,
 };
 pub use sujeto::normalizar_sujeto;
 /* Los cuatro no tienen uso fuera de los tests: `forma.rs` y `aviso.rs` los
