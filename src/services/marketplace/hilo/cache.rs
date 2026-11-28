@@ -22,9 +22,11 @@ use crate::services::marketplace::{
 /// [GW-16] v6: el cierre vuelve a cerrar con la invitación («Cuéntenos qué
 /// está buscando…») y la alternativa arranca en «tenemos otras opciones»; las
 /// filas v5 traen el cierre recortado.
+/// [GW-19] v7: el cierre de los disponibles vuelve a llevar el enlace de
+/// WhatsApp y sale la invitación; las filas v6 traen el cierre anterior.
 #[must_use]
 pub fn clave_cache_hilo(firma: &str) -> String {
-    sha_hex(&format!("v6\n{firma}"))
+    sha_hex(&format!("v7\n{firma}"))
 }
 
 /* [03AA-3 M4] Caché de respuestas (`mp_respuestas_cache`): la clave es

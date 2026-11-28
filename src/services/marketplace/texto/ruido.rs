@@ -1,6 +1,6 @@
 use super::super::{
-    CIERRE_BORRADOR, CIERRE_BORRADOR_CON_ENLACE, CIERRE_BORRADOR_SIN_CTA, CONTACTO_TEL,
-    CONTACTO_WA, CTA_FIJO,
+    CIERRE_AVISO, CIERRE_BORRADOR, CIERRE_BORRADOR_CON_INVITACION, CIERRE_BORRADOR_SIN_CTA,
+    CONTACTO_TEL, CONTACTO_WA, CTA_FIJO,
 };
 use super::excerpt::{es_etiqueta, sin_tilde_min};
 
@@ -180,19 +180,20 @@ pub(super) fn despegar_url_wa(linea: &str) -> &str {
 /// «Somos inmobiliaria»): sigue impreso en chat y en filas de caché.
 const CIERRE_VIEJO: &str = "Somos inmobiliaria,";
 
-/// Cierre canónico del borrador propio (`CTA_FIJO` y `CIERRE_BORRADOR` de
-/// `imponer_forma_borrador`, más las formas viejas que siguen vivas en filas
-/// de caché y en hilos viejos: las dos líneas sueltas, el cierre con
-/// «Somos inmobiliaria» y el cierre con enlace que se emitió hasta el
-/// 2026-11-21 [`CIERRE_BORRADOR_CON_ENLACE`]): igualdad exacta o el arranque
-/// conocido; el cliente nunca escribe estas líneas tal cual.
+/// Cierre canónico del borrador propio (`CTA_FIJO`, `CIERRE_BORRADOR` y
+/// `CIERRE_AVISO`, más las formas viejas que siguen vivas en filas de caché y
+/// en hilos viejos: las dos líneas sueltas, el cierre con «Somos
+/// inmobiliaria», el que llevaba la invitación y el recortado, que se
+/// emitieron hasta el 2026-11-28): igualdad exacta o el arranque conocido; el
+/// cliente nunca escribe estas líneas tal cual.
 fn es_cierre_propio(linea: &str) -> bool {
     let cuerpo = linea.trim();
     if cuerpo == CTA_FIJO
         || cuerpo == CONTACTO_WA
         || cuerpo == CIERRE_BORRADOR
-        || cuerpo == CIERRE_BORRADOR_CON_ENLACE
+        || cuerpo == CIERRE_BORRADOR_CON_INVITACION
         || cuerpo == CIERRE_BORRADOR_SIN_CTA
+        || cuerpo == CIERRE_AVISO
         || cuerpo.starts_with(CIERRE_VIEJO)
     {
         return true;

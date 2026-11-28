@@ -260,53 +260,19 @@ pub(super) async fn respuesta_no_disponible(
         }
     };
     let similar = similar.and_then(|fila| strip_ficha_para_prompt(&fila, STRIP_VERSION).ok());
-    let base = borrador_no_disponible(ficha, similar.as_ref());
-    /* [GW-16] Ella eligió el híbrido (2026-11-21): los hechos los arma Rust y
-     * la IA solo viste el párrafo. Si el relay cae, el modelo desobedece o
-     * mueve una cifra, se sirve `base`, que ya es correcto: esta rama no puede
-     * quedarse sin borrador por la IA. */
-    let init = std::time::Instant::now();
-    let (texto, fuente, coste) =
-        match crate::handlers::ia::rutas::completar_opencode_rapido(
-            &crate::services::marketplace::sistema_retoque_no_disponible(&base),
-            &base,
-            &[],
-            &sha_hex(&clave_hilo(r.thread_id.trim())),
-        )
-        .await
-        {
-            Ok((t, _, uso)) => {
-                let limpio = crate::services::marketplace::quitar_saludo(t.trim(), None);
-                let conservar = crate::services::marketplace::nombres_del_aviso(similar.as_ref());
-                let aceptado =
-                    crate::services::marketplace::retoque_aceptado(&base, &limpio, &conservar);
-                if !aceptado {
-                    tracing::info!("borrador mp: retoque del aviso no disponible descartado");
-                }
-                let coste = crate::services::marketplace::Coste {
-                    tokens_entrada: uso.map(|u| u.entrada),
-                    tokens_salida: uso.map(|u| u.salida),
-                    ms: Some(i64::try_from(init.elapsed().as_millis()).unwrap_or(i64::MAX)),
-                };
-                let texto = if aceptado {
-                    crate::services::marketplace::formatear_parrafos(&limpio)
-                } else {
-                    base
-                };
-                (texto, "no-disponible", coste)
-            }
-            Err(e) => {
-                tracing::warn!("borrador mp: retoque del aviso caído ({e}), va el texto base");
-                (base, "no-disponible", crate::services::marketplace::Coste::default())
-            }
-        };
+    /* [GW-19] Sin retoque de la IA: el aviso son tres frases fijas y la única
+     * libertad que le queda al modelo es cambiar el orden de la propuesta, que
+     * es justo lo que empeora («…, en la Av. Atlantico, en 70.000$» con dos
+     * «en» seguidos). Medido el 2026-11-28 sobre la base de la 89: el retoque
+     * no mejoraba ningún aviso, reordenaba dos de cuatro y costaba 4–12 s. */
+    let texto = borrador_no_disponible(ficha, similar.as_ref());
     BorradorResponse {
         borrador: servir_cuerpo(&texto, r),
-        fuente: fuente.to_string(),
+        fuente: "no-disponible".to_string(),
         aviso_conocido: conocido,
         firma_version: firma_version.to_string(),
         corregida: false,
-        coste,
+        coste: crate::services::marketplace::Coste::default(),
     }
 }
 
@@ -562,9 +528,9 @@ pub(super) fn sistema_borrador(
           «Alquiler: $2.800») y el Cliente pregunta por esa operación, da esa \
           diciendo «canon mensual»; \
           segundo bloque = el cierre «{CIERRE_BORRADOR}» copiado tal cual, \
-          sin cambiar ni una palabra; no añadas enlaces, URLs ni nada después \
-          (el teléfono va en la frase, y la invitación a contar qué busca ya \
-          está dentro del cierre: no la repitas ni añadas preguntas). \
+          sin cambiar ni una palabra ni la forma del enlace; no añadas más \
+          enlaces, URLs ni nada después, ni preguntas ni invitaciones de \
+          ningún tipo (el cierre ya lo trae todo). \
           Excepción: UNA sola frase más (máximo 140 \
           caracteres, sin ? ni ¿) SOLO si el Cliente pide un dato concreto \
           no dicho arriba (baños, habitaciones, m2). Si el Cliente pregunta \
